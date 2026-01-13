@@ -22,9 +22,15 @@ import {
     CheckCircle,
     Ship,
     Package,
-    Zap
+    Zap,
+    Users,
+    Plus,
+    Trash2,
+    Loader2
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useAdminAuth, SUPER_ADMIN_EMAIL } from '@/lib/admin-auth';
+import { cn, formatRelativeTime } from '@/lib/utils';
 
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState('general');
@@ -56,6 +62,40 @@ export default function SettingsPage() {
         }, 1000);
     };
 
+    // Admin auth for managing admin users
+    const { isSuperAdmin, adminUsers, addAdminUser, removeAdminUser } = useAdminAuth();
+    const [newAdminEmail, setNewAdminEmail] = useState('');
+    const [newAdminName, setNewAdminName] = useState('');
+    const [isAddingAdmin, setIsAddingAdmin] = useState(false);
+    const [showAddAdminForm, setShowAddAdminForm] = useState(false);
+
+    const handleAddAdmin = async () => {
+        if (!newAdminEmail || !newAdminName) {
+            toast({ title: 'Missing information', description: 'Please enter both email and name.', variant: 'destructive' });
+            return;
+        }
+        setIsAddingAdmin(true);
+        const success = await addAdminUser(newAdminEmail, newAdminName);
+        setIsAddingAdmin(false);
+        if (success) {
+            toast({ title: 'Admin added', description: `${newAdminName} has been added as an admin.` });
+            setNewAdminEmail('');
+            setNewAdminName('');
+            setShowAddAdminForm(false);
+        } else {
+            toast({ title: 'Failed to add admin', description: 'This email may already be registered.', variant: 'destructive' });
+        }
+    };
+
+    const handleRemoveAdmin = async (id: string, name: string) => {
+        const success = await removeAdminUser(id);
+        if (success) {
+            toast({ title: 'Admin removed', description: `${name} has been removed.` });
+        } else {
+            toast({ title: 'Cannot remove', description: 'Super admin cannot be removed.', variant: 'destructive' });
+        }
+    };
+
     const tabs = [
         { id: 'general', label: 'General', icon: Building },
         { id: 'payments', label: 'Payments', icon: CreditCard },
@@ -63,6 +103,7 @@ export default function SettingsPage() {
         { id: 'pricing', label: 'Pricing & Fees', icon: DollarSign },
         { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'security', label: 'Security', icon: Shield },
+        ...(isSuperAdmin ? [{ id: 'admins', label: 'Admin Users', icon: Users }] : []),
     ];
 
     return (
@@ -686,6 +727,115 @@ export default function SettingsPage() {
                                         </label>
                                         <Input type="number" defaultValue="1000" className="mt-1" />
                                     </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Admin Users Tab - Super Admin Only */}
+                    {activeTab === 'admins' && isSuperAdmin && (
+                        <Card>
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Users className="w-5 h-5" />
+                                            Admin Users
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Manage who has access to the admin portal
+                                        </CardDescription>
+                                    </div>
+                                    <Button onClick={() => setShowAddAdminForm(true)}>
+                                        <Plus className="w-4 h-4 mr-2" />
+                                        Add Admin
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {/* Add Admin Form */}
+                                {showAddAdminForm && (
+                                    <div className="p-4 rounded-lg bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 space-y-4">
+                                        <h4 className="font-medium text-gray-900 dark:text-white">Add New Admin</h4>
+                                        <div className="grid gap-4 md:grid-cols-2">
+                                            <div>
+                                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
+                                                <Input
+                                                    placeholder="Admin Name"
+                                                    value={newAdminName}
+                                                    onChange={(e) => setNewAdminName(e.target.value)}
+                                                    className="mt-1"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                                                <Input
+                                                    type="email"
+                                                    placeholder="admin@example.com"
+                                                    value={newAdminEmail}
+                                                    onChange={(e) => setNewAdminEmail(e.target.value)}
+                                                    className="mt-1"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button onClick={handleAddAdmin} disabled={isAddingAdmin}>
+                                                {isAddingAdmin ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+                                                Add Admin
+                                            </Button>
+                                            <Button variant="outline" onClick={() => { setShowAddAdminForm(false); setNewAdminEmail(''); setNewAdminName(''); }}>
+                                                Cancel
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Admin Users List */}
+                                <div className="space-y-2">
+                                    {adminUsers.map((admin) => (
+                                        <div key={admin.id} className="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                                            <div className="flex items-center gap-3">
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-full flex items-center justify-center text-white font-medium",
+                                                    admin.role === 'super_admin'
+                                                        ? "bg-gradient-to-br from-orange-500 to-red-600"
+                                                        : "bg-gradient-to-br from-violet-500 to-indigo-600"
+                                                )}>
+                                                    {admin.role === 'super_admin' ? <Shield className="w-5 h-5" /> : admin.name.substring(0, 2).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                                                        {admin.name}
+                                                        {admin.role === 'super_admin' && (
+                                                            <span className="text-xs px-1.5 py-0.5 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 rounded">
+                                                                SUPER ADMIN
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                    <p className="text-sm text-gray-500">{admin.email}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-xs text-gray-400">
+                                                    Added {formatRelativeTime(admin.createdAt)}
+                                                </span>
+                                                {admin.role !== 'super_admin' && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                        onClick={() => handleRemoveAdmin(admin.id, admin.name)}
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="pt-4 border-t text-sm text-gray-500">
+                                    <p><strong>Note:</strong> Admin users can access all areas of the admin portal. Only the super admin ({SUPER_ADMIN_EMAIL}) can add or remove admin users.</p>
                                 </div>
                             </CardContent>
                         </Card>

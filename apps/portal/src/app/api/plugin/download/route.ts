@@ -42,10 +42,10 @@ export async function GET() {
             );
         }
 
-        // Generate the ZIP file
-        const zipContent = await zip.generateAsync({ type: 'nodebuffer' });
+        // Generate the ZIP file as blob for Response compatibility
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
 
-        return new NextResponse(zipContent, {
+        return new Response(zipBlob, {
             headers: {
                 'Content-Type': 'application/zip',
                 'Content-Disposition': 'attachment; filename="labsupply-fulfillment.zip"',

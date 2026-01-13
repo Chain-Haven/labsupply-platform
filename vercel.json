@@ -1,0 +1,46 @@
+{
+    "version": 2,
+    "framework": "nextjs",
+    "buildCommand": "cd apps/portal && npm install && npm run build",
+    "outputDirectory": "apps/portal/.next",
+    "installCommand": "npm install",
+    "devCommand": "npm run dev",
+    "public": true,
+    "regions": [
+        "iad1"
+    ],
+    "env": {
+        "NEXT_PUBLIC_APP_URL": "@next_public_app_url",
+        "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@next_public_supabase_anon_key"
+    },
+    "headers": [
+        {
+            "source": "/api/(.*)",
+            "headers": [
+                {
+                    "key": "Access-Control-Allow-Credentials",
+                    "value": "true"
+                },
+                {
+                    "key": "Access-Control-Allow-Origin",
+                    "value": "*"
+                },
+                {
+                    "key": "Access-Control-Allow-Methods",
+                    "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT"
+                },
+                {
+                    "key": "Access-Control-Allow-Headers",
+                    "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization"
+                }
+            ]
+        }
+    ],
+    "rewrites": [
+        {
+            "source": "/api/v1/:path*",
+            "destination": "/api/v1/:path*"
+        }
+    ]
+}

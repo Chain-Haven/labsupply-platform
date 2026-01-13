@@ -805,7 +805,7 @@ export default function SettingsPage() {
                                     size="icon"
                                     onClick={() => {
                                         setShow2FAModal(false);
-                                        setQrCode(null);
+                                        setQrCodeUrl(null);
                                         setVerificationCode('');
                                     }}
                                 >
