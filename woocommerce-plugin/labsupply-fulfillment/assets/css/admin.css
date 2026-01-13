@@ -1,0 +1,176 @@
+.labsupply-admin {
+    max-width: 1200px;
+}
+
+.labsupply-admin h1 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.labsupply-logo {
+    font-size: 32px;
+}
+
+.labsupply-admin-content {
+    display: grid;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.labsupply-card {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    padding: 20px;
+}
+
+.labsupply-card h2 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.labsupply-card h3 {
+    margin-top: 20px;
+}
+
+.labsupply-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+    margin-bottom: 15px;
+}
+
+.labsupply-status-connected {
+    background: #d4edda;
+    color: #155724;
+}
+
+.labsupply-status-disconnected {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.labsupply-info-table {
+    margin: 15px 0;
+}
+
+.labsupply-info-table th {
+    text-align: left;
+    padding: 8px 20px 8px 0;
+    font-weight: 500;
+}
+
+.labsupply-info-table td {
+    padding: 8px 0;
+}
+
+.labsupply-wallet-info {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.labsupply-wallet-info h3 {
+    margin: 0 0 10px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+}
+
+.labsupply-balance {
+    font-size: 32px;
+    font-weight: bold;
+}
+
+.labsupply-currency {
+    font-size: 16px;
+    opacity: 0.8;
+    margin-left: 5px;
+}
+
+.labsupply-reserved {
+    margin: 10px 0 0;
+    opacity: 0.8;
+    font-size: 14px;
+}
+
+#labsupply-connect-form input[type="text"] {
+    margin-right: 10px;
+}
+
+.labsupply-message {
+    margin-top: 15px;
+    padding: 10px 15px;
+    border-radius: 4px;
+}
+
+.labsupply-message.success {
+    background: #d4edda;
+    color: #155724;
+}
+
+.labsupply-message.error {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.labsupply-message:empty {
+    display: none;
+}
+
+.labsupply-logs {
+    margin-top: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.log-level {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.log-info {
+    background: #cce5ff;
+    color: #004085;
+}
+
+.log-warning {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.log-error {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.log-debug {
+    background: #e2e3e5;
+    color: #383d41;
+}
+
+.labsupply-card hr {
+    margin: 20px 0;
+    border: none;
+    border-top: 1px solid #eee;
+}
+
+.labsupply-card .button {
+    margin-right: 10px;
+    margin-top: 10px;
+}
+
+.labsupply-card .dashicons {
+    vertical-align: middle;
+    margin-right: 5px;
+}

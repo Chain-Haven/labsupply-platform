@@ -1,0 +1,21 @@
+{
+    "name": "@labsupply/db",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "migrate": "supabase db push",
+        "migrate:local": "supabase db push --local",
+        "seed": "tsx scripts/seed.ts",
+        "reset": "supabase db reset",
+        "generate-types": "supabase gen types typescript --local > src/database.types.ts",
+        "studio": "supabase studio"
+    },
+    "dependencies": {
+        "@supabase/supabase-js": "^2.39.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.10.0",
+        "tsx": "^4.7.0",
+        "typescript": "^5.3.0"
+    }
+}
