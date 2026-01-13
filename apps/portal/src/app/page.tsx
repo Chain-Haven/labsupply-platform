@@ -1,9 +1,13 @@
 import Link from 'next/link';
 import { ArrowRight, Shield, Zap, Package, CreditCard } from 'lucide-react';
+import AuthErrorHandler from '@/components/AuthErrorHandler';
 
 export default function HomePage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+            {/* Auth Error Handler for hash fragment errors */}
+            <AuthErrorHandler />
+
             {/* Navigation */}
             <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-white/10">
                 <div className="container mx-auto px-6 py-4 flex items-center justify-between">
