@@ -441,7 +441,7 @@ export interface PaginatedResponse<T> {
     };
 }
 
-export interface ApiError {
+export interface ApiErrorResponse {
     code: string;
     message: string;
     details?: Record<string, unknown>;
@@ -450,7 +450,7 @@ export interface ApiError {
 export interface ApiResponse<T> {
     success: boolean;
     data?: T;
-    error?: ApiError;
+    error?: ApiErrorResponse;
 }
 
 // Store connection
