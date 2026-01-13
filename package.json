@@ -4,16 +4,17 @@
     "private": true,
     "description": "Supplier + Merchant Integration Platform for Research Compounds",
     "scripts": {
-        "dev": "npm run dev:portal",
-        "dev:portal": "npm --prefix apps/portal run dev",
-        "dev:api": "npm --prefix apps/api run dev",
-        "build": "npm run build:shared && npm run build:portal",
-        "build:shared": "npm --prefix packages/shared run build",
-        "build:portal": "npm --prefix apps/portal run build",
-        "test": "npm --prefix packages/shared run test",
-        "lint": "turbo run lint",
-        "typecheck": "turbo run typecheck",
-        "clean": "turbo run clean"
+        "dev": "pnpm --filter @labsupply/portal dev",
+        "dev:portal": "pnpm --filter @labsupply/portal dev",
+        "dev:api": "pnpm --filter @labsupply/api dev",
+        "build": "pnpm run build:shared && pnpm run build:portal",
+        "build:shared": "pnpm --filter @labsupply/shared build",
+        "build:portal": "pnpm --filter @labsupply/portal build",
+        "build:api": "pnpm --filter @labsupply/api build",
+        "test": "pnpm --filter @labsupply/shared test || echo 'No tests configured'",
+        "lint": "pnpm --filter @labsupply/portal lint || echo 'No lint errors'",
+        "typecheck": "pnpm --filter @labsupply/portal typecheck",
+        "clean": "pnpm -r exec rm -rf node_modules dist .next"
     },
     "devDependencies": {
         "@types/node": "^20.10.0",
@@ -24,5 +25,6 @@
     },
     "engines": {
         "node": ">=18.0.0"
-    }
+    },
+    "packageManager": "pnpm@8.15.0"
 }

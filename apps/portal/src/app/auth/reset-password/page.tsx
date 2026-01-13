@@ -3,38 +3,76 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@/lib/supabase';
-import { Lock, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
+import { Lock, ArrowLeft, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ResetPasswordPage() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isInitializing, setIsInitializing] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
+    const [sessionReady, setSessionReady] = useState(false);
     const router = useRouter();
     const supabase = createBrowserClient();
 
     // Check if there's an active session from the recovery link
     useEffect(() => {
         const checkSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                // No session, might need to handle the hash fragment
+            try {
+                // First check if we already have a session
+                const { data: { session } } = await supabase.auth.getSession();
+
+                if (session) {
+                    setSessionReady(true);
+                    setIsInitializing(false);
+                    return;
+                }
+
+                // No session, try to handle the hash fragment from recovery link
                 const hashParams = new URLSearchParams(window.location.hash.substring(1));
                 const accessToken = hashParams.get('access_token');
                 const refreshToken = hashParams.get('refresh_token');
                 const type = hashParams.get('type');
+                const errorCode = hashParams.get('error_code');
+                const errorDescription = hashParams.get('error_description');
+
+                // Handle expired/invalid tokens
+                if (errorCode) {
+                    const message = errorDescription?.replace(/\+/g, ' ') || 'Invalid or expired reset link';
+                    setError(message);
+                    setIsInitializing(false);
+                    return;
+                }
 
                 if (accessToken && type === 'recovery') {
                     // Set the session manually
-                    await supabase.auth.setSession({
+                    const { error: sessionError } = await supabase.auth.setSession({
                         access_token: accessToken,
                         refresh_token: refreshToken || '',
                     });
+
+                    if (sessionError) {
+                        console.error('Session error:', sessionError);
+                        setError(sessionError.message || 'Failed to validate reset link. Please request a new one.');
+                        setIsInitializing(false);
+                        return;
+                    }
+
+                    setSessionReady(true);
+                } else {
+                    // No valid recovery tokens found
+                    setError('Invalid password reset link. Please request a new one.');
                 }
+            } catch (err) {
+                console.error('Error checking session:', err);
+                setError('An error occurred validating your reset link.');
+            } finally {
+                setIsInitializing(false);
             }
         };
+
         checkSession();
     }, []);
 
@@ -52,6 +90,11 @@ export default function ResetPasswordPage() {
             return;
         }
 
+        if (!sessionReady) {
+            setError('Session expired. Please request a new password reset link.');
+            return;
+        }
+
         setIsLoading(true);
 
         try {
@@ -60,11 +103,14 @@ export default function ResetPasswordPage() {
             });
 
             if (updateError) {
-                setError(updateError.message);
+                console.error('Update error:', updateError);
+                setError(updateError.message || 'Failed to update password');
+                setIsLoading(false);
                 return;
             }
 
             setSuccess(true);
+            setIsLoading(false);
 
             // Sign out and redirect to login after 3 seconds
             setTimeout(async () => {
@@ -72,11 +118,25 @@ export default function ResetPasswordPage() {
                 router.push('/admin/login?message=password_reset');
             }, 3000);
         } catch (err) {
-            setError('An error occurred. Please try again.');
-        } finally {
+            console.error('Unexpected error:', err);
+            setError('An unexpected error occurred. Please try again.');
             setIsLoading(false);
         }
     };
+
+    // Loading state while checking session
+    if (isInitializing) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-6">
+                <div className="w-full max-w-md">
+                    <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-8 text-center">
+                        <Loader2 className="w-8 h-8 text-violet-400 animate-spin mx-auto mb-4" />
+                        <p className="text-white/60">Validating reset link...</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     if (success) {
         return (
@@ -117,9 +177,16 @@ export default function ResetPasswordPage() {
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {error && (
-                            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-sm">
+                            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-sm">
+                                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                <span>{error}</span>
+                            </div>
+                        )}
+
+                        {!sessionReady && !error && (
+                            <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-sm">
                                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                                {error}
+                                No valid session. Please use a valid password reset link.
                             </div>
                         )}
 
@@ -131,10 +198,11 @@ export default function ResetPasswordPage() {
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                                className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:opacity-50"
                                 placeholder="••••••••"
                                 required
                                 minLength={8}
+                                disabled={!sessionReady || isLoading}
                             />
                         </div>
 
@@ -146,19 +214,27 @@ export default function ResetPasswordPage() {
                                 type="password"
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                                className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:opacity-50"
                                 placeholder="••••••••"
                                 required
                                 minLength={8}
+                                disabled={!sessionReady || isLoading}
                             />
                         </div>
 
                         <button
                             type="submit"
-                            disabled={isLoading}
-                            className="w-full py-3 px-4 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={isLoading || !sessionReady}
+                            className="w-full py-3 px-4 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            {isLoading ? 'Updating...' : 'Update Password'}
+                            {isLoading ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Updating...
+                                </>
+                            ) : (
+                                'Update Password'
+                            )}
                         </button>
                     </form>
 
