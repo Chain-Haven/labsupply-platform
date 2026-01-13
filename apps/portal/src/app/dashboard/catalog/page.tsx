@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { defaultPeptideProducts } from '@/data/default-peptides';
 
 // Product interface with label
 interface Product {
@@ -49,8 +50,8 @@ interface Product {
     custom_label?: string | null;
 }
 
-// Catalog products - empty by default (fetched from API in production)
-const initialProducts: Product[] = [];
+// Use default peptides as initial products (replace with API fetch in production)
+const initialProducts: Product[] = defaultPeptideProducts;
 
 const categories = ['All', 'Peptides', 'Compounds', 'Accessories'];
 
