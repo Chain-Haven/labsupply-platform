@@ -17,41 +17,21 @@ import {
 } from 'lucide-react';
 import { cn, formatRelativeTime } from '@/lib/utils';
 
-// Mock uploads data
-const uploads = [
-    {
-        id: '1',
-        name: 'business-license.pdf',
-        type: 'document',
-        size: '245 KB',
-        status: 'approved',
-        uploaded_at: '2024-01-05T10:30:00Z',
-        category: 'Business Documents',
-    },
-    {
-        id: '2',
-        name: 'tax-exemption.pdf',
-        type: 'document',
-        size: '180 KB',
-        status: 'approved',
-        uploaded_at: '2024-01-05T10:32:00Z',
-        category: 'Business Documents',
-    },
-    {
-        id: '3',
-        name: 'research-credentials.pdf',
-        type: 'document',
-        size: '520 KB',
-        status: 'pending',
-        uploaded_at: '2024-01-10T14:00:00Z',
-        category: 'Research Verification',
-    },
-];
+// Uploads data - empty by default (fetched from API in production)
+const uploads: {
+    id: string;
+    name: string;
+    type: string;
+    size: string;
+    status: string;
+    uploaded_at: string;
+    category: string;
+}[] = [];
 
 const requiredDocuments = [
-    { name: 'Business License', description: 'Valid business registration', uploaded: true },
-    { name: 'Tax Exemption Certificate', description: 'If applicable', uploaded: true },
-    { name: 'Research Institution Verification', description: 'Letter or credentials', uploaded: true },
+    { name: 'Business License', description: 'Valid business registration', uploaded: false },
+    { name: 'Tax Exemption Certificate', description: 'If applicable', uploaded: false },
+    { name: 'Research Institution Verification', description: 'Letter or credentials', uploaded: false },
 ];
 
 export default function UploadsPage() {

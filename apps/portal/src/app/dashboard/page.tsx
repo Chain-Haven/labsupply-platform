@@ -11,11 +11,11 @@ import {
 import Link from 'next/link';
 import { cn, formatCurrency, getStatusColor } from '@/lib/utils';
 
-// Mock data for demo
+// Dashboard data - empty defaults (fetched from API in production)
 const stats = [
     {
         name: 'Wallet Balance',
-        value: 50000, // cents
+        value: 0,
         description: 'Available funds',
         icon: DollarSign,
         color: 'text-green-600',
@@ -24,7 +24,7 @@ const stats = [
     },
     {
         name: 'Active Orders',
-        value: 12,
+        value: 0,
         description: 'In fulfillment',
         icon: ShoppingCart,
         color: 'text-blue-600',
@@ -33,7 +33,7 @@ const stats = [
     },
     {
         name: 'Products',
-        value: 24,
+        value: 0,
         description: 'In your catalog',
         icon: Package,
         color: 'text-violet-600',
@@ -42,7 +42,7 @@ const stats = [
     },
     {
         name: 'This Month',
-        value: 15600, // cents
+        value: 0,
         description: 'Total spend',
         icon: TrendingUp,
         color: 'text-orange-600',
@@ -51,16 +51,9 @@ const stats = [
     },
 ];
 
-const recentOrders = [
-    { id: '1', wooOrderId: '1001', status: 'SHIPPED', total: 4500, date: '2024-01-10' },
-    { id: '2', wooOrderId: '1002', status: 'FUNDED', total: 3200, date: '2024-01-10' },
-    { id: '3', wooOrderId: '1003', status: 'AWAITING_FUNDS', total: 8900, date: '2024-01-09' },
-    { id: '4', wooOrderId: '1004', status: 'COMPLETE', total: 2100, date: '2024-01-08' },
-];
+const recentOrders: { id: string; wooOrderId: string; status: string; total: number; date: string }[] = [];
 
-const alerts = [
-    { type: 'warning', message: 'Order #1003 awaiting funds - $89.00 needed' },
-];
+const alerts: { type: string; message: string }[] = [];
 
 export default function DashboardPage() {
     return (

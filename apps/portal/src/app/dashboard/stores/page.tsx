@@ -18,18 +18,16 @@ import {
 import { cn, getStatusColor, formatRelativeTime } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 
-// Mock data
-const stores = [
-    {
-        id: '1',
-        name: 'Demo WooCommerce Store',
-        url: 'https://demo-store.example.com',
-        status: 'CONNECTED',
-        lastSync: '2024-01-10T14:30:00Z',
-        productCount: 24,
-        currency: 'USD',
-    },
-];
+// Stores data - empty by default (fetched from API in production)
+const stores: {
+    id: string;
+    name: string;
+    url: string;
+    status: string;
+    lastSync: string;
+    productCount: number;
+    currency: string;
+}[] = [];
 
 const connectCode = 'ABC1-2DEF-3GHI';
 
