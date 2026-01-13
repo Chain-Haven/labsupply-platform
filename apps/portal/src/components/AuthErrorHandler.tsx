@@ -9,14 +9,24 @@ export default function AuthErrorHandler() {
     const router = useRouter();
 
     useEffect(() => {
-        // Check for auth errors in hash fragment
+        // Check for auth hash fragments (recovery tokens or errors)
         const hash = window.location.hash.substring(1);
         if (hash) {
             const params = new URLSearchParams(hash);
             const errorType = params.get('error');
             const errorCode = params.get('error_code');
             const errorDescription = params.get('error_description');
+            const type = params.get('type');
+            const accessToken = params.get('access_token');
 
+            // Handle recovery tokens - redirect to reset password page
+            if (type === 'recovery' && accessToken) {
+                // Redirect to reset-password page with the hash fragment
+                window.location.href = '/auth/reset-password' + window.location.hash;
+                return;
+            }
+
+            // Handle errors
             if (errorType === 'access_denied') {
                 let message = 'Authentication error';
 
