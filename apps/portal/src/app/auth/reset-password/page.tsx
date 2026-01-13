@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@/lib/supabase';
 import { Lock, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
@@ -13,7 +13,6 @@ export default function ResetPasswordPage() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
     const router = useRouter();
-    const searchParams = useSearchParams();
     const supabase = createBrowserClient();
 
     // Check if there's an active session from the recovery link
