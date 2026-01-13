@@ -25,21 +25,15 @@ import { toast } from '@/hooks/use-toast';
 // Compliance reserve constant - mandatory $500 minimum
 const COMPLIANCE_RESERVE_CENTS = 50000; // $500.00
 
-// Mock data
+// Wallet data - empty defaults (fetched from API in production)
 const initialWalletData = {
-    balance_cents: 75000, // $750
-    reserved_cents: 5895,
+    balance_cents: 0,
+    reserved_cents: 0,
     compliance_reserve_cents: COMPLIANCE_RESERVE_CENTS,
     currency: 'USD',
 };
 
-const initialTransactions = [
-    { id: '1', type: 'TOPUP', amount_cents: 25000, date: '2024-01-10T10:30:00Z', status: 'completed', description: 'Wallet top-up via ChargX' },
-    { id: '2', type: 'RESERVATION', amount_cents: -5895, date: '2024-01-10T11:00:00Z', status: 'pending', description: 'Order #1001 reservation' },
-    { id: '3', type: 'SETTLEMENT', amount_cents: -4500, date: '2024-01-09T14:20:00Z', status: 'completed', description: 'Order #998 settled' },
-    { id: '4', type: 'TOPUP', amount_cents: 50000, date: '2024-01-08T09:00:00Z', status: 'completed', description: 'Wallet top-up via ChargX' },
-    { id: '5', type: 'SETTLEMENT', amount_cents: -3200, date: '2024-01-07T16:45:00Z', status: 'completed', description: 'Order #995 settled' },
-];
+const initialTransactions: { id: string; type: string; amount_cents: number; date: string; status: string; description: string }[] = [];
 
 const topUpAmounts = [5000, 10000, 25000, 50000, 100000];
 

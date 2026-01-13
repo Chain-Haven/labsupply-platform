@@ -17,53 +17,18 @@ import {
 } from 'lucide-react';
 import { cn, formatRelativeTime } from '@/lib/utils';
 
-// Mock KYB review queue
-const pendingReviews = [
-    {
-        id: '1',
-        merchant_id: '3',
-        company_name: 'New Research Corp',
-        contact_name: 'John Smith',
-        contact_email: 'john@newresearch.com',
-        account_type: 'reseller',
-        kyb_status: 'pending',
-        submitted_at: '2024-01-10T09:00:00Z',
-        documents: [
-            { type: 'business_license', name: 'business_license.pdf', status: 'pending' },
-            { type: 'articles_of_incorporation', name: 'articles.pdf', status: 'pending' },
-            { type: 'government_id', name: 'drivers_license.jpg', status: 'pending' },
-        ],
-    },
-    {
-        id: '2',
-        merchant_id: '4',
-        company_name: 'BioScience Labs',
-        contact_name: 'Sarah Johnson',
-        contact_email: 'sarah@bioscience.com',
-        account_type: 'institution',
-        kyb_status: 'pending',
-        submitted_at: '2024-01-10T11:30:00Z',
-        documents: [
-            { type: 'business_license', name: 'license.pdf', status: 'pending' },
-            { type: 'research_credentials', name: 'credentials.pdf', status: 'pending' },
-            { type: 'government_id', name: 'passport.jpg', status: 'pending' },
-        ],
-    },
-    {
-        id: '3',
-        merchant_id: '5',
-        company_name: 'Peptide Traders LLC',
-        contact_name: 'Mike Williams',
-        contact_email: 'mike@peptidetraders.com',
-        account_type: 'reseller',
-        kyb_status: 'in_review',
-        submitted_at: '2024-01-09T14:20:00Z',
-        documents: [
-            { type: 'business_license', name: 'license.pdf', status: 'approved' },
-            { type: 'government_id', name: 'id.jpg', status: 'pending' },
-        ],
-    },
-];
+// KYB review queue - empty by default (fetched from API in production)
+const pendingReviews: {
+    id: string;
+    merchant_id: string;
+    company_name: string;
+    contact_name: string;
+    contact_email: string;
+    account_type: string;
+    kyb_status: string;
+    submitted_at: string;
+    documents: { type: string; name: string; status: string }[];
+}[] = [];
 
 export default function KybReviewPage() {
     const [selectedMerchant, setSelectedMerchant] = useState<typeof pendingReviews[0] | null>(null);

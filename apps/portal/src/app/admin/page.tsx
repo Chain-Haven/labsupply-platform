@@ -16,35 +16,21 @@ import {
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 
-// Mock data for dashboard
+// Dashboard data - empty defaults (fetched from API in production)
 const stats = {
-    totalMerchants: 156,
-    pendingKyb: 8,
-    activeOrders: 42,
-    lowStockProducts: 5,
-    revenueToday: 1245000, // cents
-    revenueThisWeek: 8750000,
+    totalMerchants: 0,
+    pendingKyb: 0,
+    activeOrders: 0,
+    lowStockProducts: 0,
+    revenueToday: 0,
+    revenueThisWeek: 0,
 };
 
-const recentActivity = [
-    { id: 1, type: 'kyb_submitted', merchant: 'Research Labs Inc', time: '5 minutes ago' },
-    { id: 2, type: 'order_placed', merchant: 'BioTest Supply', order: 'ORD-1234', time: '12 minutes ago' },
-    { id: 3, type: 'low_stock', product: 'BPC-157 5mg', qty: 8, time: '1 hour ago' },
-    { id: 4, type: 'kyb_approved', merchant: 'Peptide World LLC', time: '2 hours ago' },
-    { id: 5, type: 'order_shipped', order: 'ORD-1230', time: '3 hours ago' },
-];
+const recentActivity: { id: number; type: string; merchant?: string; order?: string; product?: string; qty?: number; time: string }[] = [];
 
-const pendingReviews = [
-    { id: '1', company: 'New Research Corp', type: 'Reseller', submittedAt: '2024-01-10' },
-    { id: '2', company: 'BioScience Labs', type: 'Institution', submittedAt: '2024-01-10' },
-    { id: '3', company: 'Peptide Traders', type: 'Reseller', submittedAt: '2024-01-09' },
-];
+const pendingReviews: { id: string; company: string; type: string; submittedAt: string }[] = [];
 
-const lowStockProducts = [
-    { sku: 'BPC-157-5MG', name: 'BPC-157 5mg', qty: 8, threshold: 10 },
-    { sku: 'TB-500-5MG', name: 'TB-500 5mg', qty: 5, threshold: 10 },
-    { sku: 'SEMA-3MG', name: 'Semaglutide 3mg', qty: 3, threshold: 5 },
-];
+const lowStockProducts: { sku: string; name: string; qty: number; threshold: number }[] = [];
 
 export default function AdminDashboard() {
     const getActivityIcon = (type: string) => {

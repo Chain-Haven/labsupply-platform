@@ -15,31 +15,12 @@ import {
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
-// Mock report data
-const monthlyRevenue = [
-    { month: 'Aug', revenue: 6520000 },
-    { month: 'Sep', revenue: 7850000 },
-    { month: 'Oct', revenue: 8120000 },
-    { month: 'Nov', revenue: 9450000 },
-    { month: 'Dec', revenue: 11200000 },
-    { month: 'Jan', revenue: 8750000 },
-];
+// Reports data - empty by default (fetched from API in production)
+const monthlyRevenue: { month: string; revenue: number }[] = [];
 
-const topProducts = [
-    { name: 'BPC-157 5mg', sku: 'BPC-157-5MG', units: 342, revenue: 855000 },
-    { name: 'TB-500 5mg', sku: 'TB-500-5MG', units: 256, revenue: 819200 },
-    { name: 'Semaglutide 3mg', sku: 'SEMA-3MG', units: 89, revenue: 1112500 },
-    { name: 'GHK-Cu 50mg', sku: 'GHK-CU-50MG', units: 178, revenue: 801000 },
-    { name: 'NAD+ 500mg', sku: 'NAD-500MG', units: 134, revenue: 1192600 },
-];
+const topProducts: { name: string; sku: string; units: number; revenue: number }[] = [];
 
-const topMerchants = [
-    { name: 'Research Labs Inc', orders: 45, revenue: 3250000 },
-    { name: 'BioTest Supply', orders: 38, revenue: 2890000 },
-    { name: 'Science Direct', orders: 32, revenue: 2450000 },
-    { name: 'Peptide World LLC', orders: 28, revenue: 1980000 },
-    { name: 'Lab Essentials', orders: 24, revenue: 1650000 },
-];
+const topMerchants: { name: string; orders: number; revenue: number }[] = [];
 
 export default function ReportsPage() {
     const maxRevenue = Math.max(...monthlyRevenue.map(m => m.revenue));
