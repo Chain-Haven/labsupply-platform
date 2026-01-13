@@ -26,90 +26,14 @@ import { toast } from '@/hooks/use-toast';
 // Compliance reserve constant
 const COMPLIANCE_RESERVE_CENTS = 50000; // $500.00
 
-// Mock wallet data
+// Wallet data - defaults for empty state
 const walletData = {
-    balance_cents: 45000, // $450 - below compliance reserve for demo
-    reserved_cents: 5895,
+    balance_cents: 0,
+    reserved_cents: 0,
 };
 
-// Mock orders data
-const orders = [
-    {
-        id: 'ord_001',
-        woo_order_id: '1001',
-        woo_order_number: 'WC-1001',
-        status: 'SHIPPED',
-        customer_name: 'John Smith',
-        customer_email: 'john@example.com',
-        items_count: 3,
-        subtotal_cents: 12500,
-        total_estimate_cents: 13850,
-        created_at: '2024-01-10T14:30:00Z',
-        tracking_number: '1Z999AA10123456784',
-        carrier: 'UPS',
-        compliance_blocked: false,
-    },
-    {
-        id: 'ord_002',
-        woo_order_id: '1002',
-        woo_order_number: 'WC-1002',
-        status: 'AWAITING_FUNDS',
-        customer_name: 'Jane Doe',
-        customer_email: 'jane@example.com',
-        items_count: 1,
-        subtotal_cents: 4500,
-        total_estimate_cents: 5295,
-        created_at: '2024-01-10T11:00:00Z',
-        tracking_number: null,
-        carrier: null,
-        compliance_blocked: true, // Blocked due to compliance reserve
-    },
-    {
-        id: 'ord_003',
-        woo_order_id: '1003',
-        woo_order_number: 'WC-1003',
-        status: 'AWAITING_FUNDS',
-        customer_name: 'Bob Wilson',
-        customer_email: 'bob@example.com',
-        items_count: 2,
-        subtotal_cents: 8900,
-        total_estimate_cents: 9995,
-        created_at: '2024-01-09T16:45:00Z',
-        tracking_number: null,
-        carrier: null,
-        compliance_blocked: true, // Blocked due to compliance reserve
-    },
-    {
-        id: 'ord_004',
-        woo_order_id: '1004',
-        woo_order_number: 'WC-1004',
-        status: 'COMPLETE',
-        customer_name: 'Alice Brown',
-        customer_email: 'alice@example.com',
-        items_count: 5,
-        subtotal_cents: 23400,
-        total_estimate_cents: 25890,
-        created_at: '2024-01-08T09:15:00Z',
-        tracking_number: '9400111899223033333333',
-        carrier: 'USPS',
-        compliance_blocked: false,
-    },
-    {
-        id: 'ord_005',
-        woo_order_id: '1005',
-        woo_order_number: 'WC-1005',
-        status: 'PICKING',
-        customer_name: 'Charlie Green',
-        customer_email: 'charlie@example.com',
-        items_count: 2,
-        subtotal_cents: 6700,
-        total_estimate_cents: 7450,
-        created_at: '2024-01-10T08:30:00Z',
-        tracking_number: null,
-        carrier: null,
-        compliance_blocked: false,
-    },
-];
+// Orders data - empty by default (fetched from API in production)
+const orders: any[] = [];
 
 const statusFilters = [
     { value: 'all', label: 'All Orders' },
@@ -359,9 +283,35 @@ export default function OrdersPage() {
                                         {formatRelativeTime(order.created_at)}
                                     </td>
                                     <td className="p-4 text-right">
-                                        <Button size="sm" variant="ghost">
-                                            <Eye className="w-4 h-4" />
-                                        </Button>
+                                        <div className="flex items-center justify-end gap-1">
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => {
+                                                    toast({
+                                                        title: 'Order Details',
+                                                        description: `Order ${order.woo_order_number}: ${order.items_count} item(s), Total: ${formatCurrency(order.total_estimate_cents)}`
+                                                    });
+                                                }}
+                                            >
+                                                <Eye className="w-4 h-4" />
+                                            </Button>
+                                            {order.tracking_number && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => {
+                                                        window.open(`https://track.shipstation.com/tracking/${order.tracking_number}`, '_blank');
+                                                        toast({
+                                                            title: 'Opening tracking',
+                                                            description: `Tracking: ${order.tracking_number}`
+                                                        });
+                                                    }}
+                                                >
+                                                    <Truck className="w-4 h-4" />
+                                                </Button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

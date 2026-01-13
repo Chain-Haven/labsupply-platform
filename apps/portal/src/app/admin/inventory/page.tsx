@@ -31,69 +31,8 @@ interface Product {
     is_active: boolean;
 }
 
-// Initial mock products data
-const initialProducts: Product[] = [
-    {
-        id: '1',
-        sku: 'BPC-157-5MG',
-        name: 'BPC-157 5mg',
-        category: 'Peptides',
-        wholesale_price_cents: 2500,
-        available_qty: 142,
-        low_stock_threshold: 10,
-        is_active: true,
-    },
-    {
-        id: '2',
-        sku: 'TB-500-5MG',
-        name: 'TB-500 (Thymosin Beta-4) 5mg',
-        category: 'Peptides',
-        wholesale_price_cents: 3200,
-        available_qty: 89,
-        low_stock_threshold: 10,
-        is_active: true,
-    },
-    {
-        id: '3',
-        sku: 'BPC-157-10MG',
-        name: 'BPC-157 10mg',
-        category: 'Peptides',
-        wholesale_price_cents: 4500,
-        available_qty: 8,
-        low_stock_threshold: 10,
-        is_active: true,
-    },
-    {
-        id: '4',
-        sku: 'GHK-CU-50MG',
-        name: 'GHK-Cu 50mg',
-        category: 'Peptides',
-        wholesale_price_cents: 4500,
-        available_qty: 56,
-        low_stock_threshold: 10,
-        is_active: true,
-    },
-    {
-        id: '5',
-        sku: 'SEMA-3MG',
-        name: 'Semaglutide 3mg',
-        category: 'Peptides',
-        wholesale_price_cents: 12500,
-        available_qty: 3,
-        low_stock_threshold: 5,
-        is_active: true,
-    },
-    {
-        id: '6',
-        sku: 'NAD-500MG',
-        name: 'NAD+ 500mg',
-        category: 'Compounds',
-        wholesale_price_cents: 8900,
-        available_qty: 34,
-        low_stock_threshold: 10,
-        is_active: true,
-    },
-];
+// Products data - empty by default (fetched from API in production)
+const initialProducts: Product[] = [];
 
 export default function InventoryPage() {
     const [products, setProducts] = useState<Product[]>(initialProducts);

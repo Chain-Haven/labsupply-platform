@@ -526,37 +526,124 @@ export default function SettingsPage() {
                     )}
 
                     {activeTab === 'notifications' && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Bell className="w-5 h-5" />
-                                    Notification Settings
-                                </CardTitle>
-                                <CardDescription>
-                                    Configure admin alerts and notifications
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {[
-                                    { label: 'New KYB submissions', description: 'When a merchant submits verification', enabled: true },
-                                    { label: 'Low stock alerts', description: 'When products fall below threshold', enabled: true },
-                                    { label: 'High value orders', description: 'Orders above $1,000', enabled: true },
-                                    { label: 'Failed payments', description: 'When wallet top-ups fail', enabled: true },
-                                    { label: 'Daily summary', description: 'Daily digest of platform activity', enabled: false },
-                                ].map((notif, index) => (
-                                    <div key={index} className="flex items-center justify-between py-3 border-b last:border-0">
+                        <>
+                            {/* SMTP Configuration */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Mail className="w-5 h-5" />
+                                        Email (SMTP) Configuration
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Configure SMTP settings for sending email notifications to merchants and admins
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="grid gap-4 md:grid-cols-2">
                                         <div>
-                                            <p className="font-medium text-gray-900 dark:text-white">{notif.label}</p>
-                                            <p className="text-sm text-gray-500">{notif.description}</p>
+                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                SMTP Host
+                                            </label>
+                                            <Input defaultValue="smtp.gmail.com" className="mt-1" placeholder="smtp.example.com" />
+                                        </div>
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                SMTP Port
+                                            </label>
+                                            <Input type="number" defaultValue="587" className="mt-1" />
+                                        </div>
+                                    </div>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                SMTP Username
+                                            </label>
+                                            <Input defaultValue="noreply@labsupply.io" className="mt-1" placeholder="username@example.com" />
+                                        </div>
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                SMTP Password
+                                            </label>
+                                            <Input type="password" defaultValue="••••••••••••" className="mt-1" placeholder="Enter password" />
+                                        </div>
+                                    </div>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                From Email
+                                            </label>
+                                            <Input defaultValue="noreply@labsupply.io" className="mt-1" placeholder="noreply@example.com" />
+                                        </div>
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                From Name
+                                            </label>
+                                            <Input defaultValue="LabSupply Platform" className="mt-1" placeholder="Company Name" />
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between py-3 border rounded-lg px-4 bg-gray-50 dark:bg-gray-800">
+                                        <div>
+                                            <p className="font-medium text-gray-900 dark:text-white">Use TLS/SSL</p>
+                                            <p className="text-sm text-gray-500">Enable secure connection (recommended)</p>
                                         </div>
                                         <label className="relative inline-flex items-center cursor-pointer">
-                                            <input type="checkbox" defaultChecked={notif.enabled} className="sr-only peer" />
+                                            <input type="checkbox" defaultChecked className="sr-only peer" />
                                             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-violet-300 dark:peer-focus:ring-violet-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-violet-600"></div>
                                         </label>
                                     </div>
-                                ))}
-                            </CardContent>
-                        </Card>
+                                    <div className="flex gap-3 pt-2">
+                                        <Button onClick={handleSave} disabled={isSaving}>
+                                            <Save className="w-4 h-4 mr-2" />
+                                            Save SMTP Settings
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => {
+                                                toast({
+                                                    title: 'Test email sent',
+                                                    description: 'A test email has been sent to the configured address.',
+                                                });
+                                            }}
+                                        >
+                                            Send Test Email
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Notification Toggles */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Bell className="w-5 h-5" />
+                                        Notification Settings
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Configure admin alerts and notifications
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    {[
+                                        { label: 'New KYB submissions', description: 'When a merchant submits verification', enabled: true },
+                                        { label: 'Low stock alerts', description: 'When products fall below threshold', enabled: true },
+                                        { label: 'High value orders', description: 'Orders above $1,000', enabled: true },
+                                        { label: 'Failed payments', description: 'When wallet top-ups fail', enabled: true },
+                                        { label: 'Daily summary', description: 'Daily digest of platform activity', enabled: false },
+                                    ].map((notif, index) => (
+                                        <div key={index} className="flex items-center justify-between py-3 border-b last:border-0">
+                                            <div>
+                                                <p className="font-medium text-gray-900 dark:text-white">{notif.label}</p>
+                                                <p className="text-sm text-gray-500">{notif.description}</p>
+                                            </div>
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" defaultChecked={notif.enabled} className="sr-only peer" />
+                                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-violet-300 dark:peer-focus:ring-violet-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-violet-600"></div>
+                                            </label>
+                                        </div>
+                                    ))}
+                                </CardContent>
+                            </Card>
+                        </>
                     )}
 
                     {activeTab === 'security' && (

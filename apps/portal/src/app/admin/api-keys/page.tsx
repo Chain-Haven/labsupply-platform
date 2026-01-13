@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,46 +14,13 @@ import {
     Trash2,
     Check,
     AlertTriangle,
-    Shield
+    Shield,
+    ExternalLink
 } from 'lucide-react';
 import { cn, formatRelativeTime } from '@/lib/utils';
 
-// Mock API keys data
-const apiKeys = [
-    {
-        id: '1',
-        name: 'Production Inventory Sync',
-        key_prefix: 'lsk_prod1234',
-        permissions: { inventory: { read: true, write: true }, merchants: { read: false, write: false } },
-        created_at: '2024-01-05T10:30:00Z',
-        last_used_at: '2024-01-12T15:45:00Z',
-        usage_count: 1542,
-        expires_at: null,
-        is_active: true,
-    },
-    {
-        id: '2',
-        name: 'Warehouse Integration',
-        key_prefix: 'lsk_wh123456',
-        permissions: { inventory: { read: true, write: true }, merchants: { read: false, write: false } },
-        created_at: '2024-01-08T14:20:00Z',
-        last_used_at: '2024-01-12T12:30:00Z',
-        usage_count: 523,
-        expires_at: '2024-07-08T14:20:00Z',
-        is_active: true,
-    },
-    {
-        id: '3',
-        name: 'Legacy System (Deprecated)',
-        key_prefix: 'lsk_leg12345',
-        permissions: { inventory: { read: true, write: false }, merchants: { read: false, write: false } },
-        created_at: '2023-11-15T09:00:00Z',
-        last_used_at: '2023-12-20T11:00:00Z',
-        usage_count: 89,
-        expires_at: null,
-        is_active: false,
-    },
-];
+// API keys data - empty by default (fetched from API in production)
+const apiKeys: any[] = [];
 
 export default function ApiKeysPage() {
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -311,7 +279,12 @@ export default function ApiKeysPage() {
                     <p className="text-gray-500 mb-4">
                         Check out our API documentation for code examples and endpoint references.
                     </p>
-                    <Button variant="outline">View API Documentation</Button>
+                    <Link href="/admin/docs">
+                        <Button variant="outline">
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            View API Documentation
+                        </Button>
+                    </Link>
                 </CardContent>
             </Card>
         </div>

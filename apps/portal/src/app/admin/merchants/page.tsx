@@ -43,81 +43,15 @@ interface Merchant {
     notes?: string;
 }
 
-// Mock merchants data
-const initialMerchants: Merchant[] = [
-    {
-        id: '1',
-        company_name: 'Research Labs Inc',
-        contact_email: 'admin@researchlabs.com',
-        contact_phone: '+1 (555) 123-4567',
-        account_type: 'reseller',
-        kyb_status: 'approved',
-        created_at: '2024-01-05T10:30:00Z',
-        stores_count: 2,
-        lifetime_spend_cents: 1250000,
-        wallet_balance_cents: 75000,
-        notes: 'Premium customer, expedited shipping',
-    },
-    {
-        id: '2',
-        company_name: 'BioTest Supply',
-        contact_email: 'orders@biotest.com',
-        contact_phone: '+1 (555) 234-5678',
-        account_type: 'reseller',
-        kyb_status: 'approved',
-        created_at: '2024-01-03T14:20:00Z',
-        stores_count: 1,
-        lifetime_spend_cents: 890000,
-        wallet_balance_cents: 45000,
-        notes: '',
-    },
-    {
-        id: '3',
-        company_name: 'New Research Corp',
-        contact_email: 'contact@newresearch.com',
-        contact_phone: '+1 (555) 345-6789',
-        account_type: 'reseller',
-        kyb_status: 'pending',
-        created_at: '2024-01-10T09:00:00Z',
-        stores_count: 0,
-        lifetime_spend_cents: 0,
-        wallet_balance_cents: 0,
-        notes: 'New applicant',
-    },
-    {
-        id: '4',
-        company_name: 'University of Science',
-        contact_email: 'procurement@uos.edu',
-        contact_phone: '+1 (555) 456-7890',
-        account_type: 'institution',
-        kyb_status: 'in_review',
-        created_at: '2024-01-09T11:45:00Z',
-        stores_count: 0,
-        lifetime_spend_cents: 0,
-        wallet_balance_cents: 0,
-        notes: 'Educational institution, verify tax exempt status',
-    },
-    {
-        id: '5',
-        company_name: 'Peptide Traders LLC',
-        contact_email: 'info@peptidetraders.com',
-        contact_phone: '+1 (555) 567-8901',
-        account_type: 'reseller',
-        kyb_status: 'rejected',
-        created_at: '2024-01-02T16:30:00Z',
-        stores_count: 0,
-        lifetime_spend_cents: 0,
-        wallet_balance_cents: 0,
-        notes: 'KYB rejected - failed compliance check',
-    },
-];
+// Merchants data - empty by default (fetched from API in production)
+const initialMerchants: Merchant[] = [];
 
 const statusFilters = [
-    { value: 'all', label: 'All', count: 5 },
-    { value: 'pending', label: 'Pending', count: 1 },
-    { value: 'in_review', label: 'In Review', count: 1 },
-    { value: 'approved', label: 'Approved', count: 2 },
-    { value: 'rejected', label: 'Rejected', count: 1 },
+    { value: 'all', label: 'All', count: 0 },
+    { value: 'pending', label: 'Pending', count: 0 },
+    { value: 'in_review', label: 'In Review', count: 0 },
+    { value: 'approved', label: 'Approved', count: 0 },
+    { value: 'rejected', label: 'Rejected', count: 0 },
 ];
 
 const kybStatusOptions = ['pending', 'in_review', 'approved', 'rejected'];

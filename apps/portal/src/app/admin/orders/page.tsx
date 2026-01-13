@@ -49,91 +49,8 @@ interface Order {
     selected?: boolean;
 }
 
-// Mock orders data
-const initialOrders: Order[] = [
-    {
-        id: 'ORD-1234',
-        merchant: 'Research Labs Inc',
-        status: 'PROCESSING',
-        shipping_method: 'STANDARD',
-        items_count: 3,
-        total_cents: 15750,
-        created_at: '2024-01-12T14:30:00Z',
-        shipping_address: 'Las Vegas, NV',
-        shipstation_synced: false,
-        label_printed: false,
-    },
-    {
-        id: 'ORD-1233',
-        merchant: 'BioTest Supply',
-        status: 'SHIPPED',
-        shipping_method: 'EXPEDITED',
-        items_count: 1,
-        total_cents: 4500,
-        created_at: '2024-01-12T10:15:00Z',
-        shipping_address: 'New York, NY',
-        tracking_number: '1Z999AA10123456784',
-        shipstation_order_id: 'SS-123456',
-        shipstation_synced: true,
-        label_url: '/labels/ORD-1233.pdf',
-        label_printed: true,
-        label_printed_at: '2024-01-12T12:00:00Z',
-    },
-    {
-        id: 'ORD-1232',
-        merchant: 'Peptide World LLC',
-        status: 'AWAITING_FUNDS',
-        shipping_method: 'STANDARD',
-        items_count: 2,
-        total_cents: 8900,
-        created_at: '2024-01-11T16:45:00Z',
-        shipping_address: 'Los Angeles, CA',
-        shipstation_synced: false,
-        label_printed: false,
-    },
-    {
-        id: 'ORD-1231',
-        merchant: 'Research Labs Inc',
-        status: 'COMPLETE',
-        shipping_method: 'STANDARD',
-        items_count: 5,
-        total_cents: 32500,
-        created_at: '2024-01-10T09:20:00Z',
-        shipping_address: 'Las Vegas, NV',
-        shipstation_order_id: 'SS-123455',
-        shipstation_synced: true,
-        label_url: '/labels/ORD-1231.pdf',
-        label_printed: true,
-        label_printed_at: '2024-01-10T11:30:00Z',
-    },
-    {
-        id: 'ORD-1230',
-        merchant: 'Science Direct',
-        status: 'PROCESSING',
-        shipping_method: 'EXPEDITED',
-        items_count: 2,
-        total_cents: 12500,
-        created_at: '2024-01-09T11:00:00Z',
-        shipping_address: 'Chicago, IL',
-        shipstation_order_id: 'SS-123454',
-        shipstation_synced: true,
-        label_url: '/labels/ORD-1230.pdf',
-        label_printed: false,
-    },
-    {
-        id: 'TEST-0001',
-        merchant: 'BioTest Supply',
-        status: 'PROCESSING',
-        order_type: 'TESTING',
-        shipping_method: 'EXPEDITED',
-        items_count: 2,
-        total_cents: 66500,
-        created_at: '2024-01-13T10:00:00Z',
-        shipping_address: 'Freedom Diagnostics Lab',
-        shipstation_synced: false,
-        label_printed: false,
-    },
-];
+// Orders data - empty by default (fetched from API in production)
+const initialOrders: Order[] = [];
 
 const getStatusColor = (status: string) => {
     switch (status) {
@@ -202,6 +119,53 @@ export default function OrdersPage() {
         } else {
             setSelectedOrders(new Set(filteredOrders.map(o => o.id)));
         }
+    };
+
+    // Export orders to CSV
+    const handleExportCSV = () => {
+        const ordersToExport = filteredOrders.length > 0 ? filteredOrders : orders;
+
+        if (ordersToExport.length === 0) {
+            toast({
+                title: 'No orders to export',
+                description: 'There are no orders to export.',
+                variant: 'destructive'
+            });
+            return;
+        }
+
+        const headers = ['Order ID', 'Merchant', 'Status', 'Shipping Method', 'Items', 'Total', 'Ship To', 'Created', 'Tracking', 'ShipStation Synced'];
+        const csvRows = [headers.join(',')];
+
+        ordersToExport.forEach(order => {
+            const row = [
+                order.id,
+                `"${order.merchant}"`,
+                order.status,
+                order.shipping_method || 'STANDARD',
+                order.items_count,
+                (order.total_cents / 100).toFixed(2),
+                `"${order.shipping_address}"`,
+                new Date(order.created_at).toLocaleDateString(),
+                order.tracking_number || '',
+                order.shipstation_synced ? 'Yes' : 'No'
+            ];
+            csvRows.push(row.join(','));
+        });
+
+        const csvContent = csvRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `orders-export-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        toast({
+            title: 'Orders exported',
+            description: `${ordersToExport.length} order(s) exported to CSV.`,
+        });
     };
 
     // Push selected orders to ShipStation
@@ -322,7 +286,7 @@ export default function OrdersPage() {
                     <p className="text-gray-500">Manage and track all merchant orders</p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline">
+                    <Button variant="outline" onClick={handleExportCSV}>
                         <FileText className="w-4 h-4 mr-2" />
                         Export CSV
                     </Button>
