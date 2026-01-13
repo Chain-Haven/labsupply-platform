@@ -19,14 +19,32 @@ export default function ResetPasswordPage() {
 
     // Check if there's an active session from the recovery link
     useEffect(() => {
+        let mounted = true;
+
         const checkSession = async () => {
             try {
+                // Listen for auth state changes (important for recovery links)
+                const { data: { subscription } } = supabase.auth.onAuthStateChange(
+                    async (event, session) => {
+                        console.log('Auth event:', event, session?.user?.email);
+
+                        if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+                            if (session && mounted) {
+                                setSessionReady(true);
+                                setIsInitializing(false);
+                            }
+                        }
+                    }
+                );
+
                 // First check if we already have a session
                 const { data: { session } } = await supabase.auth.getSession();
 
                 if (session) {
-                    setSessionReady(true);
-                    setIsInitializing(false);
+                    if (mounted) {
+                        setSessionReady(true);
+                        setIsInitializing(false);
+                    }
                     return;
                 }
 
@@ -38,11 +56,19 @@ export default function ResetPasswordPage() {
                 const errorCode = hashParams.get('error_code');
                 const errorDescription = hashParams.get('error_description');
 
+                console.log('Reset password tokens:', {
+                    hasAccessToken: !!accessToken,
+                    type,
+                    errorCode
+                });
+
                 // Handle expired/invalid tokens
                 if (errorCode) {
                     const message = errorDescription?.replace(/\+/g, ' ') || 'Invalid or expired reset link';
-                    setError(message);
-                    setIsInitializing(false);
+                    if (mounted) {
+                        setError(message);
+                        setIsInitializing(false);
+                    }
                     return;
                 }
 
@@ -55,25 +81,87 @@ export default function ResetPasswordPage() {
 
                     if (sessionError) {
                         console.error('Session error:', sessionError);
-                        setError(sessionError.message || 'Failed to validate reset link. Please request a new one.');
-                        setIsInitializing(false);
+                        if (mounted) {
+                            setError(sessionError.message || 'Failed to validate reset link. Please request a new one.');
+                            setIsInitializing(false);
+                        }
                         return;
                     }
 
-                    setSessionReady(true);
+                    if (mounted) {
+                        setSessionReady(true);
+                        setIsInitializing(false);
+                    }
+                } else if (accessToken) {
+                    // Has access token but type is not 'recovery' - still try to use it
+                    console.log('Access token present but type is:', type);
+                    const { error: sessionError } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken || '',
+                    });
+
+                    if (sessionError) {
+                        console.error('Session error:', sessionError);
+                        if (mounted) {
+                            setError('Failed to validate reset link. The link may have expired. Please request a new one.');
+                            setIsInitializing(false);
+                        }
+                        return;
+                    }
+
+                    if (mounted) {
+                        setSessionReady(true);
+                        setIsInitializing(false);
+                    }
                 } else {
-                    // No valid recovery tokens found
-                    setError('Invalid password reset link. Please request a new one.');
+                    // Check URL params as well (some Supabase versions use query params)
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const codeParam = urlParams.get('code');
+
+                    if (codeParam) {
+                        // Exchange code for session
+                        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(codeParam);
+
+                        if (exchangeError) {
+                            console.error('Code exchange error:', exchangeError);
+                            if (mounted) {
+                                setError('Invalid or expired reset link. Please request a new one.');
+                                setIsInitializing(false);
+                            }
+                            return;
+                        }
+
+                        if (mounted) {
+                            setSessionReady(true);
+                            setIsInitializing(false);
+                        }
+                    } else {
+                        // No valid recovery tokens found
+                        if (mounted) {
+                            setError('Invalid password reset link. Please request a new one from the login page.');
+                            setIsInitializing(false);
+                        }
+                    }
                 }
+
+                // Cleanup subscription
+                return () => {
+                    subscription.unsubscribe();
+                };
             } catch (err) {
                 console.error('Error checking session:', err);
-                setError('An error occurred validating your reset link.');
-            } finally {
-                setIsInitializing(false);
+                if (mounted) {
+                    setError('An error occurred validating your reset link. Please try again.');
+                    setIsInitializing(false);
+                }
             }
         };
 
         checkSession();
+
+        return () => {
+            mounted = false;
+        };
     }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
