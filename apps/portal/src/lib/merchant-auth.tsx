@@ -1,0 +1,249 @@
+'use client';
+
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createBrowserClient } from '@/lib/supabase';
+import { User, Session } from '@supabase/supabase-js';
+
+// Merchant type from database
+export interface Merchant {
+    id: string;
+    user_id: string;
+    email: string;
+    company_name: string | null;
+    website_url: string | null;
+    phone: string | null;
+    status: 'pending' | 'approved' | 'suspended';
+    kyb_status: 'not_started' | 'in_progress' | 'approved' | 'rejected';
+    wallet_balance_cents: number;
+    created_at: string;
+    updated_at: string;
+}
+
+interface MerchantAuthContextType {
+    user: User | null;
+    session: Session | null;
+    merchant: Merchant | null;
+    isAuthenticated: boolean;
+    isLoading: boolean;
+    login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+    register: (email: string, password: string, companyName?: string) => Promise<{ success: boolean; error?: string }>;
+    logout: () => Promise<void>;
+    updateMerchant: (data: Partial<Merchant>) => Promise<{ success: boolean; error?: string }>;
+    refreshMerchant: () => Promise<void>;
+}
+
+const MerchantAuthContext = createContext<MerchantAuthContextType | undefined>(undefined);
+
+export function MerchantAuthProvider({ children }: { children: ReactNode }) {
+    const [user, setUser] = useState<User | null>(null);
+    const [session, setSession] = useState<Session | null>(null);
+    const [merchant, setMerchant] = useState<Merchant | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const supabase = createBrowserClient();
+
+    // Fetch merchant profile from database
+    const fetchMerchant = async (userId: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('merchants')
+                .select('*')
+                .eq('user_id', userId)
+                .single();
+
+            if (error) {
+                console.error('Error fetching merchant:', error);
+                return null;
+            }
+            return data as Merchant;
+        } catch (err) {
+            console.error('Error in fetchMerchant:', err);
+            return null;
+        }
+    };
+
+    // Initialize auth state
+    useEffect(() => {
+        const initAuth = async () => {
+            try {
+                const { data: { session: currentSession } } = await supabase.auth.getSession();
+
+                if (currentSession?.user) {
+                    setUser(currentSession.user);
+                    setSession(currentSession);
+                    const merchantData = await fetchMerchant(currentSession.user.id);
+                    setMerchant(merchantData);
+                }
+            } catch (err) {
+                console.error('Error initializing auth:', err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        initAuth();
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            async (event, newSession) => {
+                if (newSession?.user) {
+                    setUser(newSession.user);
+                    setSession(newSession);
+                    const merchantData = await fetchMerchant(newSession.user.id);
+                    setMerchant(merchantData);
+                } else {
+                    setUser(null);
+                    setSession(null);
+                    setMerchant(null);
+                }
+            }
+        );
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    // Login function
+    const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            if (data.user) {
+                const merchantData = await fetchMerchant(data.user.id);
+                if (!merchantData) {
+                    // User exists in auth but not in merchants table - shouldn't happen normally
+                    return { success: false, error: 'Merchant profile not found. Please contact support.' };
+                }
+                setMerchant(merchantData);
+            }
+
+            return { success: true };
+        } catch (err) {
+            return { success: false, error: 'An unexpected error occurred' };
+        }
+    };
+
+    // Register function
+    const register = async (
+        email: string,
+        password: string,
+        companyName?: string
+    ): Promise<{ success: boolean; error?: string }> => {
+        try {
+            // Sign up the user
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    emailRedirectTo: `${window.location.origin}/auth/callback`,
+                }
+            });
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            if (data.user) {
+                // Create merchant profile
+                const { error: merchantError } = await supabase
+                    .from('merchants')
+                    .insert({
+                        user_id: data.user.id,
+                        email: email,
+                        company_name: companyName || null,
+                        status: 'pending',
+                        kyb_status: 'not_started',
+                        wallet_balance_cents: 0,
+                    });
+
+                if (merchantError) {
+                    console.error('Error creating merchant profile:', merchantError);
+                    // Don't fail registration if profile creation fails - it can be fixed later
+                }
+
+                // Fetch the created merchant
+                const merchantData = await fetchMerchant(data.user.id);
+                setMerchant(merchantData);
+            }
+
+            return { success: true };
+        } catch (err) {
+            return { success: false, error: 'An unexpected error occurred' };
+        }
+    };
+
+    // Logout function
+    const logout = async () => {
+        await supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
+        setMerchant(null);
+    };
+
+    // Update merchant profile
+    const updateMerchant = async (data: Partial<Merchant>): Promise<{ success: boolean; error?: string }> => {
+        if (!user) {
+            return { success: false, error: 'Not authenticated' };
+        }
+
+        try {
+            const { error } = await supabase
+                .from('merchants')
+                .update(data)
+                .eq('user_id', user.id);
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            // Refresh merchant data
+            const updatedMerchant = await fetchMerchant(user.id);
+            setMerchant(updatedMerchant);
+
+            return { success: true };
+        } catch (err) {
+            return { success: false, error: 'An unexpected error occurred' };
+        }
+    };
+
+    // Refresh merchant data
+    const refreshMerchant = async () => {
+        if (user) {
+            const merchantData = await fetchMerchant(user.id);
+            setMerchant(merchantData);
+        }
+    };
+
+    const value: MerchantAuthContextType = {
+        user,
+        session,
+        merchant,
+        isAuthenticated: !!user && !!merchant,
+        isLoading,
+        login,
+        register,
+        logout,
+        updateMerchant,
+        refreshMerchant,
+    };
+
+    return (
+        <MerchantAuthContext.Provider value={value}>
+            {children}
+        </MerchantAuthContext.Provider>
+    );
+}
+
+export function useMerchantAuth() {
+    const context = useContext(MerchantAuthContext);
+    if (context === undefined) {
+        throw new Error('useMerchantAuth must be used within a MerchantAuthProvider');
+    }
+    return context;
+}

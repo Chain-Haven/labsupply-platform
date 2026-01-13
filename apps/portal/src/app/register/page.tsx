@@ -7,9 +7,11 @@ import { Package, Mail, Lock, User, Building, ArrowRight, Loader2, Check } from 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useMerchantAuth } from '@/lib/merchant-auth';
 
 export default function RegisterPage() {
     const router = useRouter();
+    const { register } = useMerchantAuth();
     const [formData, setFormData] = useState({
         companyName: '',
         contactName: '',
@@ -19,6 +21,7 @@ export default function RegisterPage() {
     });
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState(false);
     const [agreedToTerms, setAgreedToTerms] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -34,6 +37,11 @@ export default function RegisterPage() {
             return;
         }
 
+        if (formData.password.length < 8) {
+            setError('Password must be at least 8 characters');
+            return;
+        }
+
         if (!agreedToTerms) {
             setError('Please agree to the terms and conditions');
             return;
@@ -41,10 +49,19 @@ export default function RegisterPage() {
 
         setIsLoading(true);
 
-        // Demo registration - in production this would call Supabase Auth
-        setTimeout(() => {
-            router.push('/onboarding');
-        }, 1500);
+        const result = await register(formData.email, formData.password, formData.companyName);
+
+        if (result.success) {
+            setSuccess(true);
+            // Redirect to dashboard after successful registration
+            // User may need to verify email first depending on Supabase settings
+            setTimeout(() => {
+                router.push('/dashboard');
+            }, 2000);
+        } else {
+            setError(result.error || 'Registration failed. Please try again.');
+            setIsLoading(false);
+        }
     };
 
     const benefits = [
@@ -53,6 +70,29 @@ export default function RegisterPage() {
         'Prepay wallet for transparent billing',
         'Real-time tracking updates',
     ];
+
+    if (success) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+                <div className="absolute inset-0 overflow-hidden">
+                    <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-violet-500/20 rounded-full blur-3xl" />
+                    <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl" />
+                </div>
+                <Card className="relative border-white/10 bg-white/5 backdrop-blur-xl max-w-md w-full">
+                    <CardContent className="pt-8 pb-8 text-center">
+                        <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+                            <Check className="w-8 h-8 text-green-400" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-white mb-2">Account Created!</h2>
+                        <p className="text-white/60 mb-4">
+                            Your merchant account has been created. Redirecting to dashboard...
+                        </p>
+                        <Loader2 className="w-6 h-6 animate-spin text-violet-400 mx-auto" />
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">

@@ -7,9 +7,11 @@ import { Package, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useMerchantAuth } from '@/lib/merchant-auth';
 
 export default function LoginPage() {
     const router = useRouter();
+    const { login, isLoading: authLoading } = useMerchantAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -20,15 +22,20 @@ export default function LoginPage() {
         setIsLoading(true);
         setError('');
 
-        // Demo login - in production this would call Supabase Auth
-        setTimeout(() => {
-            if (email && password) {
-                router.push('/dashboard');
-            } else {
-                setError('Please enter email and password');
-                setIsLoading(false);
-            }
-        }, 1000);
+        if (!email || !password) {
+            setError('Please enter email and password');
+            setIsLoading(false);
+            return;
+        }
+
+        const result = await login(email, password);
+
+        if (result.success) {
+            router.push('/dashboard');
+        } else {
+            setError(result.error || 'Invalid email or password');
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -101,7 +108,7 @@ export default function LoginPage() {
 
                             <Button
                                 type="submit"
-                                disabled={isLoading}
+                                disabled={isLoading || authLoading}
                                 className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-90"
                             >
                                 {isLoading ? (
@@ -124,13 +131,6 @@ export default function LoginPage() {
                                 <Link href="/register" className="text-violet-400 hover:text-violet-300 font-medium">
                                     Create one
                                 </Link>
-                            </p>
-                        </div>
-
-                        {/* Demo credentials hint */}
-                        <div className="mt-6 p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
-                            <p className="text-xs text-violet-300 text-center">
-                                <strong>Demo:</strong> Enter any email/password to access the dashboard
                             </p>
                         </div>
                     </CardContent>

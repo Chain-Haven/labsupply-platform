@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
     Package,
     ShoppingCart,
@@ -13,10 +13,12 @@ import {
     Menu,
     X,
     Upload,
-    LayoutDashboard
+    LayoutDashboard,
+    Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useMerchantAuth } from '@/lib/merchant-auth';
 
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -34,7 +36,48 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
+    const router = useRouter();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const { user, merchant, isLoading, isAuthenticated, logout } = useMerchantAuth();
+
+    // Redirect to login if not authenticated
+    useEffect(() => {
+        if (!isLoading && !isAuthenticated) {
+            router.push('/login');
+        }
+    }, [isLoading, isAuthenticated, router]);
+
+    const handleLogout = async () => {
+        await logout();
+        router.push('/login');
+    };
+
+    // Get display name and initials
+    const displayName = merchant?.company_name || user?.email?.split('@')[0] || 'Merchant';
+    const displayEmail = user?.email || '';
+    const initials = displayName
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+
+    // Show loading while checking auth
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+                <div className="text-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-violet-600 mx-auto mb-4" />
+                    <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Don't render dashboard if not authenticated
+    if (!isAuthenticated) {
+        return null;
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -96,6 +139,7 @@ export default function DashboardLayout({
                     <Button
                         variant="ghost"
                         className="w-full justify-start text-gray-700 dark:text-gray-300"
+                        onClick={handleLogout}
                     >
                         <LogOut className="w-5 h-5 mr-3" />
                         Sign Out
@@ -118,11 +162,11 @@ export default function DashboardLayout({
 
                     <div className="flex items-center gap-4">
                         <div className="text-right">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">Demo Merchant</p>
-                            <p className="text-xs text-gray-500">demo@example.com</p>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">{displayName}</p>
+                            <p className="text-xs text-gray-500">{displayEmail}</p>
                         </div>
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white font-medium">
-                            DM
+                            {initials}
                         </div>
                     </div>
                 </header>
