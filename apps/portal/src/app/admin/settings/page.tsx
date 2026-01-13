@@ -817,7 +817,7 @@ export default function SettingsPage() {
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <span className="text-xs text-gray-400">
-                                                    Added {formatRelativeTime(admin.createdAt)}
+                                                    Added {formatRelativeTime(admin.created_at)}
                                                 </span>
                                                 {admin.role !== 'super_admin' && (
                                                     <Button
