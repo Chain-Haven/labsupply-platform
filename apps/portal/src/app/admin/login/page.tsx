@@ -100,9 +100,14 @@ export default function AdminLoginPage() {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Password
-                            </label>
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Password
+                                </label>
+                                <a href="/forgot-password" className="text-sm text-orange-600 hover:text-orange-500">
+                                    Forgot password?
+                                </a>
+                            </div>
                             <div className="relative">
                                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                 <Input
