@@ -23,7 +23,11 @@ import {
     Wallet,
     Store,
     Mail,
-    Phone
+    Phone,
+    FileText,
+    Truck,
+    ExternalLink,
+    CreditCard
 } from 'lucide-react';
 import { cn, formatRelativeTime } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -41,6 +45,10 @@ interface Merchant {
     lifetime_spend_cents: number;
     wallet_balance_cents?: number;
     notes?: string;
+    can_ship?: boolean;
+    legal_opinion_letter_url?: string;
+    subscription_status?: string;
+    subscription_id?: string;
 }
 
 // Merchants data - empty by default (fetched from API in production)
@@ -215,7 +223,8 @@ export default function MerchantsPage() {
                                 <th className="text-left p-4 text-sm font-medium text-gray-500">Company</th>
                                 <th className="text-left p-4 text-sm font-medium text-gray-500">Type</th>
                                 <th className="text-left p-4 text-sm font-medium text-gray-500">KYB Status</th>
-                                <th className="text-right p-4 text-sm font-medium text-gray-500">Stores</th>
+                                <th className="text-center p-4 text-sm font-medium text-gray-500">Can Ship</th>
+                                <th className="text-center p-4 text-sm font-medium text-gray-500">Legal Doc</th>
                                 <th className="text-right p-4 text-sm font-medium text-gray-500">Lifetime Spend</th>
                                 <th className="text-left p-4 text-sm font-medium text-gray-500">Joined</th>
                                 <th className="text-right p-4 text-sm font-medium text-gray-500">Actions</th>
@@ -247,7 +256,34 @@ export default function MerchantsPage() {
                                             {merchant.kyb_status.replace('_', ' ')}
                                         </span>
                                     </td>
-                                    <td className="p-4 text-right text-gray-500">{merchant.stores_count}</td>
+                                    <td className="p-4 text-center">
+                                        {merchant.can_ship ? (
+                                            <span className="inline-flex items-center gap-1 text-green-600">
+                                                <Truck className="w-4 h-4" />
+                                                <span className="text-xs">Yes</span>
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 text-gray-400">
+                                                <XCircle className="w-4 h-4" />
+                                                <span className="text-xs">No</span>
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="p-4 text-center">
+                                        {merchant.legal_opinion_letter_url ? (
+                                            <a
+                                                href={merchant.legal_opinion_letter_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700"
+                                            >
+                                                <FileText className="w-4 h-4" />
+                                                <ExternalLink className="w-3 h-3" />
+                                            </a>
+                                        ) : (
+                                            <span className="text-gray-400 text-xs">—</span>
+                                        )}
+                                    </td>
                                     <td className="p-4 text-right font-medium text-gray-900 dark:text-white">
                                         ${(merchant.lifetime_spend_cents / 100).toLocaleString()}
                                     </td>
@@ -398,6 +434,83 @@ export default function MerchantsPage() {
                                     ))}
                                 </div>
                             </div>
+
+                            {/* Shipping Permission */}
+                            <div>
+                                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                                    <Truck className="w-4 h-4" />
+                                    Shipping Permission
+                                </h4>
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={() => setEditingMerchant({ ...editingMerchant, can_ship: true })}
+                                        className={cn(
+                                            'px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2',
+                                            editingMerchant.can_ship
+                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400'
+                                        )}
+                                    >
+                                        <CheckCircle className="w-4 h-4" />
+                                        Can Ship
+                                    </button>
+                                    <button
+                                        onClick={() => setEditingMerchant({ ...editingMerchant, can_ship: false })}
+                                        className={cn(
+                                            'px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2',
+                                            !editingMerchant.can_ship
+                                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400'
+                                        )}
+                                    >
+                                        <XCircle className="w-4 h-4" />
+                                        Cannot Ship
+                                    </button>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Merchant must have approved KYB status to ship orders.
+                                </p>
+                            </div>
+
+                            {/* Legal Opinion Letter */}
+                            <div>
+                                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                                    <FileText className="w-4 h-4" />
+                                    Legal Opinion Letter
+                                </h4>
+                                {editingMerchant.legal_opinion_letter_url ? (
+                                    <a
+                                        href={editingMerchant.legal_opinion_letter_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+                                    >
+                                        <FileText className="w-4 h-4" />
+                                        View Document
+                                        <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                ) : (
+                                    <p className="text-sm text-gray-500">No legal opinion letter uploaded.</p>
+                                )}
+                            </div>
+
+                            {/* Subscription Status */}
+                            {editingMerchant.subscription_status && (
+                                <div>
+                                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                                        <CreditCard className="w-4 h-4" />
+                                        Subscription
+                                    </h4>
+                                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                        <p className="text-sm">
+                                            <span className="font-medium capitalize">{editingMerchant.subscription_status}</span>
+                                            {editingMerchant.subscription_id && (
+                                                <span className="text-gray-500 text-xs ml-2">({editingMerchant.subscription_id})</span>
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Account Stats (Read-only) */}
                             <div>
