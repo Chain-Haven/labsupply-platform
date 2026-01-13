@@ -1,145 +1,224 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createBrowserClient } from '@/lib/supabase';
+import { User, Session } from '@supabase/supabase-js';
 
-// Super admin email - only this user can access admin initially
+// Super admin email - this user is always an admin
 const SUPER_ADMIN_EMAIL = 'info@chainhaven.co';
 
-// Admin user type
+// Admin user type from database
 export interface AdminUser {
     id: string;
+    user_id: string;
     email: string;
     name: string;
     role: 'super_admin' | 'admin';
-    createdAt: string;
-    createdBy?: string;
+    created_at: string;
+    created_by?: string;
 }
 
-// Initial admin users (super admin only)
-const initialAdminUsers: AdminUser[] = [
-    {
-        id: 'super_admin_1',
-        email: SUPER_ADMIN_EMAIL,
-        name: 'ChainHaven Admin',
-        role: 'super_admin',
-        createdAt: new Date().toISOString(),
-    }
-];
-
 interface AdminAuthContextType {
+    user: User | null;
+    session: Session | null;
     currentAdmin: AdminUser | null;
     isAuthenticated: boolean;
     isLoading: boolean;
     isSuperAdmin: boolean;
     adminUsers: AdminUser[];
-    login: (email: string, password: string) => Promise<boolean>;
-    logout: () => void;
-    addAdminUser: (email: string, name: string) => Promise<boolean>;
+    login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+    logout: () => Promise<void>;
+    addAdminUser: (email: string, name: string) => Promise<{ success: boolean; error?: string }>;
     removeAdminUser: (id: string) => Promise<boolean>;
+    refreshAdminUsers: () => Promise<void>;
 }
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
 
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
+    const [user, setUser] = useState<User | null>(null);
+    const [session, setSession] = useState<Session | null>(null);
     const [currentAdmin, setCurrentAdmin] = useState<AdminUser | null>(null);
+    const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [adminUsers, setAdminUsers] = useState<AdminUser[]>(() => {
-        // Load from localStorage if available
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('labsupply_admin_users');
-            if (saved) {
-                try {
-                    return JSON.parse(saved);
-                } catch {
-                    return initialAdminUsers;
-                }
-            }
-        }
-        return initialAdminUsers;
-    });
 
-    // Check for existing session on mount
-    useEffect(() => {
-        const savedSession = localStorage.getItem('labsupply_admin_session');
-        if (savedSession) {
-            try {
-                const session = JSON.parse(savedSession);
-                // Verify this admin still exists in the users list
-                const adminExists = adminUsers.find(u => u.email === session.email);
-                if (adminExists) {
-                    setCurrentAdmin(adminExists);
-                } else {
-                    localStorage.removeItem('labsupply_admin_session');
-                }
-            } catch {
-                localStorage.removeItem('labsupply_admin_session');
-            }
-        }
-        setIsLoading(false);
-    }, [adminUsers]);
+    const supabase = createBrowserClient();
 
-    // Save admin users to localStorage whenever it changes
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('labsupply_admin_users', JSON.stringify(adminUsers));
-        }
-    }, [adminUsers]);
-
-    const login = async (email: string, password: string): Promise<boolean> => {
-        // Note: In production, this should validate against a real auth system
-        // For demo purposes, we check if the email is in the admin users list
-        const normalizedEmail = email.toLowerCase().trim();
-
-        const adminUser = adminUsers.find(u => u.email.toLowerCase() === normalizedEmail);
-
-        if (!adminUser) {
+    // Check if user is an admin and fetch admin data
+    const checkAndSetAdmin = async (authUser: User | null) => {
+        if (!authUser) {
+            setCurrentAdmin(null);
+            setAdminUsers([]);
             return false;
         }
 
-        // In production, verify password here
-        // For demo, we accept any password for authorized admins
-        if (password.length < 1) {
-            return false;
+        const email = authUser.email?.toLowerCase() || '';
+
+        // Check if user is in admin_users table
+        const { data: adminData, error } = await supabase
+            .from('admin_users')
+            .select('*')
+            .eq('email', email)
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            console.error('Error checking admin status:', error);
         }
 
-        setCurrentAdmin(adminUser);
-        localStorage.setItem('labsupply_admin_session', JSON.stringify({
-            email: adminUser.email,
-            loginTime: new Date().toISOString()
-        }));
+        // If user is the super admin but not in table, create their record
+        if (!adminData && email === SUPER_ADMIN_EMAIL) {
+            const { data: newAdmin, error: insertError } = await supabase
+                .from('admin_users')
+                .insert({
+                    user_id: authUser.id,
+                    email: email,
+                    name: 'ChainHaven Admin',
+                    role: 'super_admin',
+                })
+                .select()
+                .single();
 
-        return true;
-    };
+            if (!insertError && newAdmin) {
+                setCurrentAdmin(newAdmin);
+                await refreshAdminUsers();
+                return true;
+            }
+        }
 
-    const logout = () => {
+        if (adminData) {
+            setCurrentAdmin(adminData);
+            await refreshAdminUsers();
+            return true;
+        }
+
+        // User is authenticated but not an admin
         setCurrentAdmin(null);
-        localStorage.removeItem('labsupply_admin_session');
+        return false;
     };
 
-    const addAdminUser = async (email: string, name: string): Promise<boolean> => {
-        // Only super admin can add users
-        if (!currentAdmin || currentAdmin.role !== 'super_admin') {
-            return false;
+    // Fetch all admin users (only for super admin)
+    const refreshAdminUsers = async () => {
+        const { data, error } = await supabase
+            .from('admin_users')
+            .select('*')
+            .order('created_at', { ascending: true });
+
+        if (!error && data) {
+            setAdminUsers(data);
         }
+    };
 
-        const normalizedEmail = email.toLowerCase().trim();
+    // Initialize auth state
+    useEffect(() => {
+        const initAuth = async () => {
+            setIsLoading(true);
 
-        // Check if user already exists
-        if (adminUsers.some(u => u.email.toLowerCase() === normalizedEmail)) {
-            return false;
-        }
+            // Get current session
+            const { data: { session: currentSession } } = await supabase.auth.getSession();
+            setSession(currentSession);
+            setUser(currentSession?.user || null);
 
-        const newAdmin: AdminUser = {
-            id: `admin_${Date.now()}`,
-            email: normalizedEmail,
-            name,
-            role: 'admin',
-            createdAt: new Date().toISOString(),
-            createdBy: currentAdmin.email,
+            if (currentSession?.user) {
+                await checkAndSetAdmin(currentSession.user);
+            }
+
+            setIsLoading(false);
         };
 
-        setAdminUsers(prev => [...prev, newAdmin]);
-        return true;
+        initAuth();
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+            setSession(newSession);
+            setUser(newSession?.user || null);
+
+            if (newSession?.user) {
+                await checkAndSetAdmin(newSession.user);
+            } else {
+                setCurrentAdmin(null);
+                setAdminUsers([]);
+            }
+        });
+
+        return () => {
+            subscription.unsubscribe();
+        };
+    }, []);
+
+    const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+        const normalizedEmail = email.toLowerCase().trim();
+
+        // Sign in with Supabase
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email: normalizedEmail,
+            password,
+        });
+
+        if (error) {
+            return { success: false, error: error.message };
+        }
+
+        if (!data.user) {
+            return { success: false, error: 'Login failed' };
+        }
+
+        // Check if user is an admin
+        const isAdmin = await checkAndSetAdmin(data.user);
+
+        if (!isAdmin) {
+            // Sign out if not an admin
+            await supabase.auth.signOut();
+            return { success: false, error: 'You do not have admin access. Contact your administrator.' };
+        }
+
+        return { success: true };
+    };
+
+    const logout = async () => {
+        await supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
+        setCurrentAdmin(null);
+        setAdminUsers([]);
+    };
+
+    const addAdminUser = async (email: string, name: string): Promise<{ success: boolean; error?: string }> => {
+        // Only super admin can add users
+        if (!currentAdmin || currentAdmin.role !== 'super_admin') {
+            return { success: false, error: 'Only super admin can add users' };
+        }
+
+        const normalizedEmail = email.toLowerCase().trim();
+
+        // Check if user already exists as admin
+        const { data: existing } = await supabase
+            .from('admin_users')
+            .select('id')
+            .eq('email', normalizedEmail)
+            .single();
+
+        if (existing) {
+            return { success: false, error: 'This email is already an admin' };
+        }
+
+        // Create the admin user record (they will need to sign up separately)
+        const { error } = await supabase
+            .from('admin_users')
+            .insert({
+                user_id: null, // Will be linked when they sign up
+                email: normalizedEmail,
+                name,
+                role: 'admin',
+                created_by: currentAdmin.email,
+            });
+
+        if (error) {
+            console.error('Error adding admin:', error);
+            return { success: false, error: error.message };
+        }
+
+        await refreshAdminUsers();
+        return { success: true };
     };
 
     const removeAdminUser = async (id: string): Promise<boolean> => {
@@ -154,12 +233,24 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
             return false;
         }
 
-        setAdminUsers(prev => prev.filter(u => u.id !== id));
+        const { error } = await supabase
+            .from('admin_users')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error('Error removing admin:', error);
+            return false;
+        }
+
+        await refreshAdminUsers();
         return true;
     };
 
     return (
         <AdminAuthContext.Provider value={{
+            user,
+            session,
             currentAdmin,
             isAuthenticated: !!currentAdmin,
             isLoading,
@@ -169,6 +260,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
             logout,
             addAdminUser,
             removeAdminUser,
+            refreshAdminUsers,
         }}>
             {children}
         </AdminAuthContext.Provider>

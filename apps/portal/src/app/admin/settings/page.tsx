@@ -75,15 +75,15 @@ export default function SettingsPage() {
             return;
         }
         setIsAddingAdmin(true);
-        const success = await addAdminUser(newAdminEmail, newAdminName);
+        const result = await addAdminUser(newAdminEmail, newAdminName);
         setIsAddingAdmin(false);
-        if (success) {
+        if (result.success) {
             toast({ title: 'Admin added', description: `${newAdminName} has been added as an admin.` });
             setNewAdminEmail('');
             setNewAdminName('');
             setShowAddAdminForm(false);
         } else {
-            toast({ title: 'Failed to add admin', description: 'This email may already be registered.', variant: 'destructive' });
+            toast({ title: 'Failed to add admin', description: result.error || 'This email may already be registered.', variant: 'destructive' });
         }
     };
 

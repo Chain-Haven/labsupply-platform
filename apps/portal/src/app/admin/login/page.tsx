@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,10 +17,11 @@ export default function AdminLoginPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Redirect if already authenticated
-    if (!isLoading && isAuthenticated) {
-        router.push('/admin');
-        return null;
-    }
+    useEffect(() => {
+        if (!isLoading && isAuthenticated) {
+            router.push('/admin');
+        }
+    }, [isLoading, isAuthenticated, router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -28,11 +29,11 @@ export default function AdminLoginPage() {
         setIsSubmitting(true);
 
         try {
-            const success = await login(email, password);
-            if (success) {
+            const result = await login(email, password);
+            if (result.success) {
                 router.push('/admin');
             } else {
-                setError('Invalid credentials. Only authorized administrators can access this portal.');
+                setError(result.error || 'Invalid credentials. Only authorized administrators can access this portal.');
             }
         } catch (err) {
             setError('An error occurred. Please try again.');
@@ -42,6 +43,14 @@ export default function AdminLoginPage() {
     };
 
     if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-950">
+                <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
+            </div>
+        );
+    }
+
+    if (isAuthenticated) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-950">
                 <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
@@ -66,8 +75,8 @@ export default function AdminLoginPage() {
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {error && (
-                            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                                <AlertCircle className="w-4 h-4 text-red-600" />
+                            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                                <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
                                 <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
                             </div>
                         )}
@@ -85,6 +94,7 @@ export default function AdminLoginPage() {
                                     onChange={(e) => setEmail(e.target.value)}
                                     className="pl-10"
                                     required
+                                    autoComplete="email"
                                 />
                             </div>
                         </div>
@@ -102,6 +112,7 @@ export default function AdminLoginPage() {
                                     onChange={(e) => setPassword(e.target.value)}
                                     className="pl-10"
                                     required
+                                    autoComplete="current-password"
                                 />
                             </div>
                         </div>
@@ -130,3 +141,4 @@ export default function AdminLoginPage() {
         </div>
     );
 }
+
