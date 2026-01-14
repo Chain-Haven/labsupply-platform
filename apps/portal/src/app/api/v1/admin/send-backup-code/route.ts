@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import nodemailer from 'nodemailer';
 
 // Mark as dynamic
 export const dynamic = 'force-dynamic';
@@ -8,12 +9,16 @@ export const dynamic = 'force-dynamic';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-// Resend API (optional) - for direct email delivery
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
+// SMTP Configuration (loaded from environment variables for security)
+const SMTP_HOST = process.env.SMTP_HOST || 'smtp.protonmail.ch';
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+const SMTP_FROM = process.env.SMTP_FROM || 'cs@peptidetech.co';
 
 /**
  * POST /api/v1/admin/send-backup-code
- * Generate and send an 8-digit backup code to admin email
+ * Generate and send an 8-digit backup code to admin email via Proton SMTP
  */
 export async function POST(request: NextRequest) {
     try {
@@ -57,60 +62,69 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to generate code' }, { status: 500 });
         }
 
-        // Send email with Resend if available, otherwise use SMTP
-        let emailSent = false;
-
-        if (RESEND_API_KEY) {
+        // Send email via Proton SMTP
+        if (SMTP_USER && SMTP_PASS) {
             try {
-                const response = await fetch('https://api.resend.com/emails', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${RESEND_API_KEY}`,
-                        'Content-Type': 'application/json',
+                // Create transporter with TLS
+                const transporter = nodemailer.createTransport({
+                    host: SMTP_HOST,
+                    port: SMTP_PORT,
+                    secure: false, // Use STARTTLS
+                    auth: {
+                        user: SMTP_USER,
+                        pass: SMTP_PASS,
                     },
-                    body: JSON.stringify({
-                        from: 'LabSupply Admin <noreply@peptidetech.co>',
-                        to: email,
-                        subject: 'Your Admin Login Code',
-                        html: `
-                            <h2>Admin Login Code</h2>
-                            <p>Your 8-digit backup login code is:</p>
-                            <h1 style="font-size: 32px; letter-spacing: 4px; color: #7c3aed; font-family: monospace;">${code}</h1>
-                            <p>This code expires in 10 minutes.</p>
-                            <p>If you did not request this code, please ignore this email.</p>
-                            <hr>
-                            <p style="color: #666; font-size: 12px;">LabSupply Admin Portal</p>
-                        `,
-                    }),
+                    tls: {
+                        // Enable TLS
+                        rejectUnauthorized: true,
+                        minVersion: 'TLSv1.2',
+                    },
                 });
 
-                if (response.ok) {
-                    emailSent = true;
-                } else {
-                    console.error('Resend email failed:', await response.text());
-                }
-            } catch (emailError) {
-                console.error('Resend email error:', emailError);
-            }
-        }
+                // Send email
+                await transporter.sendMail({
+                    from: `"LabSupply Admin" <${SMTP_FROM}>`,
+                    to: email,
+                    subject: 'Your Admin Login Code',
+                    text: `Your 8-digit backup login code is: ${code}\n\nThis code expires in 10 minutes.\n\nIf you did not request this code, please ignore this email.\n\nLabSupply Admin Portal`,
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
+                            <h2 style="color: #333;">Admin Login Code</h2>
+                            <p>Your 8-digit backup login code is:</p>
+                            <div style="background: #f5f5f5; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+                                <h1 style="font-size: 36px; letter-spacing: 6px; color: #7c3aed; font-family: monospace; margin: 0;">${code}</h1>
+                            </div>
+                            <p style="color: #666;">This code expires in <strong>10 minutes</strong>.</p>
+                            <p style="color: #999; font-size: 12px;">If you did not request this code, please ignore this email.</p>
+                            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                            <p style="color: #999; font-size: 12px;">LabSupply Admin Portal</p>
+                        </div>
+                    `,
+                });
 
-        // If Resend is not available or failed, try Supabase's built-in email
-        if (!emailSent) {
-            try {
-                // Use Supabase auth to send a custom email via their SMTP
-                // This is a workaround - we'll use the invite flow
-                console.log('Resend not available, code stored in database:', code);
-                // In production, you should configure Resend or another email provider
-            } catch (supabaseEmailError) {
-                console.error('Supabase email error:', supabaseEmailError);
+                console.log('Backup code email sent successfully to:', email);
+            } catch (emailError) {
+                console.error('SMTP email error:', emailError);
+                // Still return success since code is stored in database
+                // Admin can check the database directly if email fails
+                return NextResponse.json({
+                    success: true,
+                    message: 'Code generated but email delivery failed. Please check database.',
+                    emailError: true,
+                });
             }
+        } else {
+            console.warn('SMTP credentials not configured. Code stored in database only.');
+            return NextResponse.json({
+                success: true,
+                message: 'Code generated. SMTP not configured - check database.',
+                smtpNotConfigured: true,
+            });
         }
 
         return NextResponse.json({
             success: true,
             message: 'Backup code sent to email',
-            // In production, NEVER return the code in the response
-            // We only do this temporarily for testing
         });
     } catch (error) {
         console.error('Send backup code error:', error);
