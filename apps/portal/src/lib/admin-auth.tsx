@@ -18,6 +18,13 @@ export interface AdminUser {
     created_by?: string;
 }
 
+// Backup session type (for backup code authentication)
+interface BackupSession {
+    email: string;
+    role: 'super_admin' | 'admin';
+    expiresAt: string;
+}
+
 interface AdminAuthContextType {
     user: User | null;
     session: Session | null;
@@ -26,6 +33,7 @@ interface AdminAuthContextType {
     isLoading: boolean;
     isSuperAdmin: boolean;
     adminUsers: AdminUser[];
+    backupSession: BackupSession | null;
     login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
     logout: () => Promise<void>;
     addAdminUser: (email: string, name: string) => Promise<{ success: boolean; error?: string }>;
@@ -40,6 +48,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     const [session, setSession] = useState<Session | null>(null);
     const [currentAdmin, setCurrentAdmin] = useState<AdminUser | null>(null);
     const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+    const [backupSession, setBackupSession] = useState<BackupSession | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     const supabase = createBrowserClient();
@@ -96,6 +105,30 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         return false;
     };
 
+    // Check for backup session from cookie
+    const checkBackupSession = async (): Promise<BackupSession | null> => {
+        try {
+            const response = await fetch('/api/v1/admin/validate-backup-session', {
+                method: 'GET',
+                credentials: 'include',
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.valid && data.email) {
+                    return {
+                        email: data.email,
+                        role: data.email.toLowerCase() === SUPER_ADMIN_EMAIL ? 'super_admin' : 'admin',
+                        expiresAt: data.expiresAt || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                    };
+                }
+            }
+        } catch (error) {
+            console.error('Error checking backup session:', error);
+        }
+        return null;
+    };
+
     // Fetch all admin users (only for super admin)
     const refreshAdminUsers = async () => {
         const { data, error } = await supabase
@@ -113,13 +146,32 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         const initAuth = async () => {
             setIsLoading(true);
 
-            // Get current session
+            // First, check for Supabase session
             const { data: { session: currentSession } } = await supabase.auth.getSession();
             setSession(currentSession);
             setUser(currentSession?.user || null);
 
             if (currentSession?.user) {
                 await checkAndSetAdmin(currentSession.user);
+                setIsLoading(false);
+                return;
+            }
+
+            // If no Supabase session, check for backup session cookie
+            const backupSessionData = await checkBackupSession();
+            if (backupSessionData) {
+                setBackupSession(backupSessionData);
+                // Create a synthetic admin user for the backup session
+                const syntheticAdmin: AdminUser = {
+                    id: 'backup-session',
+                    user_id: 'backup-session',
+                    email: backupSessionData.email,
+                    name: backupSessionData.email.toLowerCase() === SUPER_ADMIN_EMAIL ? 'ChainHaven Admin' : 'Admin',
+                    role: backupSessionData.role,
+                    created_at: new Date().toISOString(),
+                };
+                setCurrentAdmin(syntheticAdmin);
+                await refreshAdminUsers();
             }
 
             setIsLoading(false);
@@ -176,10 +228,22 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
     const logout = async () => {
         await supabase.auth.signOut();
+        // Also clear backup session cookie if exists
+        if (backupSession) {
+            try {
+                await fetch('/api/v1/admin/logout-backup-session', {
+                    method: 'POST',
+                    credentials: 'include',
+                });
+            } catch (error) {
+                console.error('Error clearing backup session:', error);
+            }
+        }
         setUser(null);
         setSession(null);
         setCurrentAdmin(null);
         setAdminUsers([]);
+        setBackupSession(null);
     };
 
     const addAdminUser = async (email: string, name: string): Promise<{ success: boolean; error?: string }> => {
@@ -256,6 +320,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
             isLoading,
             isSuperAdmin: currentAdmin?.role === 'super_admin',
             adminUsers,
+            backupSession,
             login,
             logout,
             addAdminUser,
