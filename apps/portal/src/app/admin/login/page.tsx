@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Package, Lock, Mail, AlertCircle, Loader2, KeyRound, CheckCircle } from 'lucide-react';
 import { useAdminAuth } from '@/lib/admin-auth';
-import { createBrowserClient } from '@/lib/supabase';
 
 export default function AdminLoginPage() {
     const router = useRouter();
@@ -53,7 +52,7 @@ export default function AdminLoginPage() {
 
     const handleSendBackupCode = async () => {
         if (!email) {
-            setError('Please enter your admin email address first');
+            setError('Please enter your admin email address');
             return;
         }
 
@@ -62,54 +61,24 @@ export default function AdminLoginPage() {
         setSuccess('');
 
         try {
-            const supabase = createBrowserClient();
-
-            // Generate 8-digit code
-            const code = Math.floor(10000000 + Math.random() * 90000000).toString();
-            const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-            // Store the code in Supabase
-            const { error: insertError } = await supabase
-                .from('admin_login_codes')
-                .insert({
-                    email: email.toLowerCase(),
-                    code: code,
-                    expires_at: expiresAt.toISOString(),
-                });
-
-            if (insertError) {
-                console.error('Error storing code:', insertError);
-                // Fall back to a direct email approach
-                // For now, just show the code in the console for testing
-                console.log('BACKUP CODE FOR', email, ':', code);
-            }
-
-            // Send email via Supabase Edge Function or direct email (for now, using Supabase Auth)
-            // Since we can't send email directly, we'll use passwordless sign-in as backup
-            const { error: otpError } = await supabase.auth.signInWithOtp({
-                email: email,
-                options: {
-                    shouldCreateUser: false,
-                    data: { backup_code: code },
-                },
+            const response = await fetch('/api/v1/admin/send-backup-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email.toLowerCase() }),
             });
 
-            if (otpError) {
-                // If OTP fails, we can still proceed with the stored code
-                console.log('OTP error (might be expected):', otpError);
+            const data = await response.json();
+
+            if (!response.ok) {
+                setError(data.error || 'Failed to send backup code');
+                setSendingCode(false);
+                return;
             }
 
-            // For reliable backup, also store in localStorage for verification
-            localStorage.setItem('admin_backup_code', JSON.stringify({
-                code,
-                email: email.toLowerCase(),
-                expires: expiresAt.getTime(),
-            }));
-
             setCodeSent(true);
-            setSuccess(`A backup login code has been sent to ${email}. Check your email or use code: ${code} (shown for testing - remove in production)`);
+            setSuccess('A backup login code has been sent to your email. Please check your inbox.');
         } catch (err) {
-            console.error('Error sending backup code:', err);
+            console.error('Send code error:', err);
             setError('Failed to send backup code. Please try again.');
         } finally {
             setSendingCode(false);
@@ -123,71 +92,28 @@ export default function AdminLoginPage() {
         setIsSubmitting(true);
 
         try {
-            const supabase = createBrowserClient();
+            const response = await fetch('/api/v1/admin/verify-backup-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: email.toLowerCase(),
+                    code: backupCode,
+                }),
+            });
 
-            // First check localStorage backup
-            const storedData = localStorage.getItem('admin_backup_code');
-            if (storedData) {
-                const { code, email: storedEmail, expires } = JSON.parse(storedData);
-                if (
-                    code === backupCode &&
-                    storedEmail === email.toLowerCase() &&
-                    Date.now() < expires
-                ) {
-                    // Valid code - sign in the user
-                    localStorage.removeItem('admin_backup_code');
+            const data = await response.json();
 
-                    // Try to sign in with a magic link approach
-                    const { error: signInError } = await supabase.auth.signInWithOtp({
-                        email: email,
-                        options: {
-                            shouldCreateUser: false,
-                        },
-                    });
-
-                    if (signInError) {
-                        // If magic link fails, still allow access since code was valid
-                        setSuccess('Code verified! Redirecting...');
-                        // Set a session flag
-                        sessionStorage.setItem('admin_backup_verified', 'true');
-                        setTimeout(() => router.push('/admin'), 1000);
-                        return;
-                    }
-
-                    setSuccess('Code verified! Check your email for the login link.');
-                    setIsSubmitting(false);
-                    return;
-                }
-            }
-
-            // Check database for code
-            const { data: codeData, error: fetchError } = await supabase
-                .from('admin_login_codes')
-                .select()
-                .eq('email', email.toLowerCase())
-                .eq('code', backupCode)
-                .eq('used', false)
-                .gt('expires_at', new Date().toISOString())
-                .single();
-
-            if (fetchError || !codeData) {
-                setError('Invalid or expired code. Please try again.');
+            if (!response.ok) {
+                setError(data.error || 'Invalid or expired code');
                 setIsSubmitting(false);
                 return;
             }
 
-            // Mark code as used
-            await supabase
-                .from('admin_login_codes')
-                .update({ used: true, used_at: new Date().toISOString() })
-                .eq('id', codeData.id);
-
-            // Code is valid - allow access
             setSuccess('Code verified! Redirecting...');
-            sessionStorage.setItem('admin_backup_verified', 'true');
+            // The API sets a session cookie, redirect to admin
             setTimeout(() => router.push('/admin'), 1000);
         } catch (err) {
-            console.error('Backup login error:', err);
+            console.error('Verify code error:', err);
             setError('An error occurred. Please try again.');
         } finally {
             setIsSubmitting(false);
@@ -309,7 +235,7 @@ export default function AdminLoginPage() {
                                     className="w-full flex items-center justify-center gap-2 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
                                 >
                                     <KeyRound className="w-4 h-4" />
-                                    Use Backup Code Instead
+                                    Use Backup Code (Email Verification)
                                 </button>
                             </div>
 
@@ -375,7 +301,7 @@ export default function AdminLoginPage() {
                                 <>
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            8-Digit Backup Code
+                                            Enter 8-Digit Code from Email
                                         </label>
                                         <div className="relative">
                                             <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -411,7 +337,7 @@ export default function AdminLoginPage() {
 
                                     <button
                                         type="button"
-                                        onClick={() => { setCodeSent(false); setSuccess(''); }}
+                                        onClick={() => { setCodeSent(false); setSuccess(''); setBackupCode(''); }}
                                         className="w-full text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                                     >
                                         Resend Code
@@ -423,7 +349,7 @@ export default function AdminLoginPage() {
                             <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                                 <button
                                     type="button"
-                                    onClick={() => { setShowBackupAuth(false); setCodeSent(false); setError(''); setSuccess(''); }}
+                                    onClick={() => { setShowBackupAuth(false); setCodeSent(false); setError(''); setSuccess(''); setBackupCode(''); }}
                                     className="w-full flex items-center justify-center gap-2 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
                                 >
                                     <Lock className="w-4 h-4" />
