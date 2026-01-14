@@ -16,9 +16,13 @@ const SMTP_USER = process.env.SMTP_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || '';
 const SMTP_FROM = process.env.SMTP_FROM || 'cs@peptidetech.co';
 
+// Super admin email (hardcoded as primary fallback)
+const SUPER_ADMIN_EMAIL = 'info@chainhaven.co';
+
 /**
  * POST /api/v1/admin/send-backup-code
- * Generate and send an 8-digit backup code to admin email via Proton SMTP
+ * Generate and send an 8-digit backup code to verified admin email
+ * Only super admin (info@chainhaven.co) or invited admins can receive codes
  */
 export async function POST(request: NextRequest) {
     try {
@@ -28,31 +32,44 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Email is required' }, { status: 400 });
         }
 
-        // Validate it's a known admin email
-        const validAdminEmails = ['info@chainhaven.co'];
-        if (!validAdminEmails.includes(email.toLowerCase())) {
-            return NextResponse.json({ error: 'Invalid admin email' }, { status: 403 });
+        const normalizedEmail = email.toLowerCase();
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+        // Check if email is super admin (always allowed)
+        const isSuperAdmin = normalizedEmail === SUPER_ADMIN_EMAIL;
+
+        if (!isSuperAdmin) {
+            // Check if email is an invited admin in the database
+            const { data: adminUser, error: adminError } = await supabase
+                .from('admin_users')
+                .select()
+                .eq('email', normalizedEmail)
+                .eq('is_active', true)
+                .single();
+
+            if (adminError || !adminUser) {
+                return NextResponse.json({
+                    error: 'This email is not authorized. Only registered admins can receive backup codes.'
+                }, { status: 403 });
+            }
         }
 
         // Generate 8-digit code
         const code = Math.floor(10000000 + Math.random() * 90000000).toString();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-        // Store the code in Supabase
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
         // Delete any existing unused codes for this email
         await supabase
             .from('admin_login_codes')
             .delete()
-            .eq('email', email.toLowerCase())
+            .eq('email', normalizedEmail)
             .eq('used', false);
 
         // Insert new code
         const { error: insertError } = await supabase
             .from('admin_login_codes')
             .insert({
-                email: email.toLowerCase(),
+                email: normalizedEmail,
                 code: code,
                 expires_at: expiresAt.toISOString(),
             });
@@ -75,7 +92,6 @@ export async function POST(request: NextRequest) {
                         pass: SMTP_PASS,
                     },
                     tls: {
-                        // Enable TLS
                         rejectUnauthorized: true,
                         minVersion: 'TLSv1.2',
                     },
@@ -84,7 +100,7 @@ export async function POST(request: NextRequest) {
                 // Send email
                 await transporter.sendMail({
                     from: `"LabSupply Admin" <${SMTP_FROM}>`,
-                    to: email,
+                    to: normalizedEmail,
                     subject: 'Your Admin Login Code',
                     text: `Your 8-digit backup login code is: ${code}\n\nThis code expires in 10 minutes.\n\nIf you did not request this code, please ignore this email.\n\nLabSupply Admin Portal`,
                     html: `
@@ -102,14 +118,12 @@ export async function POST(request: NextRequest) {
                     `,
                 });
 
-                console.log('Backup code email sent successfully to:', email);
+                console.log('Backup code email sent successfully to:', normalizedEmail);
             } catch (emailError) {
                 console.error('SMTP email error:', emailError);
-                // Still return success since code is stored in database
-                // Admin can check the database directly if email fails
                 return NextResponse.json({
                     success: true,
-                    message: 'Code generated but email delivery failed. Please check database.',
+                    message: 'Code generated but email delivery failed. Please contact support.',
                     emailError: true,
                 });
             }
@@ -117,7 +131,7 @@ export async function POST(request: NextRequest) {
             console.warn('SMTP credentials not configured. Code stored in database only.');
             return NextResponse.json({
                 success: true,
-                message: 'Code generated. SMTP not configured - check database.',
+                message: 'Code generated. Email delivery not configured - please contact support.',
                 smtpNotConfigured: true,
             });
         }
