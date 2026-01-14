@@ -3,4 +3,5 @@ export { default as StepBusinessInfo } from './StepBusinessInfo';
 export { default as StepBillingAddress } from './StepBillingAddress';
 export { default as StepPaymentDocs } from './StepPaymentDocs';
 export { default as StepKYBDocs } from './StepKYBDocs';
+export { default as StepRUOCompliance } from './StepRUOCompliance';
 export { default as StepReview } from './StepReview';

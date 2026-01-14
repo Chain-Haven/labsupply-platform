@@ -3,18 +3,19 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Package, ArrowRight, ArrowLeft, Loader2, Check, Building, MapPin, CreditCard, FileText, FileCheck } from 'lucide-react';
+import { Package, ArrowRight, ArrowLeft, Loader2, Check, Building, MapPin, CreditCard, FileText, Shield, FileCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMerchantAuth } from '@/lib/merchant-auth';
-import { StepBusinessInfo, StepBillingAddress, StepPaymentDocs, StepKYBDocs, StepReview } from '@/components/registration';
+import { StepBusinessInfo, StepBillingAddress, StepPaymentDocs, StepKYBDocs, StepRUOCompliance, StepReview } from '@/components/registration';
 
 const STEPS = [
     { id: 1, name: 'Business', icon: Building },
     { id: 2, name: 'Billing', icon: MapPin },
     { id: 3, name: 'Payment', icon: CreditCard },
     { id: 4, name: 'KYB Docs', icon: FileText },
-    { id: 5, name: 'Review', icon: FileCheck },
+    { id: 5, name: 'Compliance', icon: Shield },
+    { id: 6, name: 'Review', icon: FileCheck },
 ];
 
 export default function RegisterPage() {
@@ -59,6 +60,16 @@ export default function RegisterPage() {
         legalOpinionLetter: { file: null as File | null, name: '' },
         website: '',
         phone: '',
+    });
+
+    const [ruoCompliance, setRuoCompliance] = useState({
+        labelingCompliant: false,
+        noMedicalClaims: false,
+        researchOnly: false,
+        websiteCompliant: false,
+        recordKeeping: false,
+        qualifiedPurchasers: false,
+        acknowledgeEnforcement: false,
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -108,6 +119,19 @@ export default function RegisterPage() {
         }
 
         if (step === 5) {
+            const allChecked = ruoCompliance.labelingCompliant &&
+                ruoCompliance.noMedicalClaims &&
+                ruoCompliance.researchOnly &&
+                ruoCompliance.websiteCompliant &&
+                ruoCompliance.recordKeeping &&
+                ruoCompliance.qualifiedPurchasers &&
+                ruoCompliance.acknowledgeEnforcement;
+            if (!allChecked) {
+                newErrors.ruoCompliance = 'You must confirm all compliance requirements';
+            }
+        }
+
+        if (step === 6) {
             if (!agreedToTerms) {
                 newErrors.terms = 'You must agree to the terms';
             }
@@ -127,7 +151,7 @@ export default function RegisterPage() {
             if (currentStep === 2 && !paymentDocs.cardName) {
                 setPaymentDocs(prev => ({ ...prev, cardName: billingAddress.billingName || businessInfo.companyName }));
             }
-            setCurrentStep(prev => Math.min(prev + 1, 5));
+            setCurrentStep(prev => Math.min(prev + 1, 6));
         }
     };
 
@@ -137,7 +161,7 @@ export default function RegisterPage() {
     };
 
     const handleSubmit = async () => {
-        if (!validateStep(5)) return;
+        if (!validateStep(6)) return;
 
         setIsLoading(true);
         setError('');
@@ -253,14 +277,16 @@ export default function RegisterPage() {
                             {currentStep === 2 && 'Billing Address'}
                             {currentStep === 3 && 'Payment Information'}
                             {currentStep === 4 && 'KYB Documents'}
-                            {currentStep === 5 && 'Review & Submit'}
+                            {currentStep === 5 && 'RUO Compliance'}
+                            {currentStep === 6 && 'Review & Submit'}
                         </CardTitle>
                         <CardDescription className="text-white/60">
                             {currentStep === 1 && 'Tell us about your research business'}
                             {currentStep === 2 && 'Enter your billing address (must match card)'}
                             {currentStep === 3 && 'Add your payment method'}
                             {currentStep === 4 && 'Upload required verification documents'}
-                            {currentStep === 5 && 'Review your information and subscription terms'}
+                            {currentStep === 5 && 'Confirm regulatory compliance requirements'}
+                            {currentStep === 6 && 'Review your information and subscription terms'}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
@@ -305,6 +331,14 @@ export default function RegisterPage() {
                         )}
 
                         {currentStep === 5 && (
+                            <StepRUOCompliance
+                                data={ruoCompliance}
+                                onChange={setRuoCompliance}
+                                errors={errors}
+                            />
+                        )}
+
+                        {currentStep === 6 && (
                             <StepReview
                                 data={{
                                     companyName: businessInfo.companyName,
@@ -339,7 +373,7 @@ export default function RegisterPage() {
                                 </Button>
                             )}
 
-                            {currentStep < 5 ? (
+                            {currentStep < 6 ? (
                                 <Button
                                     type="button"
                                     onClick={handleNext}
