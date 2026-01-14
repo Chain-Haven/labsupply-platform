@@ -3,17 +3,18 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Package, ArrowRight, ArrowLeft, Loader2, Check, Building, MapPin, CreditCard, FileCheck } from 'lucide-react';
+import { Package, ArrowRight, ArrowLeft, Loader2, Check, Building, MapPin, CreditCard, FileText, FileCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMerchantAuth } from '@/lib/merchant-auth';
-import { StepBusinessInfo, StepBillingAddress, StepPaymentDocs, StepReview } from '@/components/registration';
+import { StepBusinessInfo, StepBillingAddress, StepPaymentDocs, StepKYBDocs, StepReview } from '@/components/registration';
 
 const STEPS = [
-    { id: 1, name: 'Business Info', icon: Building },
-    { id: 2, name: 'Billing Address', icon: MapPin },
-    { id: 3, name: 'Payment & Docs', icon: CreditCard },
-    { id: 4, name: 'Review', icon: FileCheck },
+    { id: 1, name: 'Business', icon: Building },
+    { id: 2, name: 'Billing', icon: MapPin },
+    { id: 3, name: 'Payment', icon: CreditCard },
+    { id: 4, name: 'KYB Docs', icon: FileText },
+    { id: 5, name: 'Review', icon: FileCheck },
 ];
 
 export default function RegisterPage() {
@@ -48,7 +49,16 @@ export default function RegisterPage() {
         cardExpiry: '',
         cardCvc: '',
         cardName: '',
-        legalOpinionFile: null as File | null,
+    });
+
+    const [kybDocs, setKybDocs] = useState({
+        ownerIdDoc: { file: null as File | null, name: '' },
+        articlesOfOrg: { file: null as File | null, name: '' },
+        einDoc: { file: null as File | null, name: '' },
+        voidedCheck: { file: null as File | null, name: '' },
+        legalOpinionLetter: { file: null as File | null, name: '' },
+        website: '',
+        phone: '',
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -85,12 +95,19 @@ export default function RegisterPage() {
             if (cardDigits.length < 15) newErrors.cardNumber = 'Invalid card number';
             if (!paymentDocs.cardExpiry) newErrors.cardExpiry = 'Expiry date is required';
             if (!paymentDocs.cardCvc) newErrors.cardCvc = 'CVC is required';
-            if (!paymentDocs.legalOpinionFile) {
-                newErrors.legalOpinionFile = 'Legal opinion letter is required';
-            }
         }
 
         if (step === 4) {
+            if (!kybDocs.phone) newErrors.phone = 'Business phone is required';
+            if (!kybDocs.ownerIdDoc.file) newErrors.ownerIdDoc = 'Owner ID is required';
+            if (!kybDocs.articlesOfOrg.file) newErrors.articlesOfOrg = 'Articles of Organization is required';
+            if (!kybDocs.einDoc.file) newErrors.einDoc = 'EIN document is required';
+            if (!kybDocs.voidedCheck.file) newErrors.voidedCheck = 'Voided check or bank letter is required';
+            if (!kybDocs.legalOpinionLetter.file) newErrors.legalOpinionLetter = 'Legal opinion letter is required';
+            if (Object.keys(newErrors).length > 0) newErrors.documents = 'Please upload all required documents';
+        }
+
+        if (step === 5) {
             if (!agreedToTerms) {
                 newErrors.terms = 'You must agree to the terms';
             }
@@ -110,7 +127,7 @@ export default function RegisterPage() {
             if (currentStep === 2 && !paymentDocs.cardName) {
                 setPaymentDocs(prev => ({ ...prev, cardName: billingAddress.billingName || businessInfo.companyName }));
             }
-            setCurrentStep(prev => Math.min(prev + 1, 4));
+            setCurrentStep(prev => Math.min(prev + 1, 5));
         }
     };
 
@@ -120,7 +137,7 @@ export default function RegisterPage() {
     };
 
     const handleSubmit = async () => {
-        if (!validateStep(4)) return;
+        if (!validateStep(5)) return;
 
         setIsLoading(true);
         setError('');
@@ -207,7 +224,7 @@ export default function RegisterPage() {
                             <div key={step.id} className="flex items-center">
                                 <div className="flex flex-col items-center">
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isCompleted ? 'bg-green-500' :
-                                            isActive ? 'bg-violet-600' : 'bg-white/10'
+                                        isActive ? 'bg-violet-600' : 'bg-white/10'
                                         }`}>
                                         {isCompleted ? (
                                             <Check className="w-5 h-5 text-white" />
@@ -234,14 +251,16 @@ export default function RegisterPage() {
                         <CardTitle className="text-2xl text-white">
                             {currentStep === 1 && 'Business Information'}
                             {currentStep === 2 && 'Billing Address'}
-                            {currentStep === 3 && 'Payment & Documents'}
-                            {currentStep === 4 && 'Review & Submit'}
+                            {currentStep === 3 && 'Payment Information'}
+                            {currentStep === 4 && 'KYB Documents'}
+                            {currentStep === 5 && 'Review & Submit'}
                         </CardTitle>
                         <CardDescription className="text-white/60">
                             {currentStep === 1 && 'Tell us about your research business'}
                             {currentStep === 2 && 'Enter your billing address (must match card)'}
-                            {currentStep === 3 && 'Add payment method and required documents'}
-                            {currentStep === 4 && 'Review your information and subscription terms'}
+                            {currentStep === 3 && 'Add your payment method'}
+                            {currentStep === 4 && 'Upload required verification documents'}
+                            {currentStep === 5 && 'Review your information and subscription terms'}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
@@ -278,6 +297,14 @@ export default function RegisterPage() {
                         )}
 
                         {currentStep === 4 && (
+                            <StepKYBDocs
+                                data={kybDocs}
+                                onChange={setKybDocs}
+                                errors={errors}
+                            />
+                        )}
+
+                        {currentStep === 5 && (
                             <StepReview
                                 data={{
                                     companyName: businessInfo.companyName,
@@ -289,8 +316,8 @@ export default function RegisterPage() {
                                     state: billingAddress.state,
                                     zipCode: billingAddress.zipCode,
                                     cardLastFour: paymentDocs.cardNumber.replace(/\s/g, '').slice(-4),
-                                    hasLegalOpinion: !!paymentDocs.legalOpinionFile,
-                                    legalOpinionFileName: paymentDocs.legalOpinionFile?.name || '',
+                                    hasLegalOpinion: !!kybDocs.legalOpinionLetter.file,
+                                    legalOpinionFileName: kybDocs.legalOpinionLetter.name || '',
                                 }}
                                 agreedToTerms={agreedToTerms}
                                 onAgreedToTermsChange={setAgreedToTerms}
@@ -302,17 +329,17 @@ export default function RegisterPage() {
                             {currentStep > 1 && (
                                 <Button
                                     type="button"
-                                    variant="outline"
+                                    variant="ghost"
                                     onClick={handleBack}
                                     disabled={isLoading}
-                                    className="flex-1 border-white/20 text-white hover:bg-white/10"
+                                    className="flex-1 bg-white/10 border border-white/20 text-white hover:bg-white/20"
                                 >
                                     <ArrowLeft className="w-4 h-4 mr-2" />
                                     Back
                                 </Button>
                             )}
 
-                            {currentStep < 4 ? (
+                            {currentStep < 5 ? (
                                 <Button
                                     type="button"
                                     onClick={handleNext}
