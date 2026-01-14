@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
                     `,
                 });
 
-                console.log('Backup code email sent successfully to:', normalizedEmail);
+                // Email sent successfully
             } catch (emailError) {
                 console.error('SMTP email error:', emailError);
                 return NextResponse.json({
