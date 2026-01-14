@@ -21,6 +21,7 @@ import {
 import { cn, formatCurrency, formatRelativeTime } from '@/lib/utils';
 import { ChargXPaymentForm } from '@/components/billing/chargx-form';
 import { toast } from '@/hooks/use-toast';
+import { useMerchantAuth } from '@/lib/merchant-auth';
 
 // Compliance reserve constant - mandatory $500 minimum
 const COMPLIANCE_RESERVE_CENTS = 50000; // $500.00
@@ -38,6 +39,7 @@ const initialTransactions: { id: string; type: string; amount_cents: number; dat
 const topUpAmounts = [5000, 10000, 25000, 50000, 100000];
 
 export default function WalletPage() {
+    const { user, merchant } = useMerchantAuth();
     const [walletData, setWalletData] = useState(initialWalletData);
     const [transactions, setTransactions] = useState(initialTransactions);
     const [customAmount, setCustomAmount] = useState('');
@@ -357,9 +359,10 @@ export default function WalletPage() {
                         <ChargXPaymentForm
                             amount={getTopUpAmount()}
                             customer={{
-                                name: 'Demo User',
-                                email: 'demo@example.com',
+                                name: merchant?.company_name || user?.email?.split('@')[0] || '',
+                                email: user?.email || '',
                             }}
+                            merchantId={merchant?.id}
                             onSuccess={handlePaymentSuccess}
                             onError={handlePaymentError}
                             onCancel={() => setShowPaymentForm(false)}

@@ -37,6 +37,7 @@ interface ChargXFormProps {
         email: string;
         phone?: string;
     };
+    merchantId?: string;
     billingAddress?: {
         street: string;
         unit?: string;
@@ -55,6 +56,7 @@ export function ChargXPaymentForm({
     onError,
     onCancel,
     customer,
+    merchantId,
     billingAddress,
     saveCard = false,
     className,
@@ -178,7 +180,7 @@ export function ChargXPaymentForm({
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-merchant-id': 'demo-merchant-id', // In production, use actual merchant ID from session
+                    'x-merchant-id': merchantId || '', // Merchant ID from authenticated session
                 },
                 body: JSON.stringify({
                     amount,

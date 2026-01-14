@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,10 +26,31 @@ import {
     Lock
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useMerchantAuth } from '@/lib/merchant-auth';
 
 export default function SettingsPage() {
+    const { user, merchant, updateMerchant } = useMerchantAuth();
     const [activeTab, setActiveTab] = useState('profile');
     const [isSaving, setIsSaving] = useState(false);
+
+    // Profile form state - initialized from merchant data
+    const [profileForm, setProfileForm] = useState({
+        companyName: '',
+        website: '',
+        phone: '',
+    });
+
+    // Initialize form from merchant data
+    useEffect(() => {
+        if (merchant) {
+            setProfileForm({
+                companyName: merchant.company_name || '',
+                website: merchant.website_url || '',
+                phone: merchant.phone || '',
+            });
+        }
+    }, [merchant]);
+
     const [autoFulfillment, setAutoFulfillment] = useState({
         autoApprove: false,
         autoCharge: false,
@@ -40,9 +61,7 @@ export default function SettingsPage() {
     // Payment methods state
     const [showAddCardModal, setShowAddCardModal] = useState(false);
     const [isAddingCard, setIsAddingCard] = useState(false);
-    const [paymentMethods, setPaymentMethods] = useState([
-        { id: 'pm_1', brand: 'VISA', last4: '4242', expMonth: 12, expYear: 25, isDefault: true }
-    ]);
+    const [paymentMethods, setPaymentMethods] = useState<Array<{ id: string; brand: string; last4: string; expMonth: number; expYear: number; isDefault: boolean }>>([]);
     const [newCard, setNewCard] = useState({
         cardNumber: '',
         expiry: '',
@@ -60,15 +79,36 @@ export default function SettingsPage() {
     const [verificationCode, setVerificationCode] = useState('');
     const [is2FAVerifying, setIs2FAVerifying] = useState(false);
 
-    const handleSave = () => {
+    const handleSave = async () => {
         setIsSaving(true);
-        setTimeout(() => {
-            setIsSaving(false);
-            toast({
-                title: 'Settings saved',
-                description: 'Your settings have been updated successfully.',
+        try {
+            const result = await updateMerchant({
+                company_name: profileForm.companyName,
+                website_url: profileForm.website,
+                phone: profileForm.phone,
             });
-        }, 1000);
+
+            if (result.success) {
+                toast({
+                    title: 'Settings saved',
+                    description: 'Your settings have been updated successfully.',
+                });
+            } else {
+                toast({
+                    title: 'Error saving settings',
+                    description: result.error || 'Please try again.',
+                    variant: 'destructive',
+                });
+            }
+        } catch (error) {
+            toast({
+                title: 'Error saving settings',
+                description: 'An unexpected error occurred.',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     // Handle adding a new payment method
@@ -259,25 +299,40 @@ export default function SettingsPage() {
                                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                             Company Name
                                         </label>
-                                        <Input defaultValue="Demo Research LLC" className="mt-1" />
+                                        <Input
+                                            value={profileForm.companyName}
+                                            onChange={(e) => setProfileForm({ ...profileForm, companyName: e.target.value })}
+                                            placeholder="Your Company Name"
+                                            className="mt-1"
+                                        />
                                     </div>
                                     <div>
                                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                             Business Type
                                         </label>
-                                        <Input defaultValue="Research Reseller" className="mt-1" />
+                                        <Input defaultValue="Research Reseller" className="mt-1" disabled />
                                     </div>
                                     <div>
                                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                             Phone Number
                                         </label>
-                                        <Input defaultValue="+1 (555) 123-4567" className="mt-1" />
+                                        <Input
+                                            value={profileForm.phone}
+                                            onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                                            placeholder="+1 (555) 123-4567"
+                                            className="mt-1"
+                                        />
                                     </div>
                                     <div>
                                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                             Website
                                         </label>
-                                        <Input defaultValue="https://demo-research.com" className="mt-1" />
+                                        <Input
+                                            value={profileForm.website}
+                                            onChange={(e) => setProfileForm({ ...profileForm, website: e.target.value })}
+                                            placeholder="https://yourcompany.com"
+                                            className="mt-1"
+                                        />
                                     </div>
                                 </div>
                                 <div>
@@ -470,13 +525,17 @@ export default function SettingsPage() {
                                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                             First Name
                                         </label>
-                                        <Input defaultValue="John" className="mt-1" />
+                                        <Input
+                                            defaultValue={user?.email?.split('@')[0] || ''}
+                                            className="mt-1"
+                                            placeholder="First Name"
+                                        />
                                     </div>
                                     <div>
                                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                             Last Name
                                         </label>
-                                        <Input defaultValue="Doe" className="mt-1" />
+                                        <Input defaultValue="" className="mt-1" placeholder="Last Name" />
                                     </div>
                                 </div>
                                 <div>
@@ -485,7 +544,7 @@ export default function SettingsPage() {
                                     </label>
                                     <div className="relative mt-1">
                                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                        <Input defaultValue="john@demo-research.com" className="pl-9" />
+                                        <Input value={user?.email || ''} className="pl-9" disabled />
                                     </div>
                                 </div>
                                 <div className="pt-4">
