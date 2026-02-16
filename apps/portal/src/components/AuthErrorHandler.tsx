@@ -33,7 +33,9 @@ export default function AuthErrorHandler() {
                 if (errorCode === 'otp_expired') {
                     message = 'Your password reset link has expired. Please request a new one.';
                 } else if (errorDescription) {
-                    message = decodeURIComponent(errorDescription.replace(/\+/g, ' '));
+                    // Sanitize: only allow known safe characters, strip HTML/script
+                    const decoded = decodeURIComponent(errorDescription.replace(/\+/g, ' '));
+                    message = decoded.replace(/[<>"'&]/g, '').slice(0, 200);
                 }
 
                 setError(message);

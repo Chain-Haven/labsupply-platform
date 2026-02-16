@@ -15,7 +15,7 @@ export async function POST(
     try {
         const store = await verifyStoreRequest(request);
 
-        const body = await request.json();
+        const body = JSON.parse(store.body || '{}');
         const parsed = cancelOrderSchema.safeParse(body);
 
         if (!parsed.success) {

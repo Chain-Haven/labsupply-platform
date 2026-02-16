@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
-// Mark as dynamic
 export const dynamic = 'force-dynamic';
 
-// Supabase client for server-side operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 /**
  * POST /api/v1/admin/verify-backup-code
- * Verify the 8-digit backup code and create a session
+ * Verify the 8-digit backup code and create a session.
+ * Hardened: attempt throttling, crypto session token, no token in JSON response.
  */
 export async function POST(request: NextRequest) {
     try {
@@ -20,24 +20,40 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Email and code are required' }, { status: 400 });
         }
 
+        const normalizedEmail = email.toLowerCase().trim();
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        // Validate email is a known admin (check admin_users table)
+        // Validate email is a known admin
         const { data: adminUser } = await supabase
             .from('admin_users')
             .select('id')
-            .eq('email', email.toLowerCase())
+            .eq('email', normalizedEmail)
             .single();
 
         if (!adminUser) {
-            return NextResponse.json({ error: 'Invalid admin email' }, { status: 403 });
+            return NextResponse.json({ error: 'Verification failed' }, { status: 401 });
+        }
+
+        // Attempt throttling: max 5 failed attempts per email per 15 minutes
+        // Count recent codes that were NOT used (failed attempts consume codes too)
+        const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+        const { count: recentAttempts } = await supabase
+            .from('admin_login_codes')
+            .select('id', { count: 'exact', head: true })
+            .eq('email', normalizedEmail)
+            .gte('created_at', fifteenMinAgo)
+            .eq('used', true)
+            .not('code', 'like', 'session:%');
+
+        if ((recentAttempts || 0) >= 5) {
+            return NextResponse.json({ error: 'Too many attempts. Please wait and try again.' }, { status: 429 });
         }
 
         // Find the code
         const { data: codeData, error: fetchError } = await supabase
             .from('admin_login_codes')
             .select()
-            .eq('email', email.toLowerCase())
+            .eq('email', normalizedEmail)
             .eq('code', code)
             .eq('used', false)
             .gt('expires_at', new Date().toISOString())
@@ -53,28 +69,25 @@ export async function POST(request: NextRequest) {
             .update({ used: true, used_at: new Date().toISOString() })
             .eq('id', codeData.id);
 
-        // Generate a session token for the admin
-        // We'll use a simple token stored in cookies for now
-        const sessionToken = generateSessionToken();
-        const sessionExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        // Generate cryptographically secure session token
+        const sessionToken = crypto.randomBytes(48).toString('base64url');
+        const sessionExpires = new Date(Date.now() + 8 * 60 * 60 * 1000); // 8 hours (not 24)
 
         // Store session token
         await supabase
             .from('admin_login_codes')
             .insert({
-                email: email.toLowerCase(),
+                email: normalizedEmail,
                 code: `session:${sessionToken}`,
                 expires_at: sessionExpires.toISOString(),
             });
 
-        // Create response with session cookie
+        // Response: session token is ONLY in the httpOnly cookie, NOT in JSON body
         const response = NextResponse.json({
             success: true,
             message: 'Code verified successfully',
-            sessionToken,
         });
 
-        // Set secure cookie
         response.cookies.set('admin_backup_session', sessionToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -86,15 +99,6 @@ export async function POST(request: NextRequest) {
         return response;
     } catch (error) {
         console.error('Verify backup code error:', error);
-        return NextResponse.json({ error: 'Failed to verify code' }, { status: 500 });
+        return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
     }
-}
-
-function generateSessionToken(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < 64; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
 }

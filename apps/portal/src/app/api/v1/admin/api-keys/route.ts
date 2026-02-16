@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import { requireAdmin } from '@/lib/admin-api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,9 @@ function getServiceClient() {
 
 export async function GET() {
     try {
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+
         const supabase = getServiceClient();
 
         const { data, error } = await supabase
@@ -40,6 +44,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
     try {
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+
         const supabase = getServiceClient();
         const body = await request.json();
         const { name, permissions } = body;
@@ -91,6 +98,9 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
     try {
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+
         const supabase = getServiceClient();
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');

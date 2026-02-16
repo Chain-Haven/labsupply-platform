@@ -5,11 +5,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/admin-api-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
     try {
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+
         const token = process.env.MERCURY_API_TOKEN;
 
         if (!token) {

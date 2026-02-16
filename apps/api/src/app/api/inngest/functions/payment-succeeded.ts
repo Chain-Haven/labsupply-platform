@@ -73,7 +73,8 @@ export const paymentSucceededFunction = inngest.createFunction(
                     .update({ reserved_cents: newReserved })
                     .eq('id', walletId);
 
-                // Record transaction
+                // Record transaction with current balance (updated each iteration)
+                const currentBalance = wallet.balance_cents - newReserved;
                 await supabase.from('wallet_transactions').insert({
                     merchant_id: merchantId,
                     wallet_id: walletId,
@@ -83,7 +84,7 @@ export const paymentSucceededFunction = inngest.createFunction(
                     reference_type: 'order',
                     reference_id: order.id,
                     description: `Auto-reservation for order ${order.id}`,
-                });
+                }).then(() => {}, () => {});
 
                 // Update order status
                 await supabase

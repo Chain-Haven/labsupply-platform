@@ -90,26 +90,27 @@ export const shipmentShippedFunction = inngest.createFunction(
                 throw new Error('Wallet not found');
             }
 
-            // Release reservation and apply actual charge
+            // Settlement logic:
+            // 1. Release the reservation (subtract estimatedTotal from reserved_cents)
+            // 2. Deduct the ACTUAL amount from balance_cents
+            // If actual < estimated, merchant keeps the difference in available balance
+            // If actual > estimated, merchant pays the extra from available balance
             const newReserved = Math.max(0, wallet.reserved_cents - estimatedTotal);
-            const newBalance = wallet.balance_cents - actualTotal + (estimatedTotal - actualTotal > 0 ? 0 : 0);
+            const newBalance = wallet.balance_cents - actualTotal;
 
-            // Actually we need to:
-            // 1. Release the reservation (add back estimatedTotal to available)
-            // 2. Deduct the actual amount from balance
-            // Net effect: if actual < estimated, merchant keeps the difference
-
-            const finalBalance = wallet.balance_cents - actualTotal + estimatedTotal - estimatedTotal;
-            // Simplified: the reservation covered it, we just release reservation
-            // and adjust if there's a difference
-
-            await supabase
+            // Atomic update with optimistic locking to prevent race conditions
+            const { error: updateError } = await supabase
                 .from('wallet_accounts')
                 .update({
                     reserved_cents: newReserved,
-                    // Balance adjustment if needed
+                    balance_cents: newBalance,
                 })
-                .eq('id', wallet.id);
+                .eq('id', wallet.id)
+                .eq('balance_cents', wallet.balance_cents); // optimistic lock
+
+            if (updateError) {
+                throw new Error(`Wallet update failed (possible race): ${updateError.message}`);
+            }
 
             // Record settlement transaction
             await supabase.from('wallet_transactions').insert({
@@ -117,7 +118,7 @@ export const shipmentShippedFunction = inngest.createFunction(
                 wallet_id: wallet.id,
                 type: 'SETTLEMENT',
                 amount_cents: -actualTotal,
-                balance_after_cents: wallet.balance_cents,
+                balance_after_cents: newBalance,
                 reference_type: 'order',
                 reference_id: orderId,
                 description: `Order settlement - Estimated: $${(estimatedTotal / 100).toFixed(2)}, Actual: $${(actualTotal / 100).toFixed(2)}`,

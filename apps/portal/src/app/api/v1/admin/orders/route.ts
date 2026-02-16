@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAdmin } from '@/lib/admin-api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,9 @@ function getServiceClient() {
 
 export async function GET(request: NextRequest) {
     try {
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+
         const supabase = getServiceClient();
         const { searchParams } = new URL(request.url);
         const status = searchParams.get('status');
@@ -69,6 +73,9 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
     try {
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+
         const supabase = getServiceClient();
         const body = await request.json();
         const { id, status, supplier_notes } = body;

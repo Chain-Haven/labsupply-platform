@@ -48,14 +48,32 @@ export async function POST(request: NextRequest) {
                 .single();
 
             if (adminError || !adminUser) {
+                // Uniform response -- don't reveal whether email exists
                 return NextResponse.json({
-                    error: 'This email is not authorized. Only registered admins can receive backup codes.'
-                }, { status: 403 });
+                    message: 'If this email is registered, a backup code will be sent.'
+                });
             }
         }
 
-        // Generate 8-digit code
-        const code = Math.floor(10000000 + Math.random() * 90000000).toString();
+        // Rate limiting: max 3 codes per email per 15 minutes
+        const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+        const { count: recentCount } = await supabase
+            .from('admin_login_codes')
+            .select('id', { count: 'exact', head: true })
+            .eq('email', normalizedEmail)
+            .gte('created_at', fifteenMinAgo)
+            .not('code', 'like', 'session:%');
+
+        if ((recentCount || 0) >= 3) {
+            // Uniform response
+            return NextResponse.json({
+                message: 'If this email is registered, a backup code will be sent.'
+            });
+        }
+
+        // Generate 8-digit code using crypto (not Math.random)
+        const { randomInt } = await import('crypto');
+        const code = randomInt(10000000, 99999999).toString();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
         // Delete any existing unused codes for this email
@@ -63,7 +81,8 @@ export async function POST(request: NextRequest) {
             .from('admin_login_codes')
             .delete()
             .eq('email', normalizedEmail)
-            .eq('used', false);
+            .eq('used', false)
+            .not('code', 'like', 'session:%');
 
         // Insert new code
         const { error: insertError } = await supabase

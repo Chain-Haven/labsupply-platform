@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/admin-api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,9 @@ async function mercuryFetch(path: string, token: string, options?: RequestInit) 
  */
 export async function GET() {
     try {
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+
         const token = process.env.MERCURY_API_TOKEN;
 
         if (!token) {
@@ -100,6 +104,9 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
     try {
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+
         const token = process.env.MERCURY_API_TOKEN;
         if (!token) {
             return NextResponse.json({ error: 'MERCURY_API_TOKEN not configured' }, { status: 503 });

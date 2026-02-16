@@ -26,7 +26,7 @@ export default function ResetPasswordPage() {
                 // Listen for auth state changes (important for recovery links)
                 const { data: { subscription } } = supabase.auth.onAuthStateChange(
                     async (event, session) => {
-                        console.log('Auth event:', event, session?.user?.email);
+                        // Auth event received
 
                         if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
                             if (session && mounted) {
@@ -56,11 +56,8 @@ export default function ResetPasswordPage() {
                 const errorCode = hashParams.get('error_code');
                 const errorDescription = hashParams.get('error_description');
 
-                console.log('Reset password tokens:', {
-                    hasAccessToken: !!accessToken,
-                    type,
-                    errorCode
-                });
+                // Check for reset password tokens
+                const hasToken = !!accessToken;
 
                 // Handle expired/invalid tokens
                 if (errorCode) {
@@ -94,7 +91,7 @@ export default function ResetPasswordPage() {
                     }
                 } else if (accessToken) {
                     // Has access token but type is not 'recovery' - still try to use it
-                    console.log('Access token present but type is:', type);
+                    // Access token present but type is not 'recovery' - still try to use it
                     const { error: sessionError } = await supabase.auth.setSession({
                         access_token: accessToken,
                         refresh_token: refreshToken || '',

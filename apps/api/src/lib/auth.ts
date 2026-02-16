@@ -4,19 +4,55 @@
  */
 
 import { NextRequest } from 'next/server';
-import { verifySignature, verifySecretHash, ApiError, Errors } from '@labsupply/shared';
+import { verifySignature, ApiError, Errors } from '@labsupply/shared';
 import { getServiceClient } from './supabase';
+import crypto from 'crypto';
 
 export interface AuthenticatedStore {
     storeId: string;
     merchantId: string;
     storeName: string;
     storeUrl: string;
+    body: string; // Raw body string (already consumed from request stream)
 }
 
 /**
- * Verify HMAC-signed request from plugin
- * Returns store info if valid, throws ApiError if not
+ * Decrypt a store secret that was encrypted with AES-256-GCM.
+ * Falls back to using the value directly if not encrypted (migration period).
+ */
+function decryptSecret(encryptedValue: string): string {
+    const encryptionKey = process.env.STORE_SECRET_ENCRYPTION_KEY;
+    if (!encryptionKey) {
+        // No encryption key configured -- assume plaintext storage (migration period)
+        return encryptedValue;
+    }
+
+    try {
+        // Format: iv:authTag:ciphertext (all hex)
+        const parts = encryptedValue.split(':');
+        if (parts.length !== 3) {
+            return encryptedValue; // Not encrypted format, use as-is
+        }
+
+        const [ivHex, authTagHex, ciphertextHex] = parts;
+        const key = Buffer.from(encryptionKey, 'hex');
+        const iv = Buffer.from(ivHex, 'hex');
+        const authTag = Buffer.from(authTagHex, 'hex');
+        const ciphertext = Buffer.from(ciphertextHex, 'hex');
+
+        const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+        decipher.setAuthTag(authTag);
+        const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+        return decrypted.toString('utf8');
+    } catch {
+        return encryptedValue; // Decryption failed, use as-is
+    }
+}
+
+/**
+ * Verify HMAC-signed request from plugin.
+ * Returns store info AND the raw body string (since request stream is consumed).
+ * Callers should use JSON.parse(result.body) instead of request.json().
  */
 export async function verifyStoreRequest(
     request: NextRequest
@@ -26,7 +62,6 @@ export async function verifyStoreRequest(
     const nonce = request.headers.get('x-nonce');
     const signature = request.headers.get('x-signature');
 
-    // Validate all required headers are present
     if (!storeId || !timestamp || !nonce || !signature) {
         throw new ApiError(
             'MISSING_AUTH_HEADERS',
@@ -35,24 +70,16 @@ export async function verifyStoreRequest(
         );
     }
 
-    // Get request body for signature verification
+    // Read body ONCE (consuming the stream). Callers must use result.body.
     const body = await request.text();
 
-    // Look up the store and its active secret
     const supabase = getServiceClient();
 
+    // Look up the store
     const { data: store, error: storeError } = await supabase
         .from('stores')
-        .select(`
-      id,
-      merchant_id,
-      name,
-      url,
-      status,
-      store_secrets!inner(secret_hash, is_active)
-    `)
+        .select('id, merchant_id, name, url, status')
         .eq('id', storeId)
-        .eq('store_secrets.is_active', true)
         .single();
 
     if (storeError || !store) {
@@ -63,43 +90,11 @@ export async function verifyStoreRequest(
         throw Errors.STORE_DISCONNECTED;
     }
 
-    // Get the secret hash
-    const secretHash = (store.store_secrets as any)[0]?.secret_hash;
-    if (!secretHash) {
-        throw new ApiError('STORE_SECRET_MISSING', 'Store secret not configured', 500);
-    }
-
-    // We need to verify the signature against the stored hash
-    // Since we hash the secret in storage, we need to verify differently
-    // The signature is HMAC(storeId:timestamp:nonce:bodyHash, secret)
-    // We store hash(secret), so we can't directly verify HMAC
-
-    // For proper security, we should store the secret encrypted, not hashed
-    // For now, we'll retrieve and verify - in production, use encryption
-
-    // Alternative approach: The plugin sends signature created with the secret
-    // We have the hash of the secret stored
-    // We need to verify the signature by... we can't without the original secret
-
-    // REVISED APPROACH: Store encrypted secret, not hash
-    // For this implementation, we'll use a lookup table approach
-    // The store_secrets table will hold secret_hash for verification via separate lookup
-
-    // Actually, for HMAC we need the original secret on server side
-    // Let's assume we're storing encrypted secret that we can decrypt
-    // For now, we'll use a simplified approach where we verify the signature format
-    // and trust the signature if it matches our expected format
-
-    // PRODUCTION NOTE: In production, secrets should be encrypted with a server key
-    // and decrypted for HMAC verification
-
-    // For this implementation, we'll verify against the secret stored in env
-    // Each store's secret should be unique and securely stored
-
-    // Look up actual secret from a secure store (for demo, we'll simulate)
+    // Look up the active secret for this store
+    // Try secret_plaintext first (new column), fall back to secret_hash
     const { data: secretRecord, error: secretError } = await supabase
         .from('store_secrets')
-        .select('secret_hash')
+        .select('secret_hash, secret_plaintext')
         .eq('store_id', storeId)
         .eq('is_active', true)
         .single();
@@ -108,38 +103,49 @@ export async function verifyStoreRequest(
         throw new ApiError('SECRET_LOOKUP_FAILED', 'Failed to verify credentials', 500);
     }
 
-    // For MVP: We'll use a different verification approach
-    // The secret_hash in DB is hash(secret)
-    // We verify by checking if provided signature matches expected pattern
-    // Client computes: HMAC-SHA256(storeId:timestamp:nonce:bodyHash, secret)
-    // We verify timestamp freshness and signature format
+    // Get the actual secret for HMAC computation
+    const secret = secretRecord.secret_plaintext
+        ? decryptSecret(secretRecord.secret_plaintext)
+        : null;
 
-    // Check timestamp is recent (5 minute window)
-    const timestampMs = parseInt(timestamp, 10);
-    const now = Date.now();
-    const fiveMinutes = 5 * 60 * 1000;
+    if (secret) {
+        // Full cryptographic HMAC verification
+        const result = verifySignature({
+            storeId,
+            timestamp,
+            nonce,
+            body,
+            signature,
+            secret,
+        });
 
-    if (isNaN(timestampMs) || Math.abs(now - timestampMs) > fiveMinutes) {
-        throw Errors.SIGNATURE_EXPIRED;
+        if (!result.valid) {
+            throw new ApiError('SIGNATURE_INVALID', result.error || 'Invalid signature', 401);
+        }
+    } else {
+        // Fallback: secret is hashed (can't compute HMAC). Verify format + timestamp only.
+        // This is a degraded mode for stores created before secret_plaintext was added.
+        const timestampMs = parseInt(timestamp, 10);
+        const now = Date.now();
+        const fiveMinutes = 5 * 60 * 1000;
+
+        if (isNaN(timestampMs) || Math.abs(now - timestampMs) > fiveMinutes) {
+            throw Errors.SIGNATURE_EXPIRED;
+        }
+
+        if (signature.length !== 64 || !/^[a-f0-9]+$/i.test(signature)) {
+            throw Errors.SIGNATURE_INVALID;
+        }
+
+        console.warn(`Store ${storeId}: using degraded auth (no secret_plaintext). Migrate to encrypted secrets.`);
     }
-
-    // For full implementation, we need to store secrets reversibly
-    // For now we'll mark store as authenticated if headers are present and valid format
-    // This is a TEMPORARY measure - in production, implement proper secret storage
-
-    // Verify signature has correct length (SHA-256 hex = 64 chars)
-    if (signature.length !== 64 || !/^[a-f0-9]+$/i.test(signature)) {
-        throw Errors.SIGNATURE_INVALID;
-    }
-
-    // Log the authentication (without secrets)
-    console.log(`Store ${storeId} authenticated at ${new Date(timestampMs).toISOString()}`);
 
     return {
         storeId: store.id,
         merchantId: store.merchant_id,
         storeName: store.name,
         storeUrl: store.url,
+        body,
     };
 }
 
@@ -154,8 +160,6 @@ export async function verifyAdminRequest(request: NextRequest): Promise<void> {
     }
 
     const token = authHeader.slice(7);
-
-    // Verify with Supabase Auth
     const supabase = getServiceClient();
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
@@ -163,7 +167,6 @@ export async function verifyAdminRequest(request: NextRequest): Promise<void> {
         throw Errors.UNAUTHORIZED;
     }
 
-    // Check if user is supplier admin
     const { data: supplierUser, error: supplierError } = await supabase
         .from('supplier_users')
         .select('role, is_active')
@@ -188,8 +191,6 @@ export async function verifyMerchantRequest(
     }
 
     const token = authHeader.slice(7);
-
-    // Verify with Supabase Auth
     const supabase = getServiceClient();
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
@@ -197,7 +198,6 @@ export async function verifyMerchantRequest(
         throw Errors.UNAUTHORIZED;
     }
 
-    // Get merchant association
     const { data: merchantUser, error: merchantError } = await supabase
         .from('merchant_users')
         .select('merchant_id')
@@ -214,18 +214,15 @@ export async function verifyMerchantRequest(
     };
 }
 
-/**
- * Create a JSON error response
- */
 export function errorResponse(error: ApiError | Error): Response {
     if (error instanceof ApiError) {
         return Response.json(
-            { success: false, error: error.toJSON() },
+            { success: false, error: { code: error.code, message: error.message } },
             { status: error.statusCode }
         );
     }
 
-    console.error('Unexpected error:', error);
+    console.error('Unexpected error:', error.message);
 
     return Response.json(
         {
@@ -239,9 +236,6 @@ export function errorResponse(error: ApiError | Error): Response {
     );
 }
 
-/**
- * Create a success response
- */
 export function successResponse<T>(data: T, status: number = 200): Response {
     return Response.json({ success: true, data }, { status });
 }

@@ -29,12 +29,10 @@ jobs:
         run: pnpm --filter @labsupply/shared build
       
       - name: Lint Portal
-        run: pnpm --filter @labsupply/portal lint || echo "Lint passed with warnings"
-        continue-on-error: true
+        run: pnpm --filter @labsupply/portal lint
       
       - name: Type check Portal
-        run: pnpm --filter @labsupply/portal typecheck || echo "Type check completed"
-        continue-on-error: true
+        run: pnpm --filter @labsupply/portal typecheck
 
   test:
     name: Test
@@ -55,8 +53,7 @@ jobs:
         run: pnpm --filter @labsupply/shared build
       
       - name: Run tests
-        run: pnpm --filter @labsupply/shared test || echo "No tests configured or all tests passed"
-        continue-on-error: true
+        run: pnpm --filter @labsupply/shared test
 
   build:
     name: Build
@@ -82,15 +79,6 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
-        continue-on-error: true
-      
-      - name: Upload portal build
-        uses: actions/upload-artifact@v4
-        with:
-          name: portal-build
-          path: apps/portal/.next
-          retention-days: 7
-        continue-on-error: true
 
   build-plugin:
     name: Build WooCommerce Plugin
@@ -126,4 +114,4 @@ jobs:
         run: pnpm install
       
       - name: Run security audit
-        run: pnpm audit --audit-level high || true
+        run: pnpm audit --audit-level critical

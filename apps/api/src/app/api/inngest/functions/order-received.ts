@@ -65,7 +65,6 @@ export const orderReceivedFunction = inngest.createFunction(
                 const available = inv ? inv.on_hand - inv.reserved : 0;
 
                 if (available < item.qty) {
-                    // Mark order on hold for compliance/inventory
                     await supabase
                         .from('orders')
                         .update({
@@ -75,6 +74,18 @@ export const orderReceivedFunction = inngest.createFunction(
                         .eq('id', orderId);
 
                     throw new Error(`Insufficient inventory for product ${item.product_id}`);
+                }
+            }
+
+            // Reserve inventory for each item
+            for (const item of order.order_items) {
+                const inv = inventoryMap.get(item.product_id);
+                if (inv) {
+                    await supabase
+                        .from('inventory')
+                        .update({ reserved: inv.reserved + item.qty })
+                        .eq('product_id', item.product_id)
+                        .eq('reserved', inv.reserved); // optimistic lock
                 }
             }
 
@@ -94,7 +105,9 @@ export const orderReceivedFunction = inngest.createFunction(
                 return { success: false, reason: 'Wallet not found' };
             }
 
-            const availableBalance = wallet.balance_cents - wallet.reserved_cents;
+            // Subtract $500 compliance reserve from available balance (consistent with orders/route.ts)
+            const COMPLIANCE_RESERVE_CENTS = 50000;
+            const availableBalance = wallet.balance_cents - wallet.reserved_cents - COMPLIANCE_RESERVE_CENTS;
 
             if (availableBalance < totalEstimateCents) {
                 return {
@@ -105,16 +118,17 @@ export const orderReceivedFunction = inngest.createFunction(
                 };
             }
 
-            // Create reservation
+            // Create reservation with optimistic locking to prevent race conditions
             const newReserved = wallet.reserved_cents + totalEstimateCents;
 
-            const { error: updateError } = await supabase
+            const { error: updateError, count } = await supabase
                 .from('wallet_accounts')
                 .update({ reserved_cents: newReserved })
-                .eq('id', wallet.id);
+                .eq('id', wallet.id)
+                .eq('reserved_cents', wallet.reserved_cents); // optimistic lock
 
-            if (updateError) {
-                return { success: false, reason: 'Failed to create reservation' };
+            if (updateError || count === 0) {
+                return { success: false, reason: 'Reservation conflict (concurrent update). Will retry.' };
             }
 
             // Record reservation transaction
@@ -123,7 +137,7 @@ export const orderReceivedFunction = inngest.createFunction(
                 wallet_id: wallet.id,
                 type: 'RESERVATION',
                 amount_cents: -totalEstimateCents,
-                balance_after_cents: wallet.balance_cents,
+                balance_after_cents: wallet.balance_cents - totalEstimateCents,
                 reference_type: 'order',
                 reference_id: orderId,
                 description: `Reservation for order ${orderId}`,

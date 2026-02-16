@@ -1,19 +1,22 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     reactStrictMode: true,
-    // API-only app, no static pages
     output: 'standalone',
 
-    // Headers for API security
     async headers() {
+        const allowedOrigins = process.env.ALLOWED_ORIGINS || 'https://labsupply-platform-2-git-main-chain-havens-projects.vercel.app';
+
         return [
             {
                 source: '/v1/:path*',
                 headers: [
                     { key: 'Access-Control-Allow-Credentials', value: 'true' },
-                    { key: 'Access-Control-Allow-Origin', value: '*' },
+                    { key: 'Access-Control-Allow-Origin', value: allowedOrigins },
                     { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,DELETE,OPTIONS' },
                     { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-Store-Id, X-Timestamp, X-Nonce, X-Signature, Authorization' },
+                    { key: 'X-Content-Type-Options', value: 'nosniff' },
+                    { key: 'X-Frame-Options', value: 'DENY' },
+                    { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
                 ],
             },
         ];

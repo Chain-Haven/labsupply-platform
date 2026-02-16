@@ -19,8 +19,8 @@ export async function POST(request: NextRequest) {
     try {
         const store = await verifyStoreRequest(request);
 
-        // Parse and validate body
-        const body = await request.json();
+        // Parse body from auth result (request stream already consumed by verifyStoreRequest)
+        const body = JSON.parse(store.body || '{}');
         const parsed = createOrderSchema.safeParse(body);
 
         if (!parsed.success) {

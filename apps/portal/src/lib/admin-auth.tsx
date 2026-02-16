@@ -4,8 +4,8 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { createBrowserClient } from '@/lib/supabase';
 import { User, Session } from '@supabase/supabase-js';
 
-// Super admin email - this user is always an admin
-const SUPER_ADMIN_EMAIL = 'info@chainhaven.co';
+// Super admin email - configurable via env var
+const SUPER_ADMIN_EMAIL = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || 'info@chainhaven.co';
 
 // Admin user type from database
 export interface AdminUser {

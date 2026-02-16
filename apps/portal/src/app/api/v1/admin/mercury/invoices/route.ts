@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAdmin } from '@/lib/admin-api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,9 @@ function getServiceClient() {
  */
 export async function GET() {
     try {
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+
         const supabase = getServiceClient();
 
         // Get all invoices with merchant info
@@ -153,6 +157,9 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
     try {
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+
         const { searchParams } = new URL(request.url);
         const action = searchParams.get('action');
 

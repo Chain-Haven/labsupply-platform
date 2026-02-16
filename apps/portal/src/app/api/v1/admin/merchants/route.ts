@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAdmin } from '@/lib/admin-api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,9 @@ function getServiceClient() {
 
 export async function GET(request: NextRequest) {
     try {
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+
         const supabase = getServiceClient();
         const { searchParams } = new URL(request.url);
         const status = searchParams.get('status');
@@ -64,6 +68,9 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
     try {
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+
         const supabase = getServiceClient();
         const body = await request.json();
         const { id, ...updates } = body;
@@ -72,7 +79,10 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: 'Merchant ID required' }, { status: 400 });
         }
 
-        const allowedFields = ['status', 'can_ship', 'kyb_status', 'company_name', 'email', 'phone'];
+        const allowedFields = [
+            'status', 'can_ship', 'kyb_status', 'company_name', 'email', 'phone',
+            'website_url', 'billing_name', 'billing_email', 'tier',
+        ];
         const safeUpdates: Record<string, unknown> = {};
         for (const key of allowedFields) {
             if (updates[key] !== undefined) {

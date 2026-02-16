@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAdmin } from '@/lib/admin-api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,9 @@ async function safeQuery(queryFn: () => any): Promise<{ data: any; count: number
 
 export async function GET() {
     try {
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+
         const supabase = getServiceClient();
 
         // Merchants (table exists in production)
