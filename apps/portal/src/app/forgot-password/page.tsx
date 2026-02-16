@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Package, Mail, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
@@ -10,6 +10,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { createBrowserClient } from '@/lib/supabase';
 
 export default function ForgotPasswordPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+                <Loader2 className="w-8 h-8 animate-spin text-violet-400" />
+            </div>
+        }>
+            <ForgotPasswordContent />
+        </Suspense>
+    );
+}
+
+function ForgotPasswordContent() {
     const searchParams = useSearchParams();
     const [email, setEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
