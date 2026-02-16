@@ -53,25 +53,28 @@ export function isValidStatusTransition(from: string, to: string): boolean {
 
 // Payment method configurations
 export const PAYMENT_METHOD_CONFIG = {
-    card: {
-        label: 'Credit/Debit Card',
-        fundsConfirmationDelay: 0, // Immediate
-        isReversible: true,
-        chargebackWindow: 120, // days
+    mercury_invoice: {
+        label: 'Mercury Invoice (ACH)',
+        fundsConfirmationDelay: 3 * 24 * 60 * 60 * 1000, // ~3 days for ACH settlement
+        isReversible: false,
+        chargebackWindow: 0,
     },
     ach: {
-        label: 'Bank Transfer (ACH)',
+        label: 'ACH Transfer',
         fundsConfirmationDelay: 4 * 24 * 60 * 60 * 1000, // 4 days in ms
         isReversible: true,
         chargebackWindow: 60, // days
     },
-    wire: {
-        label: 'Wire Transfer',
-        fundsConfirmationDelay: 24 * 60 * 60 * 1000, // 1 day in ms
+    adjustment: {
+        label: 'Manual Adjustment',
+        fundsConfirmationDelay: 0,
         isReversible: false,
         chargebackWindow: 0,
     },
 } as const;
+
+// Compliance reserve
+export const COMPLIANCE_RESERVE_CENTS = 50000; // $500.00
 
 // Shipping carriers
 export const CARRIERS = {

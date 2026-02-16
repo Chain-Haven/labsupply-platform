@@ -256,13 +256,17 @@ export type OrderFiltersInput = z.infer<typeof orderFiltersSchema>;
 // Wallet & Payment Schemas
 // ============================================================================
 
-export const topUpSessionSchema = z.object({
-    amount_cents: z.number().int().min(1000).max(100000000), // $10 min, $1M max
-    payment_method: z.nativeEnum(PaymentMethod).optional(),
-    return_url: z.string().url(),
+export const billingSettingsSchema = z.object({
+    billing_email: z.string().email(),
+    low_balance_threshold_cents: z.number().int().min(10000).max(100000000), // $100 min
+    target_balance_cents: z.number().int().min(10000).max(100000000), // $100 min
 });
 
-export type TopUpSessionInput = z.infer<typeof topUpSessionSchema>;
+export type BillingSettingsInput = z.infer<typeof billingSettingsSchema>;
+
+export const mercuryInvoiceStatusSchema = z.enum(['Unpaid', 'Processing', 'Paid', 'Cancelled']);
+
+export type MercuryInvoiceStatus = z.infer<typeof mercuryInvoiceStatusSchema>;
 
 export const walletAdjustmentSchema = z.object({
     merchant_id: z.string().uuid(),
@@ -312,15 +316,13 @@ export type BuyLabelInput = z.infer<typeof buyLabelSchema>;
 // Webhook Schemas
 // ============================================================================
 
-export const stripeWebhookSchema = z.object({
+export const mercuryWebhookSchema = z.object({
     id: z.string(),
     type: z.string(),
-    data: z.object({
-        object: z.record(z.unknown()),
-    }),
+    data: z.record(z.unknown()),
 });
 
-export type StripeWebhookInput = z.infer<typeof stripeWebhookSchema>;
+export type MercuryWebhookInput = z.infer<typeof mercuryWebhookSchema>;
 
 export const wooWebhookSchema = z.object({
     id: z.number().or(z.string()),

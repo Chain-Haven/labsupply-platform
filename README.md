@@ -39,7 +39,7 @@ pnpm install
 
 # Copy environment file and configure
 cp .env.example .env
-# Edit .env with your Supabase, Stripe, and Inngest credentials
+# Edit .env with your Supabase, Mercury, and Inngest credentials
 
 # Start Supabase locally
 pnpm db:start
@@ -151,7 +151,8 @@ See `.env.example` for required environment variables. Key variables:
 
 - `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
 - `SUPABASE_SERVICE_ROLE_KEY` - Server-side Supabase key
-- `STRIPE_SECRET_KEY` - Stripe API key for payments
+- `MERCURY_API_TOKEN` - Mercury Banking API token for invoicing
+- `MERCURY_ACCOUNT_ID` - Mercury checking account ID (destination for invoice payments)
 - `INNGEST_EVENT_KEY` - Inngest workflow events key
 - `HMAC_SECRET_KEY` - 32-byte hex key for request signing
 

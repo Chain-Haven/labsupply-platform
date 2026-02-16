@@ -19,10 +19,10 @@ import type {
     CreateShipmentResponse,
     MarkShippedRequest,
     ImportStatusRequest,
-    TopUpSessionRequest,
-    TopUpSessionResponse,
     TrackingUpdatePayload,
     WalletBalanceResponse,
+    MercuryInvoice,
+    BillingSettings,
     Order,
     Shipment,
     PaginatedResponse,
@@ -298,12 +298,31 @@ export class LabSupplyClient {
     }
 
     /**
-     * Create a top-up checkout session
+     * Get Mercury invoices for the merchant
      */
-    async createTopUpSession(
-        request: TopUpSessionRequest
-    ): Promise<ApiResponse<TopUpSessionResponse>> {
-        return this.request<TopUpSessionResponse>('POST', '/v1/wallet/topup/session', request);
+    async getInvoices(params?: {
+        status?: string;
+        page?: number;
+        limit?: number;
+    }): Promise<ApiResponse<PaginatedResponse<MercuryInvoice>>> {
+        const queryParams = new URLSearchParams();
+        if (params?.status) queryParams.set('status', params.status);
+        if (params?.page) queryParams.set('page', params.page.toString());
+        if (params?.limit) queryParams.set('limit', params.limit.toString());
+
+        const query = queryParams.toString();
+        const path = query ? `/v1/merchant/invoices?${query}` : '/v1/merchant/invoices';
+
+        return this.request<PaginatedResponse<MercuryInvoice>>('GET', path);
+    }
+
+    /**
+     * Update billing settings (threshold, target balance, billing email)
+     */
+    async updateBillingSettings(
+        settings: BillingSettings
+    ): Promise<ApiResponse<BillingSettings>> {
+        return this.request<BillingSettings>('PATCH', '/v1/merchant/billing-settings', settings);
     }
 
     // ============================================================================

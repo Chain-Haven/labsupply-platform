@@ -35,11 +35,10 @@ import { cn, formatRelativeTime } from '@/lib/utils';
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState('general');
     const [isSaving, setIsSaving] = useState(false);
-    const [showPublishableKey, setShowPublishableKey] = useState(false);
-    const [showSecretKey, setShowSecretKey] = useState(false);
-    const [chargxKeys, setChargxKeys] = useState({
-        publishableKey: 'pk_live_xxxxxxxxxxxxxxxx',
-        secretKey: 'sk_live_xxxxxxxxxxxxxxxx',
+    const [showApiToken, setShowApiToken] = useState(false);
+    const [mercuryConfig, setMercuryConfig] = useState({
+        apiToken: 'mercury_live_xxxxxxxxxxxxxxxx',
+        accountId: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
     });
 
     // ShipStation settings
@@ -191,11 +190,11 @@ export default function SettingsPage() {
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
-                                    <CreditCard className="w-5 h-5" />
-                                    ChargX Payment Gateway
+                                    <Building className="w-5 h-5" />
+                                    Mercury Banking API
                                 </CardTitle>
                                 <CardDescription>
-                                    Configure your ChargX API credentials for payment processing
+                                    Configure your Mercury API credentials for invoicing and payments
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
@@ -203,61 +202,51 @@ export default function SettingsPage() {
                                 <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
                                     <CheckCircle className="w-5 h-5 text-green-600" />
                                     <div>
-                                        <p className="font-medium text-green-900 dark:text-green-100">Connected to ChargX</p>
-                                        <p className="text-sm text-green-700 dark:text-green-300">Payment processing is active</p>
+                                        <p className="font-medium text-green-900 dark:text-green-100">Connected to Mercury</p>
+                                        <p className="text-sm text-green-700 dark:text-green-300">Invoicing is active</p>
                                     </div>
                                 </div>
 
-                                {/* Publishable Key */}
+                                {/* API Token */}
                                 <div>
                                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        Publishable API Key
+                                        API Token
                                     </label>
                                     <p className="text-xs text-gray-500 mb-2">
-                                        This key is safe to expose in your frontend code
+                                        Bearer token for Mercury API authentication
                                     </p>
                                     <div className="relative">
                                         <Input
-                                            type={showPublishableKey ? 'text' : 'password'}
-                                            value={chargxKeys.publishableKey}
-                                            onChange={(e) => setChargxKeys({ ...chargxKeys, publishableKey: e.target.value })}
+                                            type={showApiToken ? 'text' : 'password'}
+                                            value={mercuryConfig.apiToken}
+                                            onChange={(e) => setMercuryConfig({ ...mercuryConfig, apiToken: e.target.value })}
                                             className="pr-10 font-mono text-sm"
-                                            placeholder="pk_live_..."
+                                            placeholder="mercury_live_..."
                                         />
                                         <button
                                             type="button"
-                                            onClick={() => setShowPublishableKey(!showPublishableKey)}
+                                            onClick={() => setShowApiToken(!showApiToken)}
                                             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                                         >
-                                            {showPublishableKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            {showApiToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                         </button>
                                     </div>
                                 </div>
 
-                                {/* Secret Key */}
+                                {/* Account ID */}
                                 <div>
                                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        Secret API Key
+                                        Destination Account ID
                                     </label>
                                     <p className="text-xs text-gray-500 mb-2">
-                                        Keep this key secret. Never share it or expose it in frontend code.
+                                        Mercury checking account ID where invoice payments are deposited
                                     </p>
-                                    <div className="relative">
-                                        <Input
-                                            type={showSecretKey ? 'text' : 'password'}
-                                            value={chargxKeys.secretKey}
-                                            onChange={(e) => setChargxKeys({ ...chargxKeys, secretKey: e.target.value })}
-                                            className="pr-10 font-mono text-sm"
-                                            placeholder="sk_live_..."
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowSecretKey(!showSecretKey)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                        >
-                                            {showSecretKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                        </button>
-                                    </div>
+                                    <Input
+                                        value={mercuryConfig.accountId}
+                                        onChange={(e) => setMercuryConfig({ ...mercuryConfig, accountId: e.target.value })}
+                                        className="font-mono text-sm"
+                                        placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                                    />
                                 </div>
 
                                 {/* Security Warning */}
@@ -266,7 +255,7 @@ export default function SettingsPage() {
                                     <div>
                                         <p className="font-medium text-yellow-900 dark:text-yellow-100">Security Notice</p>
                                         <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                                            Your Secret API Key grants full access to your ChargX account.
+                                            Your Mercury API Token grants access to your banking data.
                                             Store it securely in environment variables and never commit it to version control.
                                         </p>
                                     </div>
@@ -282,12 +271,12 @@ export default function SettingsPage() {
                                         ) : (
                                             <>
                                                 <Save className="w-4 h-4 mr-2" />
-                                                Save API Keys
+                                                Save Configuration
                                             </>
                                         )}
                                     </Button>
-                                    <Button variant="outline" onClick={() => window.open('https://dashboard.chargx.io', '_blank')}>
-                                        Open ChargX Dashboard
+                                    <Button variant="outline" onClick={() => window.open('https://app.mercury.com', '_blank')}>
+                                        Open Mercury Dashboard
                                     </Button>
                                 </div>
                             </CardContent>

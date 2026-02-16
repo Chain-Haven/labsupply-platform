@@ -190,10 +190,10 @@ export default function ApiDocsPage() {
                         </div>
                         <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
                             <div className="flex items-center gap-2 mb-1">
-                                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded">POST</span>
-                                <code className="text-sm font-mono">/wallet/topup</code>
+                                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">GET</span>
+                                <code className="text-sm font-mono">/merchant/invoices</code>
                             </div>
-                            <p className="text-xs text-gray-500">Initiate wallet top-up</p>
+                            <p className="text-xs text-gray-500">List Mercury invoices for merchant</p>
                         </div>
                     </CardContent>
                 </Card>

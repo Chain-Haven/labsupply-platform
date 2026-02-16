@@ -42,7 +42,7 @@ export default function StepBusinessInfo({ data, onChange, errors }: StepBusines
                     <p className="text-red-400 text-xs">{errors.companyName}</p>
                 )}
                 <p className="text-white/40 text-xs">
-                    This must match the name on your credit card billing statement.
+                    This must match your legal business entity name for invoicing.
                 </p>
             </div>
 

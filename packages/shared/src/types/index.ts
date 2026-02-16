@@ -59,9 +59,9 @@ export const PaymentStatus = {
 export type PaymentStatus = (typeof PaymentStatus)[keyof typeof PaymentStatus];
 
 export const PaymentMethod = {
-    CARD: 'card',
+    MERCURY_INVOICE: 'mercury_invoice',
     ACH: 'ach',
-    WIRE: 'wire',
+    ADJUSTMENT: 'adjustment',
 } as const;
 
 export type PaymentMethod = (typeof PaymentMethod)[keyof typeof PaymentMethod];
@@ -552,16 +552,35 @@ export interface OrderUpdateWebhook {
     shipped_at?: string;
 }
 
-// Wallet
-export interface TopUpSessionRequest {
+// Mercury Invoice
+export const MercuryInvoiceStatus = {
+    UNPAID: 'Unpaid',
+    PROCESSING: 'Processing',
+    PAID: 'Paid',
+    CANCELLED: 'Cancelled',
+} as const;
+
+export type MercuryInvoiceStatus = (typeof MercuryInvoiceStatus)[keyof typeof MercuryInvoiceStatus];
+
+export interface MercuryInvoice {
+    id: string;
+    merchant_id: string;
+    mercury_invoice_id: string;
+    mercury_invoice_number?: string;
+    mercury_slug?: string;
     amount_cents: number;
-    payment_method?: PaymentMethod;
-    return_url: string;
+    status: MercuryInvoiceStatus;
+    due_date: string;
+    wallet_credited: boolean;
+    wallet_transaction_id?: string;
+    created_at: string;
+    updated_at: string;
 }
 
-export interface TopUpSessionResponse {
-    checkout_url: string;
-    session_id: string;
+export interface BillingSettings {
+    billing_email: string;
+    low_balance_threshold_cents: number;
+    target_balance_cents: number;
 }
 
 export interface WalletBalanceResponse {

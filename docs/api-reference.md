@@ -291,32 +291,18 @@ GET /v1/wallet
 }
 ```
 
-#### Create Top-Up Session
+#### Wallet Funding
 
-```
-POST /v1/wallet/topup/session
-```
+Wallet funding is handled via Mercury invoicing. When a merchant's available balance drops below
+their configured threshold, an invoice is automatically generated and emailed via the Mercury
+Accounts Receivable API. Once the merchant pays and the funds settle (invoice status = `Paid`),
+the wallet balance is credited automatically.
 
-Creates a Stripe Checkout session for adding funds.
-
-**Request:**
-```json
-{
-  "amount_cents": 10000,
-  "return_url": "https://mystore.com/admin/wallet"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "checkout_url": "https://checkout.stripe.com/...",
-    "session_id": "cs_xxx"
-  }
-}
-```
+**Mercury Invoice Statuses:**
+- `Unpaid` - Invoice sent, awaiting payment
+- `Processing` - Payment initiated, not yet settled
+- `Paid` - Payment settled, wallet credited
+- `Cancelled` - Invoice cancelled
 
 ---
 

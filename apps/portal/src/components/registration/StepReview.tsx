@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, CreditCard, FileText, Building, AlertTriangle } from 'lucide-react';
+import { Check, Mail, FileText, Building, AlertTriangle, DollarSign } from 'lucide-react';
 
 interface ReviewData {
     companyName: string;
@@ -11,7 +11,9 @@ interface ReviewData {
     city: string;
     state: string;
     zipCode: string;
-    cardLastFour: string;
+    billingEmail: string;
+    lowBalanceThreshold: string;
+    targetBalance: string;
     hasLegalOpinion: boolean;
     legalOpinionFileName: string;
 }
@@ -23,6 +25,11 @@ interface StepReviewProps {
 }
 
 export default function StepReview({ data, agreedToTerms, onAgreedToTermsChange }: StepReviewProps) {
+    const formatDollars = (val: string) => {
+        const num = parseInt(val, 10);
+        return isNaN(num) ? '$0' : `$${num.toLocaleString()}`;
+    };
+
     return (
         <div className="space-y-6">
             {/* Summary Sections */}
@@ -43,14 +50,32 @@ export default function StepReview({ data, agreedToTerms, onAgreedToTermsChange 
                 {/* Billing Address */}
                 <div className="p-4 rounded-lg bg-white/5 border border-white/10">
                     <div className="flex items-center gap-2 mb-3">
-                        <CreditCard className="w-4 h-4 text-violet-400" />
+                        <Mail className="w-4 h-4 text-violet-400" />
                         <h4 className="font-medium text-white">Billing Information</h4>
                     </div>
                     <div className="space-y-1 text-sm">
                         <p className="text-white/80">{data.billingName}</p>
                         <p className="text-white/60">{data.street}</p>
                         <p className="text-white/60">{data.city}, {data.state} {data.zipCode}</p>
-                        <p className="text-white/60 font-mono">•••• •••• •••• {data.cardLastFour}</p>
+                    </div>
+                </div>
+
+                {/* Invoice Settings */}
+                <div className="p-4 rounded-lg bg-white/5 border border-white/10">
+                    <div className="flex items-center gap-2 mb-3">
+                        <DollarSign className="w-4 h-4 text-violet-400" />
+                        <h4 className="font-medium text-white">Invoicing Settings</h4>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                        <p className="text-white/60">
+                            Invoice email: <span className="text-white/80">{data.billingEmail}</span>
+                        </p>
+                        <p className="text-white/60">
+                            Auto-invoice threshold: <span className="text-white/80">{formatDollars(data.lowBalanceThreshold)}</span>
+                        </p>
+                        <p className="text-white/60">
+                            Target balance: <span className="text-white/80">{formatDollars(data.targetBalance)}</span>
+                        </p>
                     </div>
                 </div>
 
@@ -76,25 +101,25 @@ export default function StepReview({ data, agreedToTerms, onAgreedToTermsChange 
                 </div>
             </div>
 
-            {/* Subscription Terms */}
+            {/* Billing Terms */}
             <div className="p-4 rounded-lg bg-violet-500/10 border border-violet-500/20">
-                <h4 className="font-semibold text-white mb-3">Subscription Terms</h4>
+                <h4 className="font-semibold text-white mb-3">Billing Terms</h4>
                 <ul className="space-y-2 text-sm text-white/80">
                     <li className="flex items-start gap-2">
                         <Check className="w-4 h-4 text-violet-400 mt-0.5 shrink-0" />
-                        <span><strong>14-day free trial</strong> - No charge during trial period</span>
+                        <span><strong>Mercury invoicing</strong> - Invoices sent via email with ACH payment links</span>
                     </li>
                     <li className="flex items-start gap-2">
                         <Check className="w-4 h-4 text-violet-400 mt-0.5 shrink-0" />
-                        <span><strong>$199.99/month</strong> after trial ends</span>
+                        <span><strong>Auto-invoicing</strong> - Invoiced when balance drops below {formatDollars(data.lowBalanceThreshold)}</span>
                     </li>
                     <li className="flex items-start gap-2">
                         <Check className="w-4 h-4 text-violet-400 mt-0.5 shrink-0" />
-                        <span><strong>$500 reserve hold</strong> placed on your card (released after good standing)</span>
+                        <span><strong>$500 compliance reserve</strong> maintained at all times (not available for orders)</span>
                     </li>
                     <li className="flex items-start gap-2">
                         <Check className="w-4 h-4 text-violet-400 mt-0.5 shrink-0" />
-                        <span>Cancel anytime from your dashboard</span>
+                        <span><strong>Settled funds only</strong> - Only paid and settled invoice amounts can be used for orders</span>
                     </li>
                 </ul>
             </div>
@@ -131,7 +156,8 @@ export default function StepReview({ data, agreedToTerms, onAgreedToTermsChange 
                     <a href="/privacy" className="text-violet-400 hover:text-violet-300" target="_blank">
                         Privacy Policy
                     </a>
-                    . I understand that I will be charged $199.99/month after the 14-day trial period and a $500 reserve will be held on my card.
+                    . I understand that a $500 compliance reserve is required and that I will be invoiced
+                    via Mercury when my balance falls below my configured threshold.
                     I confirm that all products are for research use only.
                 </label>
             </div>

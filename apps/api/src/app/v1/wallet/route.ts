@@ -1,7 +1,7 @@
 /**
  * Wallet API
  * GET /v1/wallet - Get wallet balance
- * POST /v1/wallet/topup/session - Create Stripe checkout session
+ * Wallet funding is handled via Mercury invoicing (see /api/inngest/functions/mercury-*)
  */
 
 import { NextRequest } from 'next/server';

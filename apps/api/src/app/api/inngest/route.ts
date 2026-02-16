@@ -9,6 +9,8 @@ import { orderReceivedFunction } from './functions/order-received';
 import { paymentSucceededFunction } from './functions/payment-succeeded';
 import { shipmentShippedFunction } from './functions/shipment-shipped';
 import { webhookRetryFunction } from './functions/webhook-retry';
+import { mercuryCheckBalancesFunction } from './functions/mercury-check-balances';
+import { mercurySyncInvoicesFunction } from './functions/mercury-sync-invoices';
 
 // Export the Inngest handler
 export const { GET, POST, PUT } = serve({
@@ -18,5 +20,7 @@ export const { GET, POST, PUT } = serve({
         paymentSucceededFunction,
         shipmentShippedFunction,
         webhookRetryFunction,
+        mercuryCheckBalancesFunction,
+        mercurySyncInvoicesFunction,
     ],
 });

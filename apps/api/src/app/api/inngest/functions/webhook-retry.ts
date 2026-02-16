@@ -68,9 +68,8 @@ export const webhookRetryFunction = inngest.createFunction(
                         console.log('Reprocessing WooCommerce webhook:', webhookEvent.event_type);
                         break;
 
-                    case 'stripe':
-                        // Stripe webhooks are handled by Stripe's retry mechanism
-                        console.log('Skipping Stripe webhook retry (handled by Stripe)');
+                    case 'mercury':
+                        console.log('Reprocessing Mercury webhook:', webhookEvent.event_type);
                         break;
 
                     default:

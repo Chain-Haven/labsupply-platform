@@ -35,7 +35,7 @@ export default function StepBillingAddress({ data, companyName, onChange, errors
     return (
         <div className="space-y-4">
             <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm">
-                <strong>Important:</strong> Billing information must match the credit card holder and business entity.
+                <strong>Important:</strong> Billing information must match your registered business entity for invoicing.
             </div>
 
             <div className="space-y-2">
@@ -43,7 +43,7 @@ export default function StepBillingAddress({ data, companyName, onChange, errors
                 <Input
                     type="text"
                     name="billingName"
-                    placeholder={companyName || "Company or Cardholder Name"}
+                    placeholder={companyName || "Company or Business Name"}
                     value={data.billingName}
                     onChange={handleChange}
                     required

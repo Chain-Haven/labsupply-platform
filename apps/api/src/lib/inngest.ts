@@ -29,11 +29,10 @@ export type OrderReceivedEvent = {
 export type PaymentSucceededEvent = {
     name: 'payment/succeeded';
     data: {
-        paymentId: string;
         merchantId: string;
         walletId: string;
         amountCents: number;
-        checkoutSessionId: string;
+        mercuryInvoiceId?: string;
     };
 };
 
@@ -87,6 +86,25 @@ export type NotifyStoreEvent = {
     };
 };
 
+export type MercuryCheckBalancesEvent = {
+    name: 'mercury/check-balances';
+    data: Record<string, never>;
+};
+
+export type MercurySyncInvoicesEvent = {
+    name: 'mercury/sync-invoices';
+    data: Record<string, never>;
+};
+
+export type MercuryInvoiceCreatedEvent = {
+    name: 'mercury/invoice-created';
+    data: {
+        merchantId: string;
+        mercuryInvoiceId: string;
+        amountCents: number;
+    };
+};
+
 // Union type of all events
 export type LabSupplyEvents =
     | OrderReceivedEvent
@@ -95,4 +113,7 @@ export type LabSupplyEvents =
     | ShipmentShippedEvent
     | WebhookRetryEvent
     | WalletReservationEvent
-    | NotifyStoreEvent;
+    | NotifyStoreEvent
+    | MercuryCheckBalancesEvent
+    | MercurySyncInvoicesEvent
+    | MercuryInvoiceCreatedEvent;

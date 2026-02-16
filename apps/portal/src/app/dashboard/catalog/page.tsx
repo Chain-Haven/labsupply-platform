@@ -160,7 +160,7 @@ export default function CatalogPage() {
 
         const costs = calculateTestingCosts();
 
-        // Simulate ChargX billing
+        // Simulate processing
         await new Promise(resolve => setTimeout(resolve, 2000));
 
         // Simulate creating testing order

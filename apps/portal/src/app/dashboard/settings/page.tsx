@@ -5,12 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-    Settings,
     User,
     Building,
     Bell,
     Shield,
-    CreditCard,
     Mail,
     Key,
     Save,
@@ -19,11 +17,8 @@ import {
     Zap,
     AlertCircle,
     X,
-    Plus,
-    Trash2,
     Check,
     Loader2,
-    Lock
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useMerchantAuth } from '@/lib/merchant-auth';
@@ -58,17 +53,11 @@ export default function SettingsPage() {
         minBalanceAmount: 100,
     });
 
-    // Payment methods state
-    const [showAddCardModal, setShowAddCardModal] = useState(false);
-    const [isAddingCard, setIsAddingCard] = useState(false);
-    const [paymentMethods, setPaymentMethods] = useState<Array<{ id: string; brand: string; last4: string; expMonth: number; expYear: number; isDefault: boolean }>>([]);
-    const [newCard, setNewCard] = useState({
-        cardNumber: '',
-        expiry: '',
-        cvv: '',
-        cardholderName: '',
-        setAsDefault: true,
-    });
+    // Billing settings state (Mercury invoicing)
+    const [billingEmail, setBillingEmail] = useState('');
+    const [lowBalanceThreshold, setLowBalanceThreshold] = useState('1000');
+    const [targetBalance, setTargetBalance] = useState('3000');
+    const [isSavingBilling, setIsSavingBilling] = useState(false);
 
     // 2FA state
     const [show2FAModal, setShow2FAModal] = useState(false);
@@ -111,64 +100,53 @@ export default function SettingsPage() {
         }
     };
 
-    // Handle adding a new payment method
-    const handleAddPaymentMethod = () => {
-        if (!newCard.cardNumber || !newCard.expiry || !newCard.cvv || !newCard.cardholderName) {
-            toast({
-                title: 'Missing information',
-                description: 'Please fill in all card details.',
-                variant: 'destructive'
-            });
+    // Load billing settings from merchant data
+    useEffect(() => {
+        if (merchant) {
+            setBillingEmail((merchant as Record<string, unknown>).billing_email as string || user?.email || '');
+            setLowBalanceThreshold(
+                String(((merchant as Record<string, unknown>).low_balance_threshold_cents as number || 100000) / 100)
+            );
+            setTargetBalance(
+                String(((merchant as Record<string, unknown>).target_balance_cents as number || 300000) / 100)
+            );
+        }
+    }, [merchant, user]);
+
+    // Handle saving billing settings
+    const handleSaveBillingSettings = async () => {
+        const threshold = parseInt(lowBalanceThreshold, 10);
+        const target = parseInt(targetBalance, 10);
+
+        if (!billingEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(billingEmail)) {
+            toast({ title: 'Invalid email', description: 'Please enter a valid billing email.', variant: 'destructive' });
+            return;
+        }
+        if (target < threshold) {
+            toast({ title: 'Invalid settings', description: 'Target balance must be greater than or equal to the threshold.', variant: 'destructive' });
             return;
         }
 
-        setIsAddingCard(true);
-        // Simulate API call
-        setTimeout(() => {
-            const last4 = newCard.cardNumber.slice(-4);
-            const [expMonth, expYear] = newCard.expiry.split('/');
-            const newMethod = {
-                id: `pm_${Date.now()}`,
-                brand: newCard.cardNumber.startsWith('4') ? 'VISA' :
-                    newCard.cardNumber.startsWith('5') ? 'MC' : 'CARD',
-                last4,
-                expMonth: parseInt(expMonth),
-                expYear: parseInt(expYear),
-                isDefault: newCard.setAsDefault || paymentMethods.length === 0,
-            };
-
-            if (newCard.setAsDefault) {
-                setPaymentMethods(prev => prev.map(pm => ({ ...pm, isDefault: false })));
-            }
-
-            setPaymentMethods(prev => [...prev, newMethod]);
-            setNewCard({ cardNumber: '', expiry: '', cvv: '', cardholderName: '', setAsDefault: true });
-            setShowAddCardModal(false);
-            setIsAddingCard(false);
-
-            toast({
-                title: 'Payment method added',
-                description: `Card ending in ${last4} has been added to your account.`,
+        setIsSavingBilling(true);
+        try {
+            const response = await fetch('/api/v1/merchant/billing-settings', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    billing_email: billingEmail,
+                    low_balance_threshold_cents: threshold * 100,
+                    target_balance_cents: target * 100,
+                }),
             });
-        }, 1500);
-    };
 
-    // Handle removing a payment method
-    const handleRemovePaymentMethod = (id: string) => {
-        setPaymentMethods(prev => prev.filter(pm => pm.id !== id));
-        toast({
-            title: 'Payment method removed',
-            description: 'The payment method has been removed from your account.',
-        });
-    };
+            if (!response.ok) throw new Error('Failed to save settings');
 
-    // Handle setting a default payment method
-    const handleSetDefaultPaymentMethod = (id: string) => {
-        setPaymentMethods(prev => prev.map(pm => ({ ...pm, isDefault: pm.id === id })));
-        toast({
-            title: 'Default updated',
-            description: 'Your default payment method has been updated.',
-        });
+            toast({ title: 'Billing settings saved', description: 'Your Mercury invoicing preferences have been updated.' });
+        } catch {
+            toast({ title: 'Error', description: 'Failed to save billing settings. Please try again.', variant: 'destructive' });
+        } finally {
+            setIsSavingBilling(false);
+        }
     };
 
     // Generate base32 secret for TOTP
@@ -247,7 +225,7 @@ export default function SettingsPage() {
         { id: 'account', label: 'Account', icon: User },
         { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'security', label: 'Security', icon: Shield },
-        { id: 'billing', label: 'Billing', icon: CreditCard },
+        { id: 'billing', label: 'Invoicing', icon: Mail },
     ];
 
     return (
@@ -665,189 +643,110 @@ export default function SettingsPage() {
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
-                                    <CreditCard className="w-5 h-5" />
-                                    Billing Settings
+                                    <Mail className="w-5 h-5" />
+                                    Mercury Invoicing
                                 </CardTitle>
                                 <CardDescription>
-                                    Manage your payment methods
+                                    Configure how you receive and pay invoices for wallet funding
                                 </CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-4">
-                                {/* Saved Payment Methods */}
-                                <div className="space-y-3">
-                                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Saved Payment Methods</h4>
-                                    {paymentMethods.map((method) => (
-                                        <div key={method.id} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-12 h-8 rounded flex items-center justify-center text-white text-xs font-bold ${method.brand === 'VISA' ? 'bg-gradient-to-r from-violet-600 to-indigo-600' :
-                                                    method.brand === 'MC' ? 'bg-gradient-to-r from-red-500 to-orange-500' :
-                                                        'bg-gradient-to-r from-gray-600 to-gray-800'
-                                                    }`}>
-                                                    {method.brand}
-                                                </div>
-                                                <div>
-                                                    <p className="font-medium text-gray-900 dark:text-white">
-                                                        •••• •••• •••• {method.last4}
-                                                        {method.isDefault && (
-                                                            <span className="ml-2 text-xs bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 px-2 py-0.5 rounded-full">
-                                                                Default
-                                                            </span>
-                                                        )}
-                                                    </p>
-                                                    <p className="text-sm text-gray-500">Expires {method.expMonth}/{method.expYear}</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                {!method.isDefault && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => handleSetDefaultPaymentMethod(method.id)}
-                                                    >
-                                                        Set Default
-                                                    </Button>
-                                                )}
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                    onClick={() => handleRemovePaymentMethod(method.id)}
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {paymentMethods.length === 0 && (
-                                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center text-gray-500">
-                                            <CreditCard className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                            <p>No payment methods saved</p>
-                                        </div>
-                                    )}
+                            <CardContent className="space-y-6">
+                                {/* Info Banner */}
+                                <div className="p-4 rounded-lg bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800">
+                                    <p className="text-sm text-violet-700 dark:text-violet-300">
+                                        Your wallet is funded via Mercury invoicing. When your available balance drops
+                                        below your threshold, an invoice is automatically sent to your billing email.
+                                        Pay via ACH using the payment link in the invoice. Funds become available once
+                                        the payment settles.
+                                    </p>
                                 </div>
 
-                                <Button variant="outline" onClick={() => setShowAddCardModal(true)}>
-                                    <Plus className="w-4 h-4 mr-2" />
-                                    Add Payment Method
+                                {/* Billing Email */}
+                                <div>
+                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Invoice Email Address
+                                    </label>
+                                    <p className="text-xs text-gray-500 mb-2">
+                                        Invoices will be sent to this email with a link to pay via ACH
+                                    </p>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        <Input
+                                            type="email"
+                                            value={billingEmail}
+                                            onChange={(e) => setBillingEmail(e.target.value)}
+                                            placeholder="billing@yourcompany.com"
+                                            className="pl-9"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Threshold & Target */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Auto-Invoice Threshold ($)
+                                        </label>
+                                        <p className="text-xs text-gray-500 mb-2">
+                                            Invoice sent when balance drops below this
+                                        </p>
+                                        <Input
+                                            type="number"
+                                            value={lowBalanceThreshold}
+                                            onChange={(e) => setLowBalanceThreshold(e.target.value)}
+                                            min="100"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Target Balance ($)
+                                        </label>
+                                        <p className="text-xs text-gray-500 mb-2">
+                                            Invoice amount brings balance to this level
+                                        </p>
+                                        <Input
+                                            type="number"
+                                            value={targetBalance}
+                                            onChange={(e) => setTargetBalance(e.target.value)}
+                                            min="100"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Reserve Notice */}
+                                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                                    <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                                    <div>
+                                        <p className="text-sm text-amber-700 dark:text-amber-300">
+                                            A mandatory <strong>$500 compliance reserve</strong> is maintained at all times
+                                            and cannot be used for orders. Only settled invoice payments count toward
+                                            your available balance.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <Button
+                                    onClick={handleSaveBillingSettings}
+                                    disabled={isSavingBilling}
+                                    className="bg-violet-600 hover:bg-violet-700"
+                                >
+                                    {isSavingBilling ? (
+                                        <>
+                                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save className="w-4 h-4 mr-2" />
+                                            Save Billing Settings
+                                        </>
+                                    )}
                                 </Button>
-                                <p className="text-sm text-gray-500">
-                                    Payment methods are used for wallet top-ups via ChargX. Your card information is securely stored with ChargX.
-                                </p>
                             </CardContent>
                         </Card>
                     )}
                 </div>
             </div>
-
-            {/* Add Payment Method Modal */}
-            {showAddCardModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <Card className="w-full max-w-md">
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="flex items-center gap-2">
-                                    <CreditCard className="w-5 h-5" />
-                                    Add Payment Method
-                                </CardTitle>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setShowAddCardModal(false)}
-                                >
-                                    <X className="w-4 h-4" />
-                                </Button>
-                            </div>
-                            <CardDescription>Add a new card for wallet top-ups</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Cardholder Name</label>
-                                <Input
-                                    placeholder="John Doe"
-                                    value={newCard.cardholderName}
-                                    onChange={(e) => setNewCard({ ...newCard, cardholderName: e.target.value })}
-                                    className="mt-1"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Card Number</label>
-                                <Input
-                                    placeholder="4111 1111 1111 1111"
-                                    value={newCard.cardNumber}
-                                    onChange={(e) => setNewCard({ ...newCard, cardNumber: e.target.value.replace(/\s/g, '') })}
-                                    className="mt-1"
-                                    maxLength={16}
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Expiry</label>
-                                    <Input
-                                        placeholder="MM/YY"
-                                        value={newCard.expiry}
-                                        onChange={(e) => setNewCard({ ...newCard, expiry: e.target.value })}
-                                        className="mt-1"
-                                        maxLength={5}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">CVV</label>
-                                    <Input
-                                        placeholder="123"
-                                        type="password"
-                                        value={newCard.cvv}
-                                        onChange={(e) => setNewCard({ ...newCard, cvv: e.target.value })}
-                                        className="mt-1"
-                                        maxLength={4}
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    id="setAsDefault"
-                                    checked={newCard.setAsDefault}
-                                    onChange={(e) => setNewCard({ ...newCard, setAsDefault: e.target.checked })}
-                                    className="rounded border-gray-300"
-                                />
-                                <label htmlFor="setAsDefault" className="text-sm text-gray-700 dark:text-gray-300">
-                                    Set as default payment method
-                                </label>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                                <Lock className="w-4 h-4" />
-                                <span>Secure payment powered by ChargX</span>
-                            </div>
-                            <div className="flex gap-3 pt-2">
-                                <Button
-                                    variant="outline"
-                                    className="flex-1"
-                                    onClick={() => setShowAddCardModal(false)}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    className="flex-1 bg-violet-600 hover:bg-violet-700"
-                                    onClick={handleAddPaymentMethod}
-                                    disabled={isAddingCard}
-                                >
-                                    {isAddingCard ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                            Adding...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Plus className="w-4 h-4 mr-2" />
-                                            Add Card
-                                        </>
-                                    )}
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
 
             {/* 2FA Setup Modal */}
             {show2FAModal && (

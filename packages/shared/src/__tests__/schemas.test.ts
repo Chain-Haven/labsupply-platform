@@ -7,7 +7,7 @@ import {
     addressSchema,
     connectExchangeSchema,
     createOrderSchema,
-    topUpSessionSchema,
+    billingSettingsSchema,
     validateInput,
     formatZodErrors,
 } from '../src/schemas';
@@ -159,42 +159,49 @@ describe('Create Order Schema', () => {
     });
 });
 
-describe('Top Up Session Schema', () => {
-    it('should validate a valid top up request', () => {
-        const request = {
-            amount_cents: 10000,
-            return_url: 'https://mystore.com/wallet',
+describe('Billing Settings Schema', () => {
+    it('should validate valid billing settings', () => {
+        const settings = {
+            billing_email: 'billing@example.com',
+            low_balance_threshold_cents: 100000,
+            target_balance_cents: 300000,
         };
 
-        const result = topUpSessionSchema.safeParse(request);
+        const result = billingSettingsSchema.safeParse(settings);
         expect(result.success).toBe(true);
     });
 
-    it('should reject amount below minimum', () => {
-        const request = {
-            amount_cents: 100, // $1 - below minimum
-            return_url: 'https://mystore.com/wallet',
+    it('should reject invalid email', () => {
+        const settings = {
+            billing_email: 'not-an-email',
+            low_balance_threshold_cents: 100000,
+            target_balance_cents: 300000,
         };
 
-        const result = topUpSessionSchema.safeParse(request);
+        const result = billingSettingsSchema.safeParse(settings);
         expect(result.success).toBe(false);
     });
 
-    it('should reject amount above maximum', () => {
-        const request = {
-            amount_cents: 100000000, // $1M - above max
-            return_url: 'https://mystore.com/wallet',
+    it('should reject threshold below minimum', () => {
+        const settings = {
+            billing_email: 'billing@example.com',
+            low_balance_threshold_cents: 100, // $1 - below $100 min
+            target_balance_cents: 300000,
         };
 
-        const result = topUpSessionSchema.safeParse(request);
+        const result = billingSettingsSchema.safeParse(settings);
         expect(result.success).toBe(false);
     });
 });
 
 describe('Validation Helpers', () => {
     it('validateInput should return parsed data on success', () => {
-        const data = { amount_cents: 5000, return_url: 'https://example.com' };
-        const result = validateInput(topUpSessionSchema, data);
+        const data = {
+            billing_email: 'test@example.com',
+            low_balance_threshold_cents: 100000,
+            target_balance_cents: 300000,
+        };
+        const result = validateInput(billingSettingsSchema, data);
 
         expect(result.success).toBe(true);
         if (result.success) {
@@ -203,8 +210,8 @@ describe('Validation Helpers', () => {
     });
 
     it('validateInput should return errors on failure', () => {
-        const data = { amount_cents: 'not-a-number' };
-        const result = validateInput(topUpSessionSchema, data);
+        const data = { billing_email: 'invalid' };
+        const result = validateInput(billingSettingsSchema, data);
 
         expect(result.success).toBe(false);
         if (!result.success) {
@@ -213,12 +220,12 @@ describe('Validation Helpers', () => {
     });
 
     it('formatZodErrors should format errors nicely', () => {
-        const data = { amount_cents: 'invalid' };
-        const parsed = topUpSessionSchema.safeParse(data);
+        const data = { billing_email: 123 };
+        const parsed = billingSettingsSchema.safeParse(data);
 
         if (!parsed.success) {
             const formatted = formatZodErrors(parsed.error);
-            expect(formatted.amount_cents).toBeDefined();
+            expect(formatted.billing_email).toBeDefined();
         }
     });
 });

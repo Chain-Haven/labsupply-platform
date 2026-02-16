@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Package, ArrowRight, ArrowLeft, Loader2, Check, Building, MapPin, CreditCard, FileText, Shield, FileCheck } from 'lucide-react';
+import { Package, ArrowRight, ArrowLeft, Loader2, Check, Building, MapPin, Mail, FileText, Shield, FileCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMerchantAuth } from '@/lib/merchant-auth';
@@ -12,7 +12,7 @@ import { StepBusinessInfo, StepBillingAddress, StepPaymentDocs, StepKYBDocs, Ste
 const STEPS = [
     { id: 1, name: 'Business', icon: Building },
     { id: 2, name: 'Billing', icon: MapPin },
-    { id: 3, name: 'Payment', icon: CreditCard },
+    { id: 3, name: 'Billing', icon: Mail },
     { id: 4, name: 'KYB Docs', icon: FileText },
     { id: 5, name: 'Compliance', icon: Shield },
     { id: 6, name: 'Review', icon: FileCheck },
@@ -46,10 +46,9 @@ export default function RegisterPage() {
     });
 
     const [paymentDocs, setPaymentDocs] = useState({
-        cardNumber: '',
-        cardExpiry: '',
-        cardCvc: '',
-        cardName: '',
+        billingEmail: '',
+        lowBalanceThreshold: '1000',
+        targetBalance: '3000',
     });
 
     const [kybDocs, setKybDocs] = useState({
@@ -100,12 +99,22 @@ export default function RegisterPage() {
         }
 
         if (step === 3) {
-            if (!paymentDocs.cardName) newErrors.cardName = 'Name on card is required';
-            if (!paymentDocs.cardNumber) newErrors.cardNumber = 'Card number is required';
-            const cardDigits = paymentDocs.cardNumber.replace(/\s/g, '');
-            if (cardDigits.length < 15) newErrors.cardNumber = 'Invalid card number';
-            if (!paymentDocs.cardExpiry) newErrors.cardExpiry = 'Expiry date is required';
-            if (!paymentDocs.cardCvc) newErrors.cardCvc = 'CVC is required';
+            if (!paymentDocs.billingEmail) {
+                newErrors.billingEmail = 'Billing email is required';
+            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(paymentDocs.billingEmail)) {
+                newErrors.billingEmail = 'Invalid email address';
+            }
+            const threshold = parseInt(paymentDocs.lowBalanceThreshold, 10);
+            const target = parseInt(paymentDocs.targetBalance, 10);
+            if (!threshold || threshold < 100) {
+                newErrors.lowBalanceThreshold = 'Threshold must be at least $100';
+            }
+            if (!target || target < 100) {
+                newErrors.targetBalance = 'Target balance must be at least $100';
+            }
+            if (threshold && target && target < threshold) {
+                newErrors.targetBalance = 'Target balance must be at least equal to the threshold';
+            }
         }
 
         if (step === 4) {
@@ -147,9 +156,9 @@ export default function RegisterPage() {
             if (currentStep === 1 && !billingAddress.billingName) {
                 setBillingAddress(prev => ({ ...prev, billingName: businessInfo.companyName }));
             }
-            // Auto-populate card name from billing name if empty
-            if (currentStep === 2 && !paymentDocs.cardName) {
-                setPaymentDocs(prev => ({ ...prev, cardName: billingAddress.billingName || businessInfo.companyName }));
+            // Auto-populate billing email from business email if empty
+            if (currentStep === 2 && !paymentDocs.billingEmail) {
+                setPaymentDocs(prev => ({ ...prev, billingEmail: businessInfo.email }));
             }
             setCurrentStep(prev => Math.min(prev + 1, 6));
         }
@@ -174,15 +183,9 @@ export default function RegisterPage() {
                 throw new Error(result.error || 'Registration failed');
             }
 
-            // 2. The merchant-auth hook should create the merchant record
-            // In a full implementation, we would:
-            // - Call ChargX to tokenize the card
-            // - Create a subscription with the variant_id
-            // - Upload the legal opinion letter to Supabase Storage
-            // - Update the merchant record with all the billing info
-
-            // For now, we'll show success and redirect
-            // The additional fields will be saved via API calls
+            // 2. The merchant-auth hook creates the merchant record.
+            // Save billing settings (Mercury customer creation happens server-side
+            // during onboarding approval when the merchant becomes ACTIVE).
 
             setSuccess(true);
             setTimeout(() => {
@@ -275,15 +278,15 @@ export default function RegisterPage() {
                         <CardTitle className="text-2xl text-white">
                             {currentStep === 1 && 'Business Information'}
                             {currentStep === 2 && 'Billing Address'}
-                            {currentStep === 3 && 'Payment Information'}
+                            {currentStep === 3 && 'Billing Setup'}
                             {currentStep === 4 && 'KYB Documents'}
                             {currentStep === 5 && 'RUO Compliance'}
                             {currentStep === 6 && 'Review & Submit'}
                         </CardTitle>
                         <CardDescription className="text-white/60">
                             {currentStep === 1 && 'Tell us about your research business'}
-                            {currentStep === 2 && 'Enter your billing address (must match card)'}
-                            {currentStep === 3 && 'Add your payment method'}
+                            {currentStep === 2 && 'Enter your billing address'}
+                            {currentStep === 3 && 'Configure invoicing and funding preferences'}
                             {currentStep === 4 && 'Upload required verification documents'}
                             {currentStep === 5 && 'Confirm regulatory compliance requirements'}
                             {currentStep === 6 && 'Review your information and subscription terms'}
@@ -349,7 +352,9 @@ export default function RegisterPage() {
                                     city: billingAddress.city,
                                     state: billingAddress.state,
                                     zipCode: billingAddress.zipCode,
-                                    cardLastFour: paymentDocs.cardNumber.replace(/\s/g, '').slice(-4),
+                                    billingEmail: paymentDocs.billingEmail,
+                                    lowBalanceThreshold: paymentDocs.lowBalanceThreshold,
+                                    targetBalance: paymentDocs.targetBalance,
                                     hasLegalOpinion: !!kybDocs.legalOpinionLetter.file,
                                     legalOpinionFileName: kybDocs.legalOpinionLetter.name || '',
                                 }}
