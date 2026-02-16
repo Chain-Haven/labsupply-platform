@@ -15,6 +15,10 @@ export interface Merchant {
     status: 'pending' | 'approved' | 'suspended';
     kyb_status: 'not_started' | 'in_progress' | 'approved' | 'rejected';
     wallet_balance_cents: number;
+    billing_email: string | null;
+    mercury_customer_id: string | null;
+    low_balance_threshold_cents: number;
+    target_balance_cents: number;
     created_at: string;
     updated_at: string;
 }

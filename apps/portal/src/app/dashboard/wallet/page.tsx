@@ -75,12 +75,12 @@ export default function WalletPage() {
 
     const loadBillingSettings = useCallback(() => {
         if (merchant) {
-            setBillingEmail((merchant as Record<string, unknown>).billing_email as string || user?.email || '');
+            setBillingEmail(merchant.billing_email || user?.email || '');
             setLowBalanceThreshold(
-                String(((merchant as Record<string, unknown>).low_balance_threshold_cents as number || 100000) / 100)
+                String((merchant.low_balance_threshold_cents || 100000) / 100)
             );
             setTargetBalance(
-                String(((merchant as Record<string, unknown>).target_balance_cents as number || 300000) / 100)
+                String((merchant.target_balance_cents || 300000) / 100)
             );
         }
     }, [merchant, user]);
