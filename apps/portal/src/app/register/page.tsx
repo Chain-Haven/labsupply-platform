@@ -11,8 +11,8 @@ import { StepBusinessInfo, StepBillingAddress, StepPaymentDocs, StepKYBDocs, Ste
 
 const STEPS = [
     { id: 1, name: 'Business', icon: Building },
-    { id: 2, name: 'Billing', icon: MapPin },
-    { id: 3, name: 'Billing', icon: Mail },
+    { id: 2, name: 'Address', icon: MapPin },
+    { id: 3, name: 'Invoicing', icon: Mail },
     { id: 4, name: 'KYB Docs', icon: FileText },
     { id: 5, name: 'Compliance', icon: Shield },
     { id: 6, name: 'Review', icon: FileCheck },
