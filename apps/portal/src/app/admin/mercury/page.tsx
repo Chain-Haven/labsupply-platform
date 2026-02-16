@@ -116,10 +116,6 @@ export default function AdminMercuryPage() {
                 const invoicesData = await invoicesRes.json();
                 setInvoices(invoicesData.data?.invoices || []);
                 setMerchants(invoicesData.data?.merchants || []);
-                // Load saved invoice settings if returned
-                if (invoicesData.data?.invoiceSettings) {
-                    setInvoiceSettings(prev => ({ ...prev, ...invoicesData.data.invoiceSettings }));
-                }
             }
 
             if (settingsRes.ok) {
@@ -127,6 +123,24 @@ export default function AdminMercuryPage() {
                 if (settingsData.data?.allAccounts) {
                     setAllAccounts(settingsData.data.allAccounts);
                 }
+            }
+
+            // Load saved invoice settings from admin settings API
+            try {
+                const savedRes = await fetch('/api/v1/admin/settings');
+                if (savedRes.ok) {
+                    const savedData = await savedRes.json();
+                    const s = savedData.data || {};
+                    setInvoiceSettings(prev => ({
+                        ...prev,
+                        achDebitEnabled: s.mercury_ach_enabled ?? prev.achDebitEnabled,
+                        creditCardEnabled: s.mercury_cc_enabled ?? prev.creditCardEnabled,
+                        useRealAccountNumber: s.mercury_real_account ?? prev.useRealAccountNumber,
+                        destinationAccountId: s.mercury_destination_account_id ?? prev.destinationAccountId,
+                    }));
+                }
+            } catch {
+                // Settings table may not exist yet
             }
         } catch (err) {
             console.error('Error loading Mercury data:', err);
@@ -175,6 +189,33 @@ export default function AdminMercuryPage() {
             console.error('Error registering webhook:', err);
         } finally {
             setRegisteringWebhook(false);
+        }
+    };
+
+    const handleSaveInvoiceSettings = async () => {
+        setSavingSettings(true);
+        try {
+            const res = await fetch('/api/v1/admin/settings', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mercury_ach_enabled: invoiceSettings.achDebitEnabled,
+                    mercury_cc_enabled: invoiceSettings.creditCardEnabled,
+                    mercury_real_account: invoiceSettings.useRealAccountNumber,
+                    mercury_destination_account_id: invoiceSettings.destinationAccountId,
+                }),
+            });
+
+            if (res.ok) {
+                // Show inline confirmation
+                const btn = document.querySelector('[data-save-settings]');
+                if (btn) btn.textContent = 'Saved!';
+                setTimeout(() => { if (btn) btn.textContent = 'Save Invoice Settings'; }, 2000);
+            }
+        } catch (err) {
+            console.error('Error saving invoice settings:', err);
+        } finally {
+            setSavingSettings(false);
         }
     };
 
@@ -476,6 +517,18 @@ export default function AdminMercuryPage() {
                         </div>
                     </div>
                     <div className="mt-4 pt-4 border-t flex items-center gap-3">
+                        <Button
+                            onClick={handleSaveInvoiceSettings}
+                            disabled={savingSettings}
+                            className="bg-violet-600 hover:bg-violet-700 gap-2"
+                        >
+                            {savingSettings ? (
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Save className="w-4 h-4" />
+                            )}
+                            {savingSettings ? 'Saving...' : 'Save Invoice Settings'}
+                        </Button>
                         <p className="text-xs text-gray-500 flex-1">
                             These settings apply to all new invoices (manual and automatic). Existing invoices are not affected.
                         </p>
