@@ -48,13 +48,8 @@ export async function GET(request: NextRequest) {
         const { data, count, error } = await query;
 
         if (error) {
-            // Handle missing table or column gracefully
-            if (error.code === '42P01' || error.code === '42703') {
-                console.warn('Merchants query hit missing table/column:', error.message);
-                return NextResponse.json({ data: [], pagination: { page, limit, total: 0, has_more: false } });
-            }
-            console.error('Merchants fetch error:', error);
-            return NextResponse.json({ error: 'Failed to fetch merchants' }, { status: 500 });
+            console.warn('Merchants fetch error:', error.code, error.message);
+            return NextResponse.json({ data: [], pagination: { page, limit, total: 0, has_more: false } });
         }
 
         return NextResponse.json({

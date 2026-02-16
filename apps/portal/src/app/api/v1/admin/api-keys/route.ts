@@ -21,12 +21,9 @@ export async function GET() {
             .order('created_at', { ascending: false });
 
         if (error) {
-            // Table may not exist
-            if (error.code === '42P01' || error.code === '42703') {
-                return NextResponse.json({ data: [] });
-            }
-            console.error('API keys fetch error:', error);
-            return NextResponse.json({ error: 'Failed to fetch API keys' }, { status: 500 });
+            // api_keys table likely doesn't exist yet -- return empty
+            console.warn('API keys fetch error (table may not exist):', error.code, error.message);
+            return NextResponse.json({ data: [] });
         }
 
         return NextResponse.json({

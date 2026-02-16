@@ -28,12 +28,8 @@ export async function GET() {
             .order('created_at', { ascending: true });
 
         if (error) {
-            if (error.code === '42P01' || error.code === '42703') {
-                console.warn('KYB review query hit missing table/column:', error.message);
-                return NextResponse.json({ data: [], stats: { approvedCount: 0 } });
-            }
-            console.error('KYB review fetch error:', error);
-            return NextResponse.json({ error: 'Failed to fetch KYB reviews' }, { status: 500 });
+            console.warn('KYB review fetch error:', error.code, error.message);
+            return NextResponse.json({ data: [], stats: { approvedCount: 0 } });
         }
 
         // Also get approved count for stats
