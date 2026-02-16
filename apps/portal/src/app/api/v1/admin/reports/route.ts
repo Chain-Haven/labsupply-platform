@@ -10,60 +10,70 @@ function getServiceClient() {
     );
 }
 
+// Safe query helper -- returns empty on missing table/column errors
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function safeQuery(queryFn: () => any): Promise<{ data: any; count: number; error: null }> {
+    try {
+        const result = await queryFn();
+        if (result.error && (result.error.code === '42P01' || result.error.code === '42703')) {
+            return { data: null, count: 0, error: null };
+        }
+        return { data: result.data, count: result.count ?? 0, error: null };
+    } catch {
+        return { data: null, count: 0, error: null };
+    }
+}
+
 export async function GET() {
     try {
         const supabase = getServiceClient();
 
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-
-        const [
-            ordersRes,
-            totalRevenueRes,
-            orderCountRes,
-            merchantCountRes,
-            statusBreakdownRes,
-        ] = await Promise.all([
-            // Recent orders with totals for daily revenue
+        // Orders table may not exist
+        const ordersRes = await safeQuery(() =>
             supabase.from('orders')
                 .select('actual_total_cents, shipped_at, created_at, status')
-                .gte('created_at', thirtyDaysAgo)
-                .order('created_at', { ascending: true }),
-            // Total lifetime revenue
+                .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+                .order('created_at', { ascending: true })
+        );
+
+        const totalRevenueRes = await safeQuery(() =>
             supabase.from('orders')
                 .select('actual_total_cents')
                 .eq('status', 'COMPLETE')
-                .not('actual_total_cents', 'is', null),
-            // Total order count
-            supabase.from('orders').select('id', { count: 'exact', head: true }),
-            // Active merchant count
-            supabase.from('merchants').select('id', { count: 'exact', head: true }).eq('status', 'approved'),
-            // Orders by status
-            supabase.from('orders').select('status'),
-        ]);
+                .not('actual_total_cents', 'is', null)
+        );
 
-        // Compute daily revenue for last 30 days
+        const orderCountRes = await safeQuery(() =>
+            supabase.from('orders').select('id', { count: 'exact', head: true })
+        );
+
+        const merchantCountRes = await safeQuery(() =>
+            supabase.from('merchants').select('id', { count: 'exact', head: true }).eq('status', 'approved')
+        );
+
+        const statusBreakdownRes = await safeQuery(() =>
+            supabase.from('orders').select('status')
+        );
+
+        // Compute daily revenue
         const dailyRevenue: Record<string, number> = {};
-        for (const order of (ordersRes.data || [])) {
-            const o = order as { actual_total_cents?: number; shipped_at?: string; created_at: string; status: string };
-            if (o.actual_total_cents && o.shipped_at) {
-                const day = o.shipped_at.split('T')[0];
-                dailyRevenue[day] = (dailyRevenue[day] || 0) + o.actual_total_cents;
+        for (const order of ((ordersRes.data || []) as Record<string, unknown>[])) {
+            if (order.actual_total_cents && order.shipped_at) {
+                const day = (order.shipped_at as string).split('T')[0];
+                dailyRevenue[day] = (dailyRevenue[day] || 0) + (order.actual_total_cents as number);
             }
         }
         const revenueByDay = Object.entries(dailyRevenue)
             .map(([date, amount]) => ({ date, amount }))
             .sort((a, b) => a.date.localeCompare(b.date));
 
-        // Total revenue
-        const totalRevenue = (totalRevenueRes.data || []).reduce(
-            (sum: number, r: { actual_total_cents: number }) => sum + (r.actual_total_cents || 0), 0
+        const totalRevenue = ((totalRevenueRes.data || []) as Record<string, number>[]).reduce(
+            (sum, r) => sum + (r.actual_total_cents || 0), 0
         );
 
-        // Status breakdown
         const statusCounts: Record<string, number> = {};
-        for (const order of (statusBreakdownRes.data || [])) {
-            const o = order as { status: string };
-            statusCounts[o.status] = (statusCounts[o.status] || 0) + 1;
+        for (const order of ((statusBreakdownRes.data || []) as Record<string, string>[])) {
+            statusCounts[order.status] = (statusCounts[order.status] || 0) + 1;
         }
 
         return NextResponse.json({

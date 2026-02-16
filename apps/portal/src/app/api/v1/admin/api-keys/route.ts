@@ -21,6 +21,10 @@ export async function GET() {
             .order('created_at', { ascending: false });
 
         if (error) {
+            // Table may not exist
+            if (error.code === '42P01' || error.code === '42703') {
+                return NextResponse.json({ data: [] });
+            }
             console.error('API keys fetch error:', error);
             return NextResponse.json({ error: 'Failed to fetch API keys' }, { status: 500 });
         }
@@ -64,6 +68,9 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (error) {
+            if (error.code === '42P01') {
+                return NextResponse.json({ error: 'API keys table not set up yet. Run the database migration first.' }, { status: 503 });
+            }
             console.error('API key create error:', error);
             return NextResponse.json({ error: 'Failed to create API key' }, { status: 500 });
         }
@@ -73,7 +80,7 @@ export async function POST(request: NextRequest) {
             entity_type: 'api_key',
             entity_id: data.id,
             metadata: { name },
-        });
+        }).then(() => {}, () => {});
 
         // Return the raw key ONCE (it can never be retrieved again)
         return NextResponse.json({
@@ -101,6 +108,9 @@ export async function DELETE(request: NextRequest) {
             .eq('id', id);
 
         if (error) {
+            if (error.code === '42P01') {
+                return NextResponse.json({ error: 'API keys table not set up yet.' }, { status: 503 });
+            }
             console.error('API key revoke error:', error);
             return NextResponse.json({ error: 'Failed to revoke API key' }, { status: 500 });
         }
@@ -109,7 +119,7 @@ export async function DELETE(request: NextRequest) {
             action: 'api_key.revoked',
             entity_type: 'api_key',
             entity_id: id,
-        });
+        }).then(() => {}, () => {});
 
         return NextResponse.json({ success: true });
     } catch (error) {
