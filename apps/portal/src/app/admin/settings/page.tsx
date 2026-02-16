@@ -50,15 +50,14 @@ export default function SettingsPage() {
         apiSecret: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
     });
 
-    const handleSave = () => {
+    const handleSave = async () => {
         setIsSaving(true);
-        setTimeout(() => {
-            setIsSaving(false);
-            toast({
-                title: 'Settings saved',
-                description: 'Your settings have been updated successfully.',
-            });
-        }, 1000);
+        await new Promise((r) => setTimeout(r, 50));
+        toast({
+            title: 'Settings saved',
+            description: 'Your settings have been updated successfully.',
+        });
+        setIsSaving(false);
     };
 
     // Admin auth for managing admin users

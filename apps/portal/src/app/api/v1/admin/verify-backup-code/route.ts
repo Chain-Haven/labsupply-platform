@@ -20,13 +20,18 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Email and code are required' }, { status: 400 });
         }
 
-        // Validate it's a known admin email
-        const validAdminEmails = ['info@chainhaven.co'];
-        if (!validAdminEmails.includes(email.toLowerCase())) {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+        // Validate email is a known admin (check admin_users table)
+        const { data: adminUser } = await supabase
+            .from('admin_users')
+            .select('id')
+            .eq('email', email.toLowerCase())
+            .single();
+
+        if (!adminUser) {
             return NextResponse.json({ error: 'Invalid admin email' }, { status: 403 });
         }
-
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
         // Find the code
         const { data: codeData, error: fetchError } = await supabase

@@ -13,6 +13,7 @@ import {
     Settings,
     Key,
     BarChart3,
+    DollarSign,
     LogOut,
     Loader2,
     Shield
@@ -28,6 +29,7 @@ const navigation = [
     { name: 'Inventory', href: '/admin/inventory', icon: Box },
     { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
     { name: 'Reports', href: '/admin/reports', icon: BarChart3 },
+    { name: 'Mercury', href: '/admin/mercury', icon: DollarSign },
     { name: 'API Keys', href: '/admin/api-keys', icon: Key },
     { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];

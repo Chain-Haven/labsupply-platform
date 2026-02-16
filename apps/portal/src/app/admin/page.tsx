@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,28 +12,104 @@ import {
     Clock,
     CheckCircle,
     ArrowUpRight,
-    Package
+    Package,
+    Loader2
 } from 'lucide-react';
 import Link from 'next/link';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatRelativeTime } from '@/lib/utils';
 
-// Dashboard data - empty defaults (fetched from API in production)
-const stats = {
-    totalMerchants: 0,
-    pendingKyb: 0,
-    activeOrders: 0,
-    lowStockProducts: 0,
-    revenueToday: 0,
-    revenueThisWeek: 0,
-};
+interface DashboardStats {
+    totalMerchants: number;
+    pendingKyb: number;
+    activeOrders: number;
+    lowStockProducts: number;
+    revenueToday: number;
+    revenueThisWeek: number;
+}
 
-const recentActivity: { id: number; type: string; merchant?: string; order?: string; product?: string; qty?: number; time: string }[] = [];
+interface PendingReview {
+    id: string;
+    company: string;
+    type: string;
+    submittedAt: string;
+}
 
-const pendingReviews: { id: string; company: string; type: string; submittedAt: string }[] = [];
+interface RecentActivityItem {
+    id: string;
+    type: string;
+    entity: string;
+    time: string;
+    metadata?: Record<string, unknown>;
+}
 
-const lowStockProducts: { sku: string; name: string; qty: number; threshold: number }[] = [];
+interface LowStockProduct {
+    sku: string;
+    name: string;
+    qty: number;
+    threshold: number;
+}
+
+interface DashboardData {
+    totalMerchants: number;
+    pendingKyb: number;
+    activeOrders: number;
+    lowStockProducts: number;
+    revenueToday: number;
+    revenueThisWeek: number;
+    pendingReviews: PendingReview[];
+    recentActivity: RecentActivityItem[];
+    lowStockProductItems?: LowStockProduct[];
+}
 
 export default function AdminDashboard() {
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [stats, setStats] = useState<DashboardStats>({
+        totalMerchants: 0,
+        pendingKyb: 0,
+        activeOrders: 0,
+        lowStockProducts: 0,
+        revenueToday: 0,
+        revenueThisWeek: 0,
+    });
+    const [pendingReviews, setPendingReviews] = useState<PendingReview[]>([]);
+    const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([]);
+    const [lowStockProductItems, setLowStockProductItems] = useState<LowStockProduct[]>([]);
+
+    useEffect(() => {
+        async function fetchDashboard() {
+            try {
+                setLoading(true);
+                setError(null);
+                const res = await fetch('/api/v1/admin/dashboard');
+                if (!res.ok) {
+                    throw new Error(res.status === 401 ? 'Unauthorized' : 'Failed to load dashboard');
+                }
+                const json = await res.json();
+                if (json.error) {
+                    throw new Error(json.error);
+                }
+                const data: DashboardData = json.data;
+                setStats({
+                    totalMerchants: data.totalMerchants,
+                    pendingKyb: data.pendingKyb,
+                    activeOrders: data.activeOrders,
+                    lowStockProducts: data.lowStockProducts,
+                    revenueToday: data.revenueToday,
+                    revenueThisWeek: data.revenueThisWeek,
+                });
+                setPendingReviews(data.pendingReviews || []);
+                setRecentActivity(data.recentActivity || []);
+                setLowStockProductItems(data.lowStockProductItems || []);
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to load dashboard');
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchDashboard();
+    }, []);
+
     const getActivityIcon = (type: string) => {
         switch (type) {
             case 'kyb_submitted':
@@ -49,22 +126,54 @@ export default function AdminDashboard() {
         }
     };
 
-    const getActivityText = (activity: typeof recentActivity[0]) => {
+    const getActivityText = (activity: RecentActivityItem) => {
+        const meta = activity.metadata || {};
         switch (activity.type) {
             case 'kyb_submitted':
-                return `${activity.merchant} submitted KYB application`;
+                return `${(meta.merchant as string) || activity.entity} submitted KYB application`;
             case 'kyb_approved':
-                return `${activity.merchant} KYB approved`;
+                return `${(meta.merchant as string) || activity.entity} KYB approved`;
             case 'order_placed':
-                return `${activity.merchant} placed order ${activity.order}`;
+                return `${(meta.merchant as string) || 'Merchant'} placed order ${(meta.order as string) || activity.entity}`;
             case 'order_shipped':
-                return `Order ${activity.order} shipped`;
+                return `Order ${(meta.order as string) || activity.entity} shipped`;
             case 'low_stock':
-                return `${activity.product} low stock (${activity.qty} remaining)`;
+                return `${(meta.product as string) || activity.entity} low stock (${meta.qty ?? '?'} remaining)`;
             default:
-                return 'Unknown activity';
+                return activity.entity || activity.type || 'Unknown activity';
         }
     };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <Loader2 className="w-10 h-10 animate-spin text-gray-500" />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="space-y-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
+                    <p className="text-gray-500">Overview of your supplier operations</p>
+                </div>
+                <Card className="border-red-200 bg-red-50 dark:bg-red-900/10">
+                    <CardContent className="p-6">
+                        <p className="text-red-700 dark:text-red-400">{error}</p>
+                        <Button
+                            variant="outline"
+                            className="mt-4"
+                            onClick={() => window.location.reload()}
+                        >
+                            Retry
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -210,19 +319,23 @@ export default function AdminDashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-3">
-                            {pendingReviews.map((review) => (
-                                <div key={review.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                                    <div>
-                                        <p className="font-medium text-gray-900 dark:text-white text-sm">
-                                            {review.company}
-                                        </p>
-                                        <p className="text-xs text-gray-500">{review.type}</p>
+                            {pendingReviews.length === 0 ? (
+                                <p className="text-sm text-gray-500 py-4 text-center">No data</p>
+                            ) : (
+                                pendingReviews.map((review) => (
+                                    <div key={review.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                                        <div>
+                                            <p className="font-medium text-gray-900 dark:text-white text-sm">
+                                                {review.company}
+                                            </p>
+                                            <p className="text-xs text-gray-500">{review.type}</p>
+                                        </div>
+                                        <Link href={`/admin/kyb-review/${review.id}`}>
+                                            <Button size="sm" variant="outline">Review</Button>
+                                        </Link>
                                     </div>
-                                    <Link href={`/admin/kyb-review/${review.id}`}>
-                                        <Button size="sm" variant="outline">Review</Button>
-                                    </Link>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                         <Link href="/admin/kyb-review">
                             <Button variant="link" className="w-full mt-4">
@@ -240,20 +353,24 @@ export default function AdminDashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-3">
-                            {lowStockProducts.map((product) => (
-                                <div key={product.sku} className="flex items-center justify-between py-2 border-b last:border-0">
-                                    <div>
-                                        <p className="font-medium text-gray-900 dark:text-white text-sm">
-                                            {product.name}
-                                        </p>
-                                        <p className="text-xs font-mono text-gray-500">{product.sku}</p>
+                            {lowStockProductItems.length === 0 ? (
+                                <p className="text-sm text-gray-500 py-4 text-center">No data</p>
+                            ) : (
+                                lowStockProductItems.map((product) => (
+                                    <div key={product.sku} className="flex items-center justify-between py-2 border-b last:border-0">
+                                        <div>
+                                            <p className="font-medium text-gray-900 dark:text-white text-sm">
+                                                {product.name}
+                                            </p>
+                                            <p className="text-xs font-mono text-gray-500">{product.sku}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-red-600 font-medium">{product.qty} left</p>
+                                            <p className="text-xs text-gray-500">Min: {product.threshold}</p>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-red-600 font-medium">{product.qty} left</p>
-                                        <p className="text-xs text-gray-500">Min: {product.threshold}</p>
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                         <Link href="/admin/inventory?filter=low_stock">
                             <Button variant="link" className="w-full mt-4">
@@ -271,17 +388,21 @@ export default function AdminDashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-3">
-                            {recentActivity.map((activity) => (
-                                <div key={activity.id} className="flex items-start gap-3 py-2 border-b last:border-0">
-                                    {getActivityIcon(activity.type)}
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm text-gray-900 dark:text-white">
-                                            {getActivityText(activity)}
-                                        </p>
-                                        <p className="text-xs text-gray-500">{activity.time}</p>
+                            {recentActivity.length === 0 ? (
+                                <p className="text-sm text-gray-500 py-4 text-center">No data</p>
+                            ) : (
+                                recentActivity.map((activity) => (
+                                    <div key={activity.id} className="flex items-start gap-3 py-2 border-b last:border-0">
+                                        {getActivityIcon(activity.type)}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm text-gray-900 dark:text-white">
+                                                {getActivityText(activity)}
+                                            </p>
+                                            <p className="text-xs text-gray-500">{formatRelativeTime(activity.time)}</p>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </CardContent>
                 </Card>

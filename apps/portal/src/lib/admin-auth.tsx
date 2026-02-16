@@ -35,6 +35,7 @@ interface AdminAuthContextType {
     adminUsers: AdminUser[];
     backupSession: BackupSession | null;
     login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+    loginWithMagicLink: (email: string) => Promise<{ success: boolean; error?: string }>;
     logout: () => Promise<void>;
     addAdminUser: (email: string, name: string) => Promise<{ success: boolean; error?: string }>;
     removeAdminUser: (id: string) => Promise<boolean>;
@@ -226,6 +227,36 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         return { success: true };
     };
 
+    const loginWithMagicLink = async (email: string): Promise<{ success: boolean; error?: string }> => {
+        const normalizedEmail = email.toLowerCase().trim();
+
+        // Verify email is in admin_users table before sending magic link
+        const { data: adminData, error: checkError } = await supabase
+            .from('admin_users')
+            .select('id')
+            .eq('email', normalizedEmail)
+            .single();
+
+        if (checkError || !adminData) {
+            if (normalizedEmail !== SUPER_ADMIN_EMAIL) {
+                return { success: false, error: 'This email is not authorized for admin access.' };
+            }
+        }
+
+        const { error } = await supabase.auth.signInWithOtp({
+            email: normalizedEmail,
+            options: {
+                emailRedirectTo: `${window.location.origin}/auth/callback?next=/admin`,
+            },
+        });
+
+        if (error) {
+            return { success: false, error: error.message };
+        }
+
+        return { success: true };
+    };
+
     const logout = async () => {
         await supabase.auth.signOut();
         // Also clear backup session cookie if exists
@@ -322,6 +353,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
             adminUsers,
             backupSession,
             login,
+            loginWithMagicLink,
             logout,
             addAdminUser,
             removeAdminUser,
