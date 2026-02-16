@@ -69,12 +69,13 @@ export async function POST(request: NextRequest) {
             throw new ApiError('STORE_CREATE_FAILED', 'Failed to create store', 500);
         }
 
-        // Create the store secret
+        // Create the store secret (save plaintext for HMAC verification + hash for lookup)
         const { error: secretError } = await supabase
             .from('store_secrets')
             .insert({
                 store_id: store.id,
                 secret_hash: secretHash,
+                secret_plaintext: storeSecret,
                 is_active: true,
             });
 

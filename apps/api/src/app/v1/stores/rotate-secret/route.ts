@@ -28,12 +28,13 @@ export async function POST(request: NextRequest) {
             .eq('store_id', store.storeId)
             .eq('is_active', true);
 
-        // Create new secret
+        // Create new secret (save plaintext for HMAC verification + hash for lookup)
         const { error: secretError } = await supabase
             .from('store_secrets')
             .insert({
                 store_id: store.storeId,
                 secret_hash: newSecretHash,
+                secret_plaintext: newSecret,
                 is_active: true,
             });
 

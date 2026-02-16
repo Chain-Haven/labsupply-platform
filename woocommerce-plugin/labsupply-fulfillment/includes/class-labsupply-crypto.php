@@ -99,7 +99,7 @@ class LabSupply_Crypto
         $iv = substr($decoded, 0, 16);
         $encrypted = substr($decoded, 16);
 
-        return openssl_decrypt(base64_decode($encrypted), 'AES-256-CBC', $key, 0, $iv);
+        return openssl_decrypt($encrypted, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
     }
 
     /**

@@ -76,6 +76,31 @@ export async function POST(
             }
         }
 
+        // Release inventory reservations for this order's items
+        const { data: orderItems } = await supabase
+            .from('order_items')
+            .select('product_id, qty')
+            .eq('order_id', order.id);
+
+        if (orderItems && orderItems.length > 0) {
+            for (const item of orderItems) {
+                if (item.product_id) {
+                    const { data: inv } = await supabase
+                        .from('inventory')
+                        .select('reserved')
+                        .eq('product_id', item.product_id)
+                        .single();
+
+                    if (inv) {
+                        await supabase
+                            .from('inventory')
+                            .update({ reserved: Math.max(0, inv.reserved - item.qty) })
+                            .eq('product_id', item.product_id);
+                    }
+                }
+            }
+        }
+
         // Update order status
         const { error: updateError } = await supabase
             .from('orders')

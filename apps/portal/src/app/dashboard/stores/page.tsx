@@ -1,50 +1,123 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
     Store,
     Plus,
-    Check,
     Copy,
     ExternalLink,
     RefreshCw,
-    AlertCircle,
     Wifi,
-    WifiOff
+    WifiOff,
+    Loader2,
+    AlertCircle,
 } from 'lucide-react';
-import { cn, getStatusColor, formatRelativeTime } from '@/lib/utils';
+import { cn, getStatusColor, formatRelativeTime, formatDate } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 
-// Stores data - empty by default (fetched from API in production)
-const stores: {
+type StoreData = {
     id: string;
     name: string;
     url: string;
     status: string;
-    lastSync: string;
-    productCount: number;
-    currency: string;
-}[] = [];
+    type?: string;
+    currency?: string;
+    last_sync_at: string | null;
+    created_at: string;
+};
 
-const connectCode = 'ABC1-2DEF-3GHI';
+type ConnectCodeData = {
+    code: string;
+    flat_code: string;
+    expires_at: string;
+};
 
 export default function StoresPage() {
     const [showConnectModal, setShowConnectModal] = useState(false);
-    const [codeGenerated, setCodeGenerated] = useState(false);
+    const [stores, setStores] = useState<StoreData[]>([]);
+    const [storesLoading, setStoresLoading] = useState(true);
+    const [storesError, setStoresError] = useState<string | null>(null);
+    const [connectCode, setConnectCode] = useState<ConnectCodeData | null>(null);
+    const [codeLoading, setCodeLoading] = useState(false);
+    const [codeError, setCodeError] = useState<string | null>(null);
+
+    const fetchStores = useCallback(async () => {
+        setStoresLoading(true);
+        setStoresError(null);
+        try {
+            const res = await fetch('/api/v1/merchant/stores');
+            const json = await res.json();
+            if (!res.ok) {
+                throw new Error(json.error || 'Failed to fetch stores');
+            }
+            setStores(json.data ?? []);
+        } catch (err) {
+            setStoresError(err instanceof Error ? err.message : 'Failed to load stores');
+            setStores([]);
+        } finally {
+            setStoresLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchStores();
+    }, [fetchStores]);
 
     const copyCode = () => {
-        navigator.clipboard.writeText(connectCode);
+        if (!connectCode) return;
+        navigator.clipboard.writeText(connectCode.code);
         toast({
             title: 'Copied!',
             description: 'Connect code copied to clipboard',
         });
     };
 
-    const generateCode = () => {
-        setCodeGenerated(true);
+    const generateCode = async () => {
+        setCodeLoading(true);
+        setCodeError(null);
+        try {
+            const res = await fetch('/api/v1/merchant/connect-code', { method: 'POST' });
+            const json = await res.json();
+            if (!res.ok) {
+                throw new Error(json.error || 'Failed to generate connect code');
+            }
+            setConnectCode(json.data);
+            toast({
+                title: 'Code generated',
+                description: 'Your connect code is ready. Enter it in your WooCommerce plugin.',
+            });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Failed to generate code';
+            setCodeError(msg);
+            toast({
+                title: 'Error',
+                description: msg,
+                variant: 'destructive',
+            });
+        } finally {
+            setCodeLoading(false);
+        }
+    };
+
+    const closeModal = () => {
+        setShowConnectModal(false);
+        setConnectCode(null);
+        setCodeError(null);
+        fetchStores();
+    };
+
+    const formatExpiresAt = (expiresAt: string) => {
+        const expires = new Date(expiresAt);
+        const now = new Date();
+        const diffMs = expires.getTime() - now.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        if (diffMins < 0) return 'Expired';
+        if (diffMins < 60) return `Expires in ${diffMins} minutes`;
+        if (diffHours < 24) return `Expires in ${diffHours} hours`;
+        return `Expires at ${formatDate(expiresAt)}`;
     };
 
     return (
@@ -62,19 +135,39 @@ export default function StoresPage() {
             </div>
 
             {/* Stores list */}
-            {stores.length > 0 ? (
+            {storesLoading ? (
+                <Card>
+                    <CardContent className="p-12 flex items-center justify-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                    </CardContent>
+                </Card>
+            ) : storesError ? (
+                <Card>
+                    <CardContent className="p-12 text-center">
+                        <AlertCircle className="w-12 h-12 mx-auto text-red-500 mb-4" />
+                        <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Failed to load stores</h3>
+                        <p className="text-gray-500 mb-4">{storesError}</p>
+                        <Button variant="outline" onClick={fetchStores}>
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Retry
+                        </Button>
+                    </CardContent>
+                </Card>
+            ) : stores.length > 0 ? (
                 <div className="grid gap-4">
                     {stores.map((store) => (
                         <Card key={store.id}>
                             <CardContent className="p-6">
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-start gap-4">
-                                        <div className={cn(
-                                            'w-12 h-12 rounded-lg flex items-center justify-center',
-                                            store.status === 'CONNECTED'
-                                                ? 'bg-green-100 dark:bg-green-900/20'
-                                                : 'bg-red-100 dark:bg-red-900/20'
-                                        )}>
+                                        <div
+                                            className={cn(
+                                                'w-12 h-12 rounded-lg flex items-center justify-center',
+                                                store.status === 'CONNECTED'
+                                                    ? 'bg-green-100 dark:bg-green-900/20'
+                                                    : 'bg-red-100 dark:bg-red-900/20'
+                                            )}
+                                        >
                                             {store.status === 'CONNECTED' ? (
                                                 <Wifi className="w-6 h-6 text-green-600 dark:text-green-400" />
                                             ) : (
@@ -82,7 +175,9 @@ export default function StoresPage() {
                                             )}
                                         </div>
                                         <div>
-                                            <h3 className="font-semibold text-gray-900 dark:text-white">{store.name}</h3>
+                                            <h3 className="font-semibold text-gray-900 dark:text-white">
+                                                {store.name}
+                                            </h3>
                                             <a
                                                 href={store.url}
                                                 target="_blank"
@@ -93,19 +188,24 @@ export default function StoresPage() {
                                                 <ExternalLink className="w-3 h-3" />
                                             </a>
                                             <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                                                <span>{store.productCount} products synced</span>
-                                                <span>•</span>
-                                                <span>{store.currency}</span>
-                                                <span>•</span>
-                                                <span>Last sync: {formatRelativeTime(store.lastSync)}</span>
+                                                {store.currency && <span>{store.currency}</span>}
+                                                {store.currency && store.last_sync_at && <span>•</span>}
+                                                <span>
+                                                    Last sync:{' '}
+                                                    {store.last_sync_at
+                                                        ? formatRelativeTime(store.last_sync_at)
+                                                        : 'Never'}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className={cn(
-                                            'px-2.5 py-1 rounded-full text-xs font-medium',
-                                            getStatusColor(store.status)
-                                        )}>
+                                        <span
+                                            className={cn(
+                                                'px-2.5 py-1 rounded-full text-xs font-medium',
+                                                getStatusColor(store.status)
+                                            )}
+                                        >
                                             {store.status}
                                         </span>
                                         <Button variant="outline" size="sm">
@@ -151,7 +251,8 @@ export default function StoresPage() {
                                 <div>
                                     <h4 className="font-medium text-gray-900 dark:text-white">Download the Plugin</h4>
                                     <p className="text-sm text-gray-500 mt-1">
-                                        Download and install the LabSupply Fulfillment Connector plugin on your WordPress site.
+                                        Download and install the LabSupply Fulfillment Connector plugin on your
+                                        WordPress site.
                                     </p>
                                     <a href="/api/plugin/download" download>
                                         <Button variant="outline" size="sm" className="mt-2">
@@ -171,24 +272,40 @@ export default function StoresPage() {
                                     <p className="text-sm text-gray-500 mt-1">
                                         Generate a one-time code to link your store securely.
                                     </p>
-                                    {!codeGenerated ? (
-                                        <Button size="sm" className="mt-2" onClick={generateCode}>
-                                            Generate Code
-                                        </Button>
-                                    ) : (
-                                        <div className="mt-2 flex items-center gap-2">
-                                            <code className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg font-mono text-lg tracking-wider">
-                                                {connectCode}
-                                            </code>
-                                            <Button variant="outline" size="icon" onClick={copyCode}>
-                                                <Copy className="w-4 h-4" />
+                                    {!connectCode ? (
+                                        <div className="mt-2 flex flex-col gap-2">
+                                            <Button
+                                                size="sm"
+                                                onClick={generateCode}
+                                                disabled={codeLoading}
+                                            >
+                                                {codeLoading ? (
+                                                    <>
+                                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                        Generating...
+                                                    </>
+                                                ) : (
+                                                    'Generate Code'
+                                                )}
                                             </Button>
+                                            {codeError && (
+                                                <p className="text-xs text-red-500">{codeError}</p>
+                                            )}
                                         </div>
-                                    )}
-                                    {codeGenerated && (
-                                        <p className="text-xs text-gray-400 mt-2">
-                                            Code expires in 24 hours
-                                        </p>
+                                    ) : (
+                                        <div className="mt-2 flex flex-col gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <code className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg font-mono text-lg tracking-wider">
+                                                    {connectCode.code}
+                                                </code>
+                                                <Button variant="outline" size="icon" onClick={copyCode}>
+                                                    <Copy className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+                                            <p className="text-xs text-gray-400">
+                                                {formatExpiresAt(connectCode.expires_at)}
+                                            </p>
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -201,17 +318,18 @@ export default function StoresPage() {
                                 <div>
                                     <h4 className="font-medium text-gray-900 dark:text-white">Enter Code in Plugin</h4>
                                     <p className="text-sm text-gray-500 mt-1">
-                                        Go to WooCommerce → LabSupply in your WordPress admin and enter the connect code.
+                                        Go to WooCommerce → LabSupply in your WordPress admin and enter the connect
+                                        code.
                                     </p>
                                 </div>
                             </div>
 
                             {/* Actions */}
                             <div className="flex justify-end gap-2 pt-4 border-t">
-                                <Button variant="outline" onClick={() => setShowConnectModal(false)}>
+                                <Button variant="outline" onClick={closeModal}>
                                     Cancel
                                 </Button>
-                                <Button onClick={() => setShowConnectModal(false)} disabled={!codeGenerated}>
+                                <Button onClick={closeModal} disabled={!connectCode}>
                                     Done
                                 </Button>
                             </div>

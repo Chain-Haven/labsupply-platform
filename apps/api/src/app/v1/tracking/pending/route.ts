@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
                 shipments(tracking_number, tracking_url, carrier, shipped_at)
             `)
             .eq('store_id', store.storeId)
-            .in('status', ['SHIPPED', 'COMPLETE'])
+            .eq('status', 'SHIPPED')
             .not('shipped_at', 'is', null)
             .order('shipped_at', { ascending: false })
             .limit(50);
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
                 return {
                     woo_order_id: o.woo_order_id,
                     supplier_order_id: o.id,
-                    status: o.status === 'COMPLETE' ? 'delivered' : 'shipped',
+                    status: 'shipped',
                     tracking_number: shipment?.tracking_number || '',
                     tracking_url: shipment?.tracking_url || '',
                     carrier: shipment?.carrier || '',
