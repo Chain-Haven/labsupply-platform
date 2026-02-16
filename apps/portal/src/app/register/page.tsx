@@ -123,7 +123,7 @@ export default function RegisterPage() {
             if (!kybDocs.articlesOfOrg.file) newErrors.articlesOfOrg = 'Articles of Organization is required';
             if (!kybDocs.einDoc.file) newErrors.einDoc = 'EIN document is required';
             if (!kybDocs.voidedCheck.file) newErrors.voidedCheck = 'Voided check or bank letter is required';
-            if (!kybDocs.legalOpinionLetter.file) newErrors.legalOpinionLetter = 'Legal opinion letter is required';
+            // Legal opinion letter is optional at signup (required within 30 days)
             if (Object.keys(newErrors).length > 0) newErrors.documents = 'Please upload all required documents';
         }
 

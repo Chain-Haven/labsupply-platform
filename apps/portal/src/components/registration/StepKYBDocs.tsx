@@ -30,7 +30,7 @@ const documentFields = [
     { key: 'articlesOfOrg', label: 'Articles of Organization', icon: Building2, required: true },
     { key: 'einDoc', label: 'EIN Document (IRS Letter)', icon: FileCheck, required: true },
     { key: 'voidedCheck', label: 'Voided Check or Bank Letter', icon: CreditCard, required: true },
-    { key: 'legalOpinionLetter', label: 'Legal Opinion Letter', icon: FileText, required: true },
+    { key: 'legalOpinionLetter', label: 'Legal Opinion Letter', icon: FileText, required: false },
 ] as const;
 
 export default function StepKYBDocs({ data, onChange, errors }: StepKYBDocsProps) {
@@ -177,9 +177,16 @@ export default function StepKYBDocs({ data, onChange, errors }: StepKYBDocsProps
             </div>
 
             {/* Legal Opinion Letter Help */}
-            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 space-y-2">
+                <p className="text-blue-400 text-sm font-medium">
+                    Legal Opinion Letter (optional at signup)
+                </p>
+                <p className="text-blue-300/80 text-sm">
+                    You may upload your Legal Opinion Letter now or within <strong>30 days of account creation</strong>.
+                    Your account can be approved without it, but shipping will be paused if not received within 30 days.
+                </p>
                 <p className="text-blue-400 text-sm">
-                    Need a Legal Opinion Letter? Contact a Law Firm such as:{' '}
+                    Need one? Contact a firm such as:{' '}
                     <a
                         href="https://floridahealthcarelawfirm.com/"
                         target="_blank"

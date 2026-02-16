@@ -94,7 +94,9 @@ export default function StepReview({ data, agreedToTerms, onAgreedToTermsChange 
                         ) : (
                             <>
                                 <AlertTriangle className="w-4 h-4 text-amber-400" />
-                                <span className="text-amber-400">No legal opinion letter uploaded</span>
+                                <span className="text-amber-300/80">
+                                    Legal opinion letter not uploaded (you have 30 days after signup to provide it)
+                                </span>
                             </>
                         )}
                     </div>
@@ -107,7 +109,11 @@ export default function StepReview({ data, agreedToTerms, onAgreedToTermsChange 
                 <ul className="space-y-2 text-sm text-white/80">
                     <li className="flex items-start gap-2">
                         <Check className="w-4 h-4 text-violet-400 mt-0.5 shrink-0" />
-                        <span><strong>Mercury invoicing</strong> - Invoices sent via email with ACH payment links</span>
+                        <span><strong>No balance needed to sign up</strong> - Funding is only required to start shipping orders</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                        <Check className="w-4 h-4 text-violet-400 mt-0.5 shrink-0" />
+                        <span><strong>ACH invoicing via Mercury</strong> - Invoices sent to your email with bank transfer links</span>
                     </li>
                     <li className="flex items-start gap-2">
                         <Check className="w-4 h-4 text-violet-400 mt-0.5 shrink-0" />
@@ -115,11 +121,15 @@ export default function StepReview({ data, agreedToTerms, onAgreedToTermsChange 
                     </li>
                     <li className="flex items-start gap-2">
                         <Check className="w-4 h-4 text-violet-400 mt-0.5 shrink-0" />
-                        <span><strong>$500 compliance reserve</strong> maintained at all times (not available for orders)</span>
+                        <span><strong>Settled funds only</strong> - Only cleared ACH payments can be used for orders (2-3 business days)</span>
                     </li>
                     <li className="flex items-start gap-2">
                         <Check className="w-4 h-4 text-violet-400 mt-0.5 shrink-0" />
-                        <span><strong>Settled funds only</strong> - Only paid and settled invoice amounts can be used for orders</span>
+                        <span><strong>$500 compliance reserve</strong> maintained once funded (not available for orders)</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                        <Check className="w-4 h-4 text-violet-400 mt-0.5 shrink-0" />
+                        <span><strong>No credit cards</strong> - Not accepted due to Visa/Mastercard regulations. Crypto coming soon.</span>
                     </li>
                 </ul>
             </div>
@@ -156,9 +166,15 @@ export default function StepReview({ data, agreedToTerms, onAgreedToTermsChange 
                     <a href="/privacy" className="text-violet-400 hover:text-violet-300" target="_blank">
                         Privacy Policy
                     </a>
-                    . I understand that a $500 compliance reserve is required and that I will be invoiced
-                    via Mercury when my balance falls below my configured threshold.
-                    I confirm that all products are for research use only.
+                    . I understand that a $500 compliance reserve is required once funded, that I will be invoiced
+                    via Mercury when my balance falls below my configured threshold, and that only
+                    settled ACH payments can be used for order fulfillment. I confirm that all products
+                    are for research use only.
+                    {!data.hasLegalOpinion && (
+                        <span className="block mt-1 text-amber-400/80">
+                            I understand that a Legal Opinion Letter must be provided within 30 days of account creation.
+                        </span>
+                    )}
                 </label>
             </div>
         </div>
