@@ -15,12 +15,47 @@ function getApiToken(): string {
     return token;
 }
 
-function getAccountId(): string {
-    const id = process.env.MERCURY_ACCOUNT_ID;
-    if (!id) {
-        throw new MercuryError('MERCURY_ACCOUNT_ID environment variable is not set');
+// Cached account ID (auto-discovered from Mercury if not set in env)
+let _cachedAccountId: string | null = null;
+
+async function getAccountId(): Promise<string> {
+    // 1. Check env var override first
+    const envId = process.env.MERCURY_ACCOUNT_ID;
+    if (envId) return envId;
+
+    // 2. Use cached value
+    if (_cachedAccountId) return _cachedAccountId;
+
+    // 3. Auto-discover: fetch all accounts and use the first active checking account
+    try {
+        const result = await mercuryRequest<{ accounts: MercuryAccount[] }>('GET', '/accounts');
+        const checking = result.accounts.find(a => a.type === 'checking' && a.status === 'active')
+            || result.accounts[0];
+        if (checking) {
+            _cachedAccountId = checking.id;
+            return checking.id;
+        }
+    } catch (err) {
+        console.error('Failed to auto-discover Mercury account ID:', err);
     }
-    return id;
+
+    throw new MercuryError(
+        'No Mercury account found. Set MERCURY_ACCOUNT_ID or ensure your Mercury organization has an active account.'
+    );
+}
+
+/**
+ * Clear the cached account ID (used when admin changes the deposit account)
+ */
+export function clearAccountIdCache() {
+    _cachedAccountId = null;
+}
+
+/**
+ * Set account ID explicitly (from admin settings stored in DB)
+ */
+export function setAccountId(id: string) {
+    _cachedAccountId = id;
 }
 
 // ============================================================================
@@ -294,7 +329,7 @@ export async function listCustomers(params?: {
  * Automatically sends the invoice email to the customer if sendEmailOption is SendNow (default)
  */
 export async function createInvoice(params: CreateInvoiceParams): Promise<MercuryInvoiceResponse> {
-    const accountId = params.destinationAccountId ?? getAccountId();
+    const accountId = params.destinationAccountId ?? await getAccountId();
 
     return mercuryRequest<MercuryInvoiceResponse>('POST', '/ar/invoices', {
         customerId: params.customerId,
@@ -362,7 +397,7 @@ export async function updateInvoice(
  * Get Mercury account details (balance, status)
  */
 export async function getAccount(accountId?: string): Promise<MercuryAccount> {
-    const id = accountId ?? getAccountId();
+    const id = accountId ?? await getAccountId();
     return mercuryRequest<MercuryAccount>('GET', `/account/${id}`);
 }
 

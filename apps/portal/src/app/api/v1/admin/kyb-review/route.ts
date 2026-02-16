@@ -82,9 +82,8 @@ export async function POST(request: NextRequest) {
 
             // Create Mercury customer on approval
             const mercuryToken = process.env.MERCURY_API_TOKEN;
-            const mercuryAccountId = process.env.MERCURY_ACCOUNT_ID;
 
-            if (mercuryToken && mercuryAccountId) {
+            if (mercuryToken) {
                 try {
                     const customerEmail = merchant.billing_email || merchant.contact_email || merchant.email;
                     const mercuryRes = await fetch('https://api.mercury.com/api/v1/ar/customers', {

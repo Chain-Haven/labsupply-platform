@@ -9,6 +9,25 @@ import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
+let _cachedAccountId: string | null = null;
+
+async function autoDiscoverAccountId(token: string): Promise<string> {
+    if (_cachedAccountId) return _cachedAccountId;
+    const res = await fetch('https://api.mercury.com/api/v1/accounts', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+    });
+    if (res.ok) {
+        const data = await res.json();
+        const accts = data.accounts || [];
+        const checking = accts.find((a: Record<string, string>) => a.type === 'checking' && a.status === 'active') || accts[0];
+        if (checking) {
+            _cachedAccountId = checking.id;
+            return checking.id;
+        }
+    }
+    throw new Error('No Mercury account found');
+}
+
 function getServiceClient() {
     return createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -138,11 +157,13 @@ export async function POST(request: NextRequest) {
         const action = searchParams.get('action');
 
         const token = process.env.MERCURY_API_TOKEN;
-        const accountId = process.env.MERCURY_ACCOUNT_ID;
 
-        if (!token || !accountId) {
-            return NextResponse.json({ error: 'Mercury API not configured' }, { status: 503 });
+        if (!token) {
+            return NextResponse.json({ error: 'Mercury API not configured (MERCURY_API_TOKEN missing)' }, { status: 503 });
         }
+
+        // Account ID: use from request body, or env var, or auto-discover
+        const envAccountId = process.env.MERCURY_ACCOUNT_ID;
 
         const supabase = getServiceClient();
 
@@ -238,7 +259,7 @@ export async function POST(request: NextRequest) {
                 creditCardEnabled: creditCardEnabled ?? false,
                 achDebitEnabled: achDebitEnabled ?? true,
                 useRealAccountNumber: useRealAccountNumber ?? false,
-                destinationAccountId: destinationAccountId || accountId,
+                destinationAccountId: destinationAccountId || envAccountId || await autoDiscoverAccountId(token),
             }),
         });
 

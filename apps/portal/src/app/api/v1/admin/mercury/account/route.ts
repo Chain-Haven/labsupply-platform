@@ -11,16 +11,46 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
     try {
         const token = process.env.MERCURY_API_TOKEN;
-        const accountId = process.env.MERCURY_ACCOUNT_ID;
 
-        if (!token || !accountId) {
+        if (!token) {
             return NextResponse.json({
                 data: {
                     id: '',
-                    name: 'Not Configured',
+                    name: 'Not Configured - Set MERCURY_API_TOKEN',
                     availableBalance: 0,
                     currentBalance: 0,
                     status: 'unconfigured',
+                },
+            });
+        }
+
+        // Auto-discover account ID if not in env
+        let accountId = process.env.MERCURY_ACCOUNT_ID;
+        if (!accountId) {
+            try {
+                const allRes = await fetch('https://api.mercury.com/api/v1/accounts', {
+                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+                });
+                if (allRes.ok) {
+                    const allData = await allRes.json();
+                    const checking = (allData.accounts || []).find(
+                        (a: Record<string, string>) => a.type === 'checking' && a.status === 'active'
+                    ) || (allData.accounts || [])[0];
+                    if (checking) accountId = checking.id;
+                }
+            } catch (e) {
+                console.error('Auto-discover account error:', e);
+            }
+        }
+
+        if (!accountId) {
+            return NextResponse.json({
+                data: {
+                    id: '',
+                    name: 'No Mercury accounts found',
+                    availableBalance: 0,
+                    currentBalance: 0,
+                    status: 'no_accounts',
                 },
             });
         }

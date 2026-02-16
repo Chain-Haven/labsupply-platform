@@ -76,11 +76,22 @@ export default function AdminMercuryPage() {
         useRealAccountNumber: false,
         destinationAccountId: '',
     });
-    const [allAccounts, setAllAccounts] = useState<Array<{ id: string; name: string }>>([]);
+    const [allAccounts, setAllAccounts] = useState<Array<{ id: string; name: string; type?: string; status?: string }>>([]);
     const [savingSettings, setSavingSettings] = useState(false);
+
+    // Setup / connection state
+    const [setupStatus, setSetupStatus] = useState<{
+        connected: boolean;
+        webhooks: Array<{ id: string; url: string; status: string }>;
+        webhookConfigured: boolean;
+        hasWebhookSecret: boolean;
+    } | null>(null);
+    const [registeringWebhook, setRegisteringWebhook] = useState(false);
+    const [webhookSecret, setWebhookSecret] = useState<string | null>(null);
 
     useEffect(() => {
         loadData();
+        loadSetupStatus();
     }, []);
 
     const loadData = async () => {
@@ -121,6 +132,49 @@ export default function AdminMercuryPage() {
             console.error('Error loading Mercury data:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadSetupStatus = async () => {
+        try {
+            const res = await fetch('/api/v1/admin/mercury/setup');
+            if (res.ok) {
+                const data = await res.json();
+                setSetupStatus(data.data);
+                if (data.data?.accounts) {
+                    setAllAccounts(data.data.accounts);
+                }
+            }
+        } catch (err) {
+            console.error('Error loading setup status:', err);
+        }
+    };
+
+    const handleRegisterWebhook = async () => {
+        setRegisteringWebhook(true);
+        setWebhookSecret(null);
+        try {
+            const webhookUrl = `${window.location.origin}/v1/webhooks/mercury`;
+            const res = await fetch('/api/v1/admin/mercury/setup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ webhookUrl }),
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                if (data.data?.secret) {
+                    setWebhookSecret(data.data.secret);
+                }
+                if (data.data?.alreadyExists) {
+                    setWebhookSecret(null);
+                }
+                await loadSetupStatus();
+            }
+        } catch (err) {
+            console.error('Error registering webhook:', err);
+        } finally {
+            setRegisteringWebhook(false);
         }
     };
 
@@ -203,6 +257,84 @@ export default function AdminMercuryPage() {
                     Refresh
                 </Button>
             </div>
+
+            {/* Connection & Webhook Setup */}
+            {setupStatus && (
+                <Card className={setupStatus.connected ? 'border-green-200 dark:border-green-800' : 'border-red-200 dark:border-red-800'}>
+                    <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                {setupStatus.connected ? (
+                                    <CheckCircle className="w-5 h-5 text-green-500" />
+                                ) : (
+                                    <AlertCircle className="w-5 h-5 text-red-500" />
+                                )}
+                                <div>
+                                    <p className="font-medium text-sm">
+                                        Mercury API: {setupStatus.connected ? 'Connected' : 'Not Connected'}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                        {allAccounts.length} account{allAccounts.length !== 1 ? 's' : ''} found
+                                        {' | '}
+                                        Webhook: {setupStatus.webhooks.length > 0 ? (
+                                            <span className="text-green-600">Registered ({setupStatus.webhooks.length})</span>
+                                        ) : (
+                                            <span className="text-yellow-600">Not registered</span>
+                                        )}
+                                        {setupStatus.hasWebhookSecret ? (
+                                            <span className="text-green-600"> | Secret configured</span>
+                                        ) : (
+                                            <span className="text-yellow-600"> | Secret not in env</span>
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {setupStatus.webhooks.length === 0 && (
+                                    <Button
+                                        size="sm"
+                                        onClick={handleRegisterWebhook}
+                                        disabled={registeringWebhook}
+                                        className="bg-violet-600 hover:bg-violet-700 gap-1"
+                                    >
+                                        {registeringWebhook ? (
+                                            <RefreshCw className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                            <Settings className="w-3 h-3" />
+                                        )}
+                                        Setup Webhook
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Show webhook secret after registration */}
+                        {webhookSecret && (
+                            <div className="mt-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                                <p className="text-sm font-medium text-green-800 dark:text-green-200 mb-1">
+                                    Webhook registered! Copy the secret below and add it to Vercel:
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <code className="flex-1 p-2 bg-white dark:bg-gray-800 rounded text-xs font-mono break-all select-all border">
+                                        {webhookSecret}
+                                    </code>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => { navigator.clipboard.writeText(webhookSecret); }}
+                                    >
+                                        Copy
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-green-700 dark:text-green-300 mt-2">
+                                    Add as <code className="bg-green-100 dark:bg-green-800 px-1 rounded">MERCURY_WEBHOOK_SECRET</code> in
+                                    Vercel &gt; Settings &gt; Environment Variables, then redeploy.
+                                </p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Summary Cards */}
             <div className="grid gap-4 md:grid-cols-4">
@@ -329,21 +461,16 @@ export default function AdminMercuryPage() {
                                 onChange={(e) => setInvoiceSettings(prev => ({ ...prev, destinationAccountId: e.target.value }))}
                                 className="w-full rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-2.5 text-sm"
                             >
-                                {accountInfo && (
-                                    <option value={accountInfo.name}>
-                                        {accountInfo.name} (${accountInfo.availableBalance?.toLocaleString('en-US', { minimumFractionDigits: 2 })})
+                                <option value="">Auto-select (first checking account)</option>
+                                {allAccounts.map(acct => (
+                                    <option key={acct.id} value={acct.id}>
+                                        {acct.name} ({acct.type || 'account'})
                                     </option>
-                                )}
-                                {allAccounts.filter(a => a.id !== accountInfo?.name).map(acct => (
-                                    <option key={acct.id} value={acct.id}>{acct.name}</option>
                                 ))}
-                                {!accountInfo && allAccounts.length === 0 && (
-                                    <option value="">Using MERCURY_ACCOUNT_ID from env</option>
-                                )}
                             </select>
                             <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                                 <p className="text-xs text-blue-700 dark:text-blue-300">
-                                    If no account is selected, invoices will use the <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">MERCURY_ACCOUNT_ID</code> environment variable.
+                                    When set to &quot;Auto-select&quot;, invoices deposit into the first active checking account found in your Mercury organization.
                                 </p>
                             </div>
                         </div>
