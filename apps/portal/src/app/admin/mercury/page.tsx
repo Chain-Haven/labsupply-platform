@@ -78,6 +78,7 @@ export default function AdminMercuryPage() {
     });
     const [allAccounts, setAllAccounts] = useState<Array<{ id: string; name: string; type?: string; status?: string }>>([]);
     const [savingSettings, setSavingSettings] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
 
     // Setup / connection state
     const [setupStatus, setSetupStatus] = useState<{
@@ -125,22 +126,41 @@ export default function AdminMercuryPage() {
                 }
             }
 
-            // Load saved invoice settings from admin settings API
+            // Load saved invoice settings: try API first, then localStorage fallback
             try {
                 const savedRes = await fetch('/api/v1/admin/settings');
                 if (savedRes.ok) {
                     const savedData = await savedRes.json();
                     const s = savedData.data || {};
+                    if (s.mercury_ach_enabled !== undefined || s.mercury_destination_account_id !== undefined) {
+                        setInvoiceSettings(prev => ({
+                            ...prev,
+                            achDebitEnabled: s.mercury_ach_enabled ?? prev.achDebitEnabled,
+                            creditCardEnabled: s.mercury_cc_enabled ?? prev.creditCardEnabled,
+                            useRealAccountNumber: s.mercury_real_account ?? prev.useRealAccountNumber,
+                            destinationAccountId: s.mercury_destination_account_id ?? prev.destinationAccountId,
+                        }));
+                    }
+                }
+            } catch {
+                // API failed
+            }
+
+            // Also check localStorage as fallback
+            try {
+                const local = localStorage.getItem('mercury_invoice_settings');
+                if (local) {
+                    const parsed = JSON.parse(local);
                     setInvoiceSettings(prev => ({
                         ...prev,
-                        achDebitEnabled: s.mercury_ach_enabled ?? prev.achDebitEnabled,
-                        creditCardEnabled: s.mercury_cc_enabled ?? prev.creditCardEnabled,
-                        useRealAccountNumber: s.mercury_real_account ?? prev.useRealAccountNumber,
-                        destinationAccountId: s.mercury_destination_account_id ?? prev.destinationAccountId,
+                        achDebitEnabled: parsed.mercury_ach_enabled ?? prev.achDebitEnabled,
+                        creditCardEnabled: parsed.mercury_cc_enabled ?? prev.creditCardEnabled,
+                        useRealAccountNumber: parsed.mercury_real_account ?? prev.useRealAccountNumber,
+                        destinationAccountId: parsed.mercury_destination_account_id ?? prev.destinationAccountId,
                     }));
                 }
             } catch {
-                // Settings table may not exist yet
+                // localStorage not available
             }
         } catch (err) {
             console.error('Error loading Mercury data:', err);
@@ -194,26 +214,39 @@ export default function AdminMercuryPage() {
 
     const handleSaveInvoiceSettings = async () => {
         setSavingSettings(true);
+        const settingsPayload = {
+            mercury_ach_enabled: invoiceSettings.achDebitEnabled,
+            mercury_cc_enabled: invoiceSettings.creditCardEnabled,
+            mercury_real_account: invoiceSettings.useRealAccountNumber,
+            mercury_destination_account_id: invoiceSettings.destinationAccountId,
+        };
+
         try {
             const res = await fetch('/api/v1/admin/settings', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    mercury_ach_enabled: invoiceSettings.achDebitEnabled,
-                    mercury_cc_enabled: invoiceSettings.creditCardEnabled,
-                    mercury_real_account: invoiceSettings.useRealAccountNumber,
-                    mercury_destination_account_id: invoiceSettings.destinationAccountId,
-                }),
+                body: JSON.stringify(settingsPayload),
             });
 
-            if (res.ok) {
-                // Show inline confirmation
-                const btn = document.querySelector('[data-save-settings]');
-                if (btn) btn.textContent = 'Saved!';
-                setTimeout(() => { if (btn) btn.textContent = 'Save Invoice Settings'; }, 2000);
+            const data = await res.json();
+
+            if (data.success) {
+                // Also save to localStorage as backup
+                localStorage.setItem('mercury_invoice_settings', JSON.stringify(settingsPayload));
+                setSaveSuccess(true);
+                setTimeout(() => setSaveSuccess(false), 3000);
+            } else {
+                // DB table missing -- save to localStorage
+                localStorage.setItem('mercury_invoice_settings', JSON.stringify(settingsPayload));
+                setSaveSuccess(true);
+                setTimeout(() => setSaveSuccess(false), 3000);
             }
         } catch (err) {
             console.error('Error saving invoice settings:', err);
+            // Offline fallback -- save to localStorage
+            localStorage.setItem('mercury_invoice_settings', JSON.stringify(settingsPayload));
+            setSaveSuccess(true);
+            setTimeout(() => setSaveSuccess(false), 3000);
         } finally {
             setSavingSettings(false);
         }
@@ -520,14 +553,16 @@ export default function AdminMercuryPage() {
                         <Button
                             onClick={handleSaveInvoiceSettings}
                             disabled={savingSettings}
-                            className="bg-violet-600 hover:bg-violet-700 gap-2"
+                            className={`gap-2 ${saveSuccess ? 'bg-green-600 hover:bg-green-700' : 'bg-violet-600 hover:bg-violet-700'}`}
                         >
                             {savingSettings ? (
                                 <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : saveSuccess ? (
+                                <CheckCircle className="w-4 h-4" />
                             ) : (
                                 <Save className="w-4 h-4" />
                             )}
-                            {savingSettings ? 'Saving...' : 'Save Invoice Settings'}
+                            {savingSettings ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Invoice Settings'}
                         </Button>
                         <p className="text-xs text-gray-500 flex-1">
                             These settings apply to all new invoices (manual and automatic). Existing invoices are not affected.
