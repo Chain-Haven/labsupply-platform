@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
 
         // Create manual invoice
         const body = await request.json();
-        const { merchant_id, amount_cents } = body;
+        const { merchant_id, amount_cents, achDebitEnabled, creditCardEnabled, useRealAccountNumber, destinationAccountId } = body;
 
         if (!merchant_id) {
             return NextResponse.json({ error: 'Merchant ID required' }, { status: 400 });
@@ -235,10 +235,10 @@ export async function POST(request: NextRequest) {
                 ],
                 ccEmails: [],
                 sendEmailOption: 'SendNow',
-                creditCardEnabled: false,
-                achDebitEnabled: true,
-                useRealAccountNumber: false,
-                destinationAccountId: accountId,
+                creditCardEnabled: creditCardEnabled ?? false,
+                achDebitEnabled: achDebitEnabled ?? true,
+                useRealAccountNumber: useRealAccountNumber ?? false,
+                destinationAccountId: destinationAccountId || accountId,
             }),
         });
 

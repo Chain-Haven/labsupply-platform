@@ -17,6 +17,9 @@ import {
     XCircle,
     Users,
     Wallet,
+    Settings,
+    Save,
+    CreditCard,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
@@ -66,6 +69,16 @@ export default function AdminMercuryPage() {
     const [manualMerchantId, setManualMerchantId] = useState('');
     const [manualAmount, setManualAmount] = useState('');
 
+    // Invoice settings (payment options + destination account)
+    const [invoiceSettings, setInvoiceSettings] = useState({
+        achDebitEnabled: true,
+        creditCardEnabled: false,
+        useRealAccountNumber: false,
+        destinationAccountId: '',
+    });
+    const [allAccounts, setAllAccounts] = useState<Array<{ id: string; name: string }>>([]);
+    const [savingSettings, setSavingSettings] = useState(false);
+
     useEffect(() => {
         loadData();
     }, []);
@@ -73,20 +86,36 @@ export default function AdminMercuryPage() {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [accountRes, invoicesRes] = await Promise.all([
+            const [accountRes, invoicesRes, settingsRes] = await Promise.all([
                 fetch('/api/v1/admin/mercury/account'),
                 fetch('/api/v1/admin/mercury/invoices'),
+                fetch('/api/v1/admin/mercury/account?include_all=true'),
             ]);
 
             if (accountRes.ok) {
                 const accountData = await accountRes.json();
                 setAccountInfo(accountData.data);
+                // Set default destination account if not set
+                if (!invoiceSettings.destinationAccountId && accountData.data?.id) {
+                    setInvoiceSettings(prev => ({ ...prev, destinationAccountId: accountData.data.id }));
+                }
             }
 
             if (invoicesRes.ok) {
                 const invoicesData = await invoicesRes.json();
                 setInvoices(invoicesData.data?.invoices || []);
                 setMerchants(invoicesData.data?.merchants || []);
+                // Load saved invoice settings if returned
+                if (invoicesData.data?.invoiceSettings) {
+                    setInvoiceSettings(prev => ({ ...prev, ...invoicesData.data.invoiceSettings }));
+                }
+            }
+
+            if (settingsRes.ok) {
+                const settingsData = await settingsRes.json();
+                if (settingsData.data?.allAccounts) {
+                    setAllAccounts(settingsData.data.allAccounts);
+                }
             }
         } catch (err) {
             console.error('Error loading Mercury data:', err);
@@ -104,6 +133,10 @@ export default function AdminMercuryPage() {
                 body: JSON.stringify({
                     merchant_id: merchantId,
                     amount_cents: amount ? amount * 100 : undefined,
+                    achDebitEnabled: invoiceSettings.achDebitEnabled,
+                    creditCardEnabled: invoiceSettings.creditCardEnabled,
+                    useRealAccountNumber: invoiceSettings.useRealAccountNumber,
+                    destinationAccountId: invoiceSettings.destinationAccountId || undefined,
                 }),
             });
 
@@ -229,6 +262,99 @@ export default function AdminMercuryPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Invoice Settings */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Settings className="w-5 h-5" />
+                        Invoice Settings
+                    </CardTitle>
+                    <CardDescription>Configure payment options and destination account for outgoing invoices</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid gap-6 md:grid-cols-2">
+                        {/* Payment Methods */}
+                        <div className="space-y-4">
+                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Accepted Payment Methods</h4>
+                            <div className="space-y-3">
+                                <label className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <div className="flex items-center gap-3">
+                                        <Building className="w-5 h-5 text-blue-500" />
+                                        <div>
+                                            <p className="font-medium text-sm">ACH / Bank Transfer</p>
+                                            <p className="text-xs text-gray-500">Merchant pays via bank transfer (recommended)</p>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={invoiceSettings.achDebitEnabled}
+                                        onChange={(e) => setInvoiceSettings(prev => ({ ...prev, achDebitEnabled: e.target.checked }))}
+                                        className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                                    />
+                                </label>
+                                <label className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <div className="flex items-center gap-3">
+                                        <CreditCard className="w-5 h-5 text-orange-500" />
+                                        <div>
+                                            <p className="font-medium text-sm">Credit Card</p>
+                                            <p className="text-xs text-gray-500">Requires Stripe connected to Mercury account</p>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={invoiceSettings.creditCardEnabled}
+                                        onChange={(e) => setInvoiceSettings(prev => ({ ...prev, creditCardEnabled: e.target.checked }))}
+                                        className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                                    />
+                                </label>
+                            </div>
+                            <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                <input
+                                    type="checkbox"
+                                    checked={invoiceSettings.useRealAccountNumber}
+                                    onChange={(e) => setInvoiceSettings(prev => ({ ...prev, useRealAccountNumber: e.target.checked }))}
+                                    className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                                />
+                                Show real account/routing numbers (instead of virtual numbers)
+                            </label>
+                        </div>
+
+                        {/* Destination Account */}
+                        <div className="space-y-4">
+                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Deposit Account</h4>
+                            <p className="text-xs text-gray-500">Mercury account where invoice payments are deposited</p>
+                            <select
+                                value={invoiceSettings.destinationAccountId}
+                                onChange={(e) => setInvoiceSettings(prev => ({ ...prev, destinationAccountId: e.target.value }))}
+                                className="w-full rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-2.5 text-sm"
+                            >
+                                {accountInfo && (
+                                    <option value={accountInfo.name}>
+                                        {accountInfo.name} (${accountInfo.availableBalance?.toLocaleString('en-US', { minimumFractionDigits: 2 })})
+                                    </option>
+                                )}
+                                {allAccounts.filter(a => a.id !== accountInfo?.name).map(acct => (
+                                    <option key={acct.id} value={acct.id}>{acct.name}</option>
+                                ))}
+                                {!accountInfo && allAccounts.length === 0 && (
+                                    <option value="">Using MERCURY_ACCOUNT_ID from env</option>
+                                )}
+                            </select>
+                            <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                                <p className="text-xs text-blue-700 dark:text-blue-300">
+                                    If no account is selected, invoices will use the <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">MERCURY_ACCOUNT_ID</code> environment variable.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t flex items-center gap-3">
+                        <p className="text-xs text-gray-500 flex-1">
+                            These settings apply to all new invoices (manual and automatic). Existing invoices are not affected.
+                        </p>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Merchant Billing Overview */}
             <Card>
