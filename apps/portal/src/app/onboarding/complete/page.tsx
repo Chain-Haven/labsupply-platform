@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { CheckCircle, Mail, ArrowRight } from 'lucide-react';
+import { CheckCircle, Mail, ArrowRight, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -76,6 +76,27 @@ export default function OnboardingCompletePage() {
                         <div className="flex items-center justify-center gap-2 text-sm text-gray-500 mb-6">
                             <Mail className="w-4 h-4" />
                             <span>You'll receive an email when your account is approved</span>
+                        </div>
+
+                        {/* Mercury Recommendation */}
+                        <div className="text-left bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-lg p-4 mb-6">
+                            <h3 className="font-medium text-sky-900 dark:text-sky-100 mb-1">
+                                While you wait &mdash; set up your business bank
+                            </h3>
+                            <p className="text-sm text-sky-700 dark:text-sky-300">
+                                We recommend <strong>Mercury</strong> for your business banking.
+                                Mercury offers free checking, fast ACH transfers, and works seamlessly
+                                with our wallet invoicing system for quick funding.
+                            </p>
+                            <a
+                                href="https://mercury.com/r/peptide-tech-llc"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 mt-2 text-sm font-medium text-sky-600 dark:text-sky-400 hover:underline"
+                            >
+                                Open a free Mercury account
+                                <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
                         </div>
 
                         {/* Actions */}

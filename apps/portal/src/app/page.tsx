@@ -384,7 +384,33 @@ export default function HomePage() {
                         </div>
                     </div>
 
-                    <div className="mt-10 max-w-2xl mx-auto rounded-xl bg-gradient-to-r from-violet-600/10 to-indigo-600/10 border border-violet-500/20 p-6">
+                    {/* Mercury Bank Recommendation */}
+                    <div className="mt-10 max-w-2xl mx-auto rounded-xl bg-gradient-to-r from-sky-600/10 to-blue-600/10 border border-sky-500/20 p-6">
+                        <div className="flex items-start gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-500/20 to-blue-600/20 flex items-center justify-center flex-shrink-0">
+                                <CreditCard className="w-6 h-6 text-sky-400" />
+                            </div>
+                            <div>
+                                <h4 className="text-white font-semibold">Recommended: Mercury Business Banking</h4>
+                                <p className="text-white/50 text-sm mt-1">
+                                    We recommend <strong className="text-white/70">Mercury</strong> for your business bank account.
+                                    Mercury offers free business checking, fast ACH transfers, and seamless integration
+                                    with our invoicing system &mdash; making wallet funding quick and painless.
+                                </p>
+                                <a
+                                    href="https://mercury.com/r/peptide-tech-llc"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-sky-400 hover:text-sky-300 transition-colors"
+                                >
+                                    Open a Mercury Account
+                                    <ArrowRight className="w-3.5 h-3.5" />
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-6 max-w-2xl mx-auto rounded-xl bg-gradient-to-r from-violet-600/10 to-indigo-600/10 border border-violet-500/20 p-6">
                         <h4 className="text-white font-semibold text-center mb-3">How Your Margins Work</h4>
                         <div className="grid grid-cols-3 gap-4 text-center text-sm">
                             <div>
@@ -526,6 +552,10 @@ export default function HomePage() {
                         <FAQItem
                             question="How does billing work?"
                             answer="We use a prepaid wallet system. You fund your wallet via ACH bank transfer, and each order's wholesale cost is automatically debited when it ships. There are no monthly fees, no subscriptions, and no hidden charges. You can set auto-replenishment thresholds to keep your wallet funded."
+                        />
+                        <FAQItem
+                            question="Do you recommend a specific business bank?"
+                            answer="Yes — we highly recommend Mercury for your business banking. Mercury offers free business checking, fast ACH transfers, robust API integrations, and works seamlessly with our invoicing system. This means faster wallet funding and smoother operations. You can open a free Mercury account at mercury.com/r/peptide-tech-llc."
                         />
                         <FAQItem
                             question="What shipping methods are available?"

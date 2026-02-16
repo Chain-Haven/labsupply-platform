@@ -490,6 +490,29 @@ export default function WalletPage() {
                     </div>
                 </CardContent>
             </Card>
+
+            <Card className="bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800">
+                <CardContent className="p-4 flex items-start gap-3">
+                    <DollarSign className="w-5 h-5 text-sky-600 dark:text-sky-400 mt-0.5 shrink-0" />
+                    <div>
+                        <h4 className="font-medium text-sky-900 dark:text-sky-100">Tip: Use Mercury for Faster Funding</h4>
+                        <p className="text-sm text-sky-700 dark:text-sky-300 mt-1">
+                            We recommend Mercury for your business bank. Mercury&apos;s fast ACH transfers
+                            integrate seamlessly with our invoicing, so your wallet gets funded faster.
+                            Free business checking with no monthly fees.
+                        </p>
+                        <a
+                            href="https://mercury.com/r/peptide-tech-llc"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 mt-2 text-sm font-medium text-sky-600 dark:text-sky-400 hover:underline"
+                        >
+                            Open a free Mercury account
+                            <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }

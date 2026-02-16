@@ -3,6 +3,7 @@
 import { useOnboarding } from '@/hooks/use-onboarding';
 import { StepNavigation } from '@/components/onboarding/step-navigation';
 import { Input } from '@/components/ui/input';
+import { ExternalLink } from 'lucide-react';
 
 interface StepProps {
     onNext: () => void;
@@ -145,6 +146,27 @@ export default function Step2Business({ onNext, onPrev }: StepProps) {
                         placeholder="https://yourcompany.com"
                     />
                 </div>
+            </div>
+
+            {/* Mercury Bank Recommendation */}
+            <div className="p-4 rounded-lg bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800">
+                <h4 className="font-medium text-sky-800 dark:text-sky-200 mb-1">
+                    Recommended: Mercury Business Banking
+                </h4>
+                <p className="text-sm text-sky-700 dark:text-sky-300">
+                    Need a business bank account? We recommend{' '}
+                    <strong>Mercury</strong> for fast ACH transfers, free business checking, and
+                    seamless integration with our invoicing system.
+                </p>
+                <a
+                    href="https://mercury.com/r/peptide-tech-llc"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 mt-2 text-sm font-medium text-sky-600 dark:text-sky-400 hover:underline"
+                >
+                    Open a free Mercury account
+                    <ExternalLink className="w-3.5 h-3.5" />
+                </a>
             </div>
 
             {/* Navigation */}
