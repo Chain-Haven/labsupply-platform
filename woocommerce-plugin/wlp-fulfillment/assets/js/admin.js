@@ -1,18 +1,18 @@
 (function ($) {
     'use strict';
 
-    var LabSupplyAdmin = {
+    var WLPAdmin = {
         init: function () {
             this.bindEvents();
         },
 
         bindEvents: function () {
-            $('#labsupply-connect-form').on('submit', this.handleConnect);
-            $('#labsupply-disconnect').on('click', this.handleDisconnect);
-            $('#labsupply-refresh-catalog').on('click', this.handleRefreshCatalog);
-            $('#labsupply-import-products').on('click', this.handleImportProducts);
-            $('#labsupply-resync-orders').on('click', this.handleResyncOrders);
-            $('#labsupply-debug-mode').on('change', this.handleDebugToggle);
+            $('#wlp-connect-form').on('submit', this.handleConnect);
+            $('#wlp-disconnect').on('click', this.handleDisconnect);
+            $('#wlp-refresh-catalog').on('click', this.handleRefreshCatalog);
+            $('#wlp-import-products').on('click', this.handleImportProducts);
+            $('#wlp-resync-orders').on('click', this.handleResyncOrders);
+            $('#wlp-debug-mode').on('change', this.handleDebugToggle);
         },
 
         handleConnect: function (e) {
@@ -20,44 +20,44 @@
 
             var $form = $(this);
             var $button = $form.find('button[type="submit"]');
-            var $message = $('#labsupply-connect-message');
-            var connectCode = $('#labsupply-connect-code').val().trim();
+            var $message = $('#wlp-connect-message');
+            var connectCode = $('#wlp-connect-code').val().trim();
 
             if (!connectCode) {
-                LabSupplyAdmin.showMessage($message, labsupplyAdmin.strings.error + ' Please enter a connect code', 'error');
+                WLPAdmin.showMessage($message, wlpAdmin.strings.error + ' Please enter a connect code', 'error');
                 return;
             }
 
-            $button.prop('disabled', true).text(labsupplyAdmin.strings.connecting);
+            $button.prop('disabled', true).text(wlpAdmin.strings.connecting);
 
             $.ajax({
-                url: labsupplyAdmin.ajaxUrl,
+                url: wlpAdmin.ajaxUrl,
                 method: 'POST',
                 data: {
-                    action: 'labsupply_connect',
-                    nonce: labsupplyAdmin.nonce,
+                    action: 'wlp_connect',
+                    nonce: wlpAdmin.nonce,
                     connect_code: connectCode
                 },
                 success: function (response) {
                     if (response.success) {
-                        LabSupplyAdmin.showMessage($message, labsupplyAdmin.strings.connected, 'success');
+                        WLPAdmin.showMessage($message, wlpAdmin.strings.connected, 'success');
                         setTimeout(function () {
                             window.location.reload();
                         }, 1500);
                     } else {
-                        LabSupplyAdmin.showMessage($message, labsupplyAdmin.strings.error + ' ' + response.data, 'error');
+                        WLPAdmin.showMessage($message, wlpAdmin.strings.error + ' ' + response.data, 'error');
                         $button.prop('disabled', false).text('Connect');
                     }
                 },
                 error: function () {
-                    LabSupplyAdmin.showMessage($message, labsupplyAdmin.strings.error + ' Connection failed', 'error');
+                    WLPAdmin.showMessage($message, wlpAdmin.strings.error + ' Connection failed', 'error');
                     $button.prop('disabled', false).text('Connect');
                 }
             });
         },
 
         handleDisconnect: function () {
-            if (!confirm(labsupplyAdmin.strings.confirm_disconnect)) {
+            if (!confirm(wlpAdmin.strings.confirm_disconnect)) {
                 return;
             }
 
@@ -65,11 +65,11 @@
             $button.prop('disabled', true);
 
             $.ajax({
-                url: labsupplyAdmin.ajaxUrl,
+                url: wlpAdmin.ajaxUrl,
                 method: 'POST',
                 data: {
-                    action: 'labsupply_disconnect',
-                    nonce: labsupplyAdmin.nonce
+                    action: 'wlp_disconnect',
+                    nonce: wlpAdmin.nonce
                 },
                 success: function (response) {
                     window.location.reload();
@@ -83,28 +83,28 @@
 
         handleRefreshCatalog: function () {
             var $button = $(this);
-            var $message = $('#labsupply-catalog-message');
+            var $message = $('#wlp-catalog-message');
 
             $button.prop('disabled', true);
 
             $.ajax({
-                url: labsupplyAdmin.ajaxUrl,
+                url: wlpAdmin.ajaxUrl,
                 method: 'POST',
                 data: {
-                    action: 'labsupply_refresh_catalog',
-                    nonce: labsupplyAdmin.nonce
+                    action: 'wlp_refresh_catalog',
+                    nonce: wlpAdmin.nonce
                 },
                 success: function (response) {
                     if (response.success) {
                         var count = response.data.products ? response.data.products.length : 0;
-                        LabSupplyAdmin.showMessage($message, 'Catalog refreshed: ' + count + ' products available', 'success');
+                        WLPAdmin.showMessage($message, 'Catalog refreshed: ' + count + ' products available', 'success');
                     } else {
-                        LabSupplyAdmin.showMessage($message, labsupplyAdmin.strings.error + ' ' + response.data, 'error');
+                        WLPAdmin.showMessage($message, wlpAdmin.strings.error + ' ' + response.data, 'error');
                     }
                     $button.prop('disabled', false);
                 },
                 error: function () {
-                    LabSupplyAdmin.showMessage($message, labsupplyAdmin.strings.error + ' Failed to refresh catalog', 'error');
+                    WLPAdmin.showMessage($message, wlpAdmin.strings.error + ' Failed to refresh catalog', 'error');
                     $button.prop('disabled', false);
                 }
             });
@@ -112,16 +112,16 @@
 
         handleImportProducts: function () {
             var $button = $(this);
-            var $message = $('#labsupply-catalog-message');
+            var $message = $('#wlp-catalog-message');
 
-            $button.prop('disabled', true).text(labsupplyAdmin.strings.importing);
+            $button.prop('disabled', true).text(wlpAdmin.strings.importing);
 
             $.ajax({
-                url: labsupplyAdmin.ajaxUrl,
+                url: wlpAdmin.ajaxUrl,
                 method: 'POST',
                 data: {
-                    action: 'labsupply_import_products',
-                    nonce: labsupplyAdmin.nonce
+                    action: 'wlp_import_products',
+                    nonce: wlpAdmin.nonce
                 },
                 success: function (response) {
                     if (response.success) {
@@ -130,14 +130,14 @@
                         if (response.data.failed > 0) {
                             msg += ', ' + response.data.failed + ' failed';
                         }
-                        LabSupplyAdmin.showMessage($message, msg, 'success');
+                        WLPAdmin.showMessage($message, msg, 'success');
                     } else {
-                        LabSupplyAdmin.showMessage($message, labsupplyAdmin.strings.error + ' ' + response.data, 'error');
+                        WLPAdmin.showMessage($message, wlpAdmin.strings.error + ' ' + response.data, 'error');
                     }
                     $button.prop('disabled', false).html('<span class="dashicons dashicons-download"></span> Import All Products');
                 },
                 error: function () {
-                    LabSupplyAdmin.showMessage($message, labsupplyAdmin.strings.error + ' Import failed', 'error');
+                    WLPAdmin.showMessage($message, wlpAdmin.strings.error + ' Import failed', 'error');
                     $button.prop('disabled', false).html('<span class="dashicons dashicons-download"></span> Import All Products');
                 }
             });
@@ -145,29 +145,29 @@
 
         handleResyncOrders: function () {
             var $button = $(this);
-            var $message = $('#labsupply-sync-message');
-            var count = $('#labsupply-resync-count').val();
+            var $message = $('#wlp-sync-message');
+            var count = $('#wlp-resync-count').val();
 
             $button.prop('disabled', true);
 
             $.ajax({
-                url: labsupplyAdmin.ajaxUrl,
+                url: wlpAdmin.ajaxUrl,
                 method: 'POST',
                 data: {
-                    action: 'labsupply_resync_orders',
-                    nonce: labsupplyAdmin.nonce,
+                    action: 'wlp_resync_orders',
+                    nonce: wlpAdmin.nonce,
                     count: count
                 },
                 success: function (response) {
                     if (response.success) {
-                        LabSupplyAdmin.showMessage($message, response.data.message, 'success');
+                        WLPAdmin.showMessage($message, response.data.message, 'success');
                     } else {
-                        LabSupplyAdmin.showMessage($message, labsupplyAdmin.strings.error + ' ' + response.data, 'error');
+                        WLPAdmin.showMessage($message, wlpAdmin.strings.error + ' ' + response.data, 'error');
                     }
                     $button.prop('disabled', false);
                 },
                 error: function () {
-                    LabSupplyAdmin.showMessage($message, labsupplyAdmin.strings.error + ' Sync failed', 'error');
+                    WLPAdmin.showMessage($message, wlpAdmin.strings.error + ' Sync failed', 'error');
                     $button.prop('disabled', false);
                 }
             });
@@ -177,11 +177,11 @@
             var enabled = $(this).is(':checked') ? 'yes' : 'no';
 
             $.ajax({
-                url: labsupplyAdmin.ajaxUrl,
+                url: wlpAdmin.ajaxUrl,
                 method: 'POST',
                 data: {
-                    action: 'labsupply_save_setting',
-                    nonce: labsupplyAdmin.nonce,
+                    action: 'wlp_save_setting',
+                    nonce: wlpAdmin.nonce,
                     key: 'debug_mode',
                     value: enabled
                 }
@@ -200,7 +200,7 @@
     };
 
     $(document).ready(function () {
-        LabSupplyAdmin.init();
+        WLPAdmin.init();
     });
 
 })(jQuery);

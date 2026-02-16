@@ -117,7 +117,7 @@ export const mercuryCheckBalancesFunction = inngest.createFunction(
                             },
                         ],
                         sendEmailOption: 'SendNow',
-                        payerMemo: `Wallet replenishment for ${merchant.name}. Pay via ACH to fund your LabSupply account.`,
+                        payerMemo: `Wallet replenishment for ${merchant.name}. Pay via ACH to fund your WhiteLabel Peptides account.`,
                     });
 
                     // Record in our database

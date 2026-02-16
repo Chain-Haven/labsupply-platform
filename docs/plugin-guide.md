@@ -1,6 +1,6 @@
-# LabSupply WooCommerce Plugin Guide
+# WhiteLabel Peptides WooCommerce Plugin Guide
 
-The LabSupply Fulfillment Connector plugin enables your WooCommerce store to automatically sync orders to the LabSupply fulfillment platform and receive tracking updates.
+The WhiteLabel Peptides Fulfillment Connector plugin enables your WooCommerce store to automatically sync orders to the WhiteLabel Peptides fulfillment platform and receive tracking updates.
 
 ## Requirements
 
@@ -13,7 +13,7 @@ The LabSupply Fulfillment Connector plugin enables your WooCommerce store to aut
 
 ### Manual Installation
 
-1. Download the `labsupply-fulfillment.zip` file from the portal or releases
+1. Download the `wlp-fulfillment.zip` file from the portal or releases
 2. In WordPress admin, go to **Plugins → Add New → Upload Plugin**
 3. Select the ZIP file and click **Install Now**
 4. Click **Activate Plugin**
@@ -21,21 +21,21 @@ The LabSupply Fulfillment Connector plugin enables your WooCommerce store to aut
 ### Composer Installation
 
 ```bash
-composer require labsupply/woocommerce-connector
+composer require whitelabel-peptides/woocommerce-connector
 ```
 
 ## Connection Setup
 
 ### Step 1: Get a Connect Code
 
-1. Log in to your LabSupply merchant portal
+1. Log in to your WhiteLabel Peptides merchant portal
 2. Go to **Stores → Connect Store**
 3. Click **Generate Connect Code**
 4. Copy the 12-character code (format: `XXXX-XXXX-XXXX`)
 
 ### Step 2: Connect Your Store
 
-1. In WordPress admin, go to **WooCommerce → LabSupply**
+1. In WordPress admin, go to **WooCommerce → WhiteLabel Peptides**
 2. Enter the connect code
 3. Click **Connect**
 4. Upon success, you'll see your Store ID and connection status
@@ -51,7 +51,7 @@ The plugin automatically sends:
 
 ### Product Import
 
-1. Go to **WooCommerce → LabSupply**
+1. Go to **WooCommerce → WhiteLabel Peptides**
 2. Click **Refresh Catalog** to load available products
 3. Click **Import All Products** to create WooCommerce products
 
@@ -68,7 +68,7 @@ When an order containing supplier products is marked as Processing or Completed:
 
 1. The plugin extracts items with supplier SKUs
 2. Formats the shipping address and order details
-3. Sends a signed request to the LabSupply API
+3. Sends a signed request to the WhiteLabel Peptides API
 4. Stores the supplier order ID in order metadata
 5. Adds an order note with sync status
 
@@ -90,7 +90,7 @@ The plugin polls for tracking updates hourly. When tracking is available:
 
 | Setting | Description |
 |---------|-------------|
-| **API URL** | LabSupply API endpoint (auto-configured) |
+| **API URL** | WhiteLabel Peptides API endpoint (auto-configured) |
 | **Store ID** | Your store's unique identifier |
 | **Auto Sync** | Enable/disable automatic order syncing |
 | **Debug Mode** | Enable detailed logging |
@@ -100,12 +100,12 @@ The plugin polls for tracking updates hourly. When tracking is available:
 The plugin registers the following REST endpoints:
 
 ```
-GET  /wp-json/labsupply/v1/health
-POST /wp-json/labsupply/v1/tracking
-POST /wp-json/labsupply/v1/order-status
+GET  /wp-json/wlp-fulfillment/v1/health
+POST /wp-json/wlp-fulfillment/v1/tracking
+POST /wp-json/wlp-fulfillment/v1/order-status
 ```
 
-These endpoints receive callbacks from the LabSupply server for:
+These endpoints receive callbacks from the WhiteLabel Peptides server for:
 - Tracking updates
 - Order status changes
 - Inventory alerts
@@ -130,7 +130,7 @@ All incoming requests are verified using HMAC signatures.
 
 **Orders not syncing**
 - Verify the plugin is connected (check status in settings)
-- Ensure products have the `_labsupply_sku` meta field
+- Ensure products have the `_wlp_sku` meta field
 - Check the debug logs for errors
 
 **"Insufficient funds" errors**
@@ -141,7 +141,7 @@ All incoming requests are verified using HMAC signatures.
 
 **No tracking information**
 - Tracking is polled hourly; wait for the next cron run
-- Manually trigger: **WooCommerce → Status → Scheduled Actions → labsupply_check_tracking**
+- Manually trigger: **WooCommerce → Status → Scheduled Actions → wlp_check_tracking**
 
 ## Debugging
 
@@ -152,7 +152,7 @@ Enable debug mode in settings to log:
 - Tracking update processing
 
 Logs are stored in:
-- Custom `wp_labsupply_log` table (viewable in settings)
+- Custom `wp_wlp_log` table (viewable in settings)
 - WooCommerce logs (if enabled): `/wp-content/uploads/wc-logs/`
 
 ## Security
@@ -171,11 +171,11 @@ Deactivating the plugin:
 
 To fully remove:
 1. Deactivate and delete the plugin
-2. Run: `DELETE FROM wp_options WHERE option_name LIKE 'labsupply_%'`
-3. The custom tables (`wp_labsupply_order_queue`, `wp_labsupply_log`) remain for audit purposes
+2. Run: `DELETE FROM wp_options WHERE option_name LIKE 'wlp_%'`
+3. The custom tables (`wp_wlp_order_queue`, `wp_wlp_log`) remain for audit purposes
 
 ## Support
 
-- **Documentation**: https://docs.labsupply.io
-- **Email**: support@labsupply.io
-- **Portal**: https://portal.labsupply.io/support
+- **Documentation**: https://docs.whitelabel.peptidetech.co
+- **Email**: support@whitelabel.peptidetech.co
+- **Portal**: https://portal.whitelabel.peptidetech.co/support

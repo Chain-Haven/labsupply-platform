@@ -1,5 +1,5 @@
 -- ============================================================================
--- LabSupply Platform - Mercury Invoicing Migration
+-- WhiteLabel Peptides Platform - Mercury Invoicing Migration
 -- Version: 004
 -- Description: Add Mercury invoicing support, remove card payment dependencies
 -- ============================================================================

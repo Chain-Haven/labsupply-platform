@@ -2,12 +2,12 @@
 /**
  * Catalog import functionality
  *
- * @package LabSupply_Fulfillment
+ * @package WLP_Fulfillment
  */
 
 defined('ABSPATH') || exit;
 
-class LabSupply_Catalog
+class WLP_Catalog
 {
 
     /**
@@ -16,8 +16,8 @@ class LabSupply_Catalog
     public static function init()
     {
         // Ajax handlers
-        add_action('wp_ajax_labsupply_import_products', array(__CLASS__, 'ajax_import_products'));
-        add_action('wp_ajax_labsupply_refresh_catalog', array(__CLASS__, 'ajax_refresh_catalog'));
+        add_action('wp_ajax_wlp_import_products', array(__CLASS__, 'ajax_import_products'));
+        add_action('wp_ajax_wlp_refresh_catalog', array(__CLASS__, 'ajax_refresh_catalog'));
     }
 
     /**
@@ -27,7 +27,7 @@ class LabSupply_Catalog
      */
     public static function get_catalog()
     {
-        $api = LabSupply_API_Client::instance();
+        $api = WLP_API_Client::instance();
         return $api->get_catalog();
     }
 
@@ -87,14 +87,14 @@ class LabSupply_Catalog
 
         // Report import status to API
         if (!empty($results['imported'])) {
-            $api = LabSupply_API_Client::instance();
+            $api = WLP_API_Client::instance();
             $api->report_import_status($results['imported']);
         }
 
         // Update last import timestamp
-        update_option('labsupply_last_import', current_time('mysql'));
+        update_option('wlp_last_import', current_time('mysql'));
 
-        LabSupply_Admin::log('info', sprintf(
+        WLP_Admin::log('info', sprintf(
             'Catalog import complete: %d created, %d updated, %d failed',
             $results['created'],
             $results['updated'],
@@ -154,7 +154,7 @@ class LabSupply_Catalog
             // Set MAP price if available
             if (!empty($supplier_product['map_price_cents'])) {
                 $map_price = $supplier_product['map_price_cents'] / 100;
-                $product->update_meta_data('_labsupply_map_price', $map_price);
+                $product->update_meta_data('_wlp_map_price', $map_price);
             }
 
             // Set weight/dimensions
@@ -195,17 +195,17 @@ class LabSupply_Catalog
             }
 
             // Save meta data
-            $product->update_meta_data('_labsupply_product_id', $supplier_product['id']);
-            $product->update_meta_data('_labsupply_sku', $sku);
-            $product->update_meta_data('_labsupply_requires_coa', $supplier_product['requires_coa'] ? 'yes' : 'no');
-            $product->update_meta_data('_labsupply_last_sync', current_time('mysql'));
+            $product->update_meta_data('_wlp_product_id', $supplier_product['id']);
+            $product->update_meta_data('_wlp_sku', $sku);
+            $product->update_meta_data('_wlp_requires_coa', $supplier_product['requires_coa'] ? 'yes' : 'no');
+            $product->update_meta_data('_wlp_last_sync', current_time('mysql'));
 
             // Add compliance/disclaimer as meta
             if (!empty($supplier_product['compliance_copy'])) {
-                $product->update_meta_data('_labsupply_compliance', $supplier_product['compliance_copy']);
+                $product->update_meta_data('_wlp_compliance', $supplier_product['compliance_copy']);
             }
             if (!empty($supplier_product['disclaimer'])) {
-                $product->update_meta_data('_labsupply_disclaimer', $supplier_product['disclaimer']);
+                $product->update_meta_data('_wlp_disclaimer', $supplier_product['disclaimer']);
             }
 
             // Save product
@@ -316,7 +316,7 @@ class LabSupply_Catalog
      */
     public static function ajax_import_products()
     {
-        check_ajax_referer('labsupply_admin', 'nonce');
+        check_ajax_referer('wlp_admin', 'nonce');
 
         if (!current_user_can('manage_woocommerce')) {
             wp_send_json_error('Permission denied');
@@ -339,7 +339,7 @@ class LabSupply_Catalog
      */
     public static function ajax_refresh_catalog()
     {
-        check_ajax_referer('labsupply_admin', 'nonce');
+        check_ajax_referer('wlp_admin', 'nonce');
 
         if (!current_user_can('manage_woocommerce')) {
             wp_send_json_error('Permission denied');
@@ -354,7 +354,7 @@ class LabSupply_Catalog
         }
 
         // Cache catalog
-        set_transient('labsupply_catalog', $catalog, HOUR_IN_SECONDS);
+        set_transient('wlp_catalog', $catalog, HOUR_IN_SECONDS);
 
         wp_send_json_success($catalog);
     }

@@ -134,7 +134,7 @@ interface OnboardingContextType {
 
 const OnboardingContext = createContext<OnboardingContextType | null>(null);
 
-const STORAGE_KEY = 'labsupply_onboarding';
+const STORAGE_KEY = 'wlp_onboarding';
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
     const [data, setData] = useState<OnboardingData>(initialData);

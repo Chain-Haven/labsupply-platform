@@ -1,11 +1,11 @@
-# LabSupply Platform
+# WhiteLabel Peptides Platform
 
 A production-quality monorepo for a Supliful-style supplier and merchant integration platform, specialized for peptides and research compounds. Features in-house fulfillment, prepay wallet billing, and WooCommerce integration via a distributable WordPress plugin.
 
 ## 🏗 Architecture
 
 ```
-labsupply-platform/
+whitelabel-peptides-platform/
 ├── apps/
 │   ├── portal/          # Next.js merchant & admin portal
 │   └── api/             # Next.js API with Inngest workflows
@@ -13,7 +13,7 @@ labsupply-platform/
 │   ├── shared/          # Shared types, schemas, utils, & SDK client
 │   └── db/              # Supabase schema, migrations, RLS policies
 ├── woocommerce-plugin/  # WooCommerce fulfillment connector
-│   └── labsupply-fulfillment/
+│   └── wlp-fulfillment/
 ├── docs/                # Documentation
 └── .github/workflows/   # CI/CD pipelines
 ```
@@ -31,8 +31,8 @@ labsupply-platform/
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/labsupply-platform.git
-cd labsupply-platform
+git clone https://github.com/your-org/whitelabel-peptides-platform.git
+cd whitelabel-peptides-platform
 
 # Install dependencies
 pnpm install
@@ -62,7 +62,7 @@ pnpm dev
 
 ## 📦 Packages
 
-### `@labsupply/shared`
+### `@whitelabel-peptides/shared`
 
 Core shared package containing:
 
@@ -71,7 +71,7 @@ Core shared package containing:
 - **Utils**: HMAC signing, hashing, currency formatting, retry logic
 - **Client**: TypeScript SDK for API consumption
 
-### `@labsupply/db`
+### `@whitelabel-peptides/db`
 
 Database package with:
 

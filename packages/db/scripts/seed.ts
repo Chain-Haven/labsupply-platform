@@ -1,5 +1,5 @@
 /**
- * LabSupply Platform - Database Seed Script
+ * WhiteLabel Peptides Platform - Database Seed Script
  * Creates sample data for development and testing
  */
 

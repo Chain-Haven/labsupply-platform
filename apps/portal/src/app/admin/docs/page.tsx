@@ -16,7 +16,7 @@ export default function ApiDocsPage() {
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">API Documentation</h1>
-                <p className="text-gray-500">Complete reference for the LabSupply REST API</p>
+                <p className="text-gray-500">Complete reference for the WhiteLabel Peptides REST API</p>
             </div>
 
             {/* Quick Start */}
@@ -26,16 +26,16 @@ export default function ApiDocsPage() {
                         <Code className="w-5 h-5" />
                         Quick Start
                     </CardTitle>
-                    <CardDescription>Get started with the LabSupply API</CardDescription>
+                    <CardDescription>Get started with the WhiteLabel Peptides API</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div>
                         <h4 className="font-medium mb-2">Base URL</h4>
                         <div className="flex items-center gap-2">
                             <code className="flex-1 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg font-mono text-sm">
-                                https://api.labsupply.io/v1
+                                https://api.whitelabel.peptidetech.co/v1
                             </code>
-                            <Button variant="outline" size="sm" onClick={() => copyCode('https://api.labsupply.io/v1')}>
+                            <Button variant="outline" size="sm" onClick={() => copyCode('https://api.whitelabel.peptidetech.co/v1')}>
                                 <Copy className="w-4 h-4" />
                             </Button>
                         </div>
@@ -208,7 +208,7 @@ export default function ApiDocsPage() {
                 <CardContent>
                     <div className="relative">
                         <pre className="p-4 bg-gray-900 text-gray-100 rounded-lg overflow-x-auto text-sm font-mono">
-                            {`curl -X GET "https://api.labsupply.io/v1/inventory" \\
+                            {`curl -X GET "https://api.whitelabel.peptidetech.co/v1/inventory" \\
   -H "Authorization: Bearer lsk_your_api_key_here" \\
   -H "Content-Type: application/json"`}
                         </pre>
@@ -216,7 +216,7 @@ export default function ApiDocsPage() {
                             size="sm"
                             variant="outline"
                             className="absolute top-2 right-2"
-                            onClick={() => copyCode(`curl -X GET "https://api.labsupply.io/v1/inventory" -H "Authorization: Bearer lsk_your_api_key_here" -H "Content-Type: application/json"`)}
+                            onClick={() => copyCode(`curl -X GET "https://api.whitelabel.peptidetech.co/v1/inventory" -H "Authorization: Bearer lsk_your_api_key_here" -H "Content-Type: application/json"`)}
                         >
                             <Copy className="w-4 h-4" />
                         </Button>

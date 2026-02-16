@@ -1,5 +1,5 @@
 /**
- * LabSupply Platform - Core Type Definitions
+ * WhiteLabel Peptides Platform - Core Type Definitions
  * Domain models for supplier + merchant integration platform
  */
 

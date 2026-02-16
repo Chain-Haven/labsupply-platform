@@ -15,7 +15,7 @@ export default function HomePage() {
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
                             <Package className="w-5 h-5 text-white" />
                         </div>
-                        <span className="text-xl font-bold text-white">LabSupply</span>
+                        <span className="text-xl font-bold text-white">WhiteLabel Peptides</span>
                     </div>
                     <div className="flex items-center gap-4">
                         <Link
@@ -148,7 +148,7 @@ export default function HomePage() {
                 <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
                         <Package className="w-5 h-5 text-white/60" />
-                        <span className="text-white/60">© 2024 LabSupply. All rights reserved.</span>
+                        <span className="text-white/60">© 2024 WhiteLabel Peptides. All rights reserved.</span>
                     </div>
                     <div className="flex items-center gap-6 text-white/60 text-sm">
                         <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>

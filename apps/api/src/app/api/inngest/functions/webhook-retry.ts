@@ -5,7 +5,7 @@
 
 import { inngest } from '@/lib/inngest';
 import { getServiceClient } from '@/lib/supabase';
-import { calculateBackoffDelay } from '@labsupply/shared';
+import { calculateBackoffDelay } from '@whitelabel-peptides/shared';
 
 export const webhookRetryFunction = inngest.createFunction(
     {

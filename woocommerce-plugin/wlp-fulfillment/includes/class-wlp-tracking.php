@@ -2,12 +2,12 @@
 /**
  * Tracking update handler
  *
- * @package LabSupply_Fulfillment
+ * @package WLP_Fulfillment
  */
 
 defined('ABSPATH') || exit;
 
-class LabSupply_Tracking
+class WLP_Tracking
 {
 
     /**
@@ -16,7 +16,7 @@ class LabSupply_Tracking
     public static function init()
     {
         // Cron job
-        add_action('labsupply_check_tracking', array(__CLASS__, 'poll_tracking_updates'));
+        add_action('wlp_check_tracking', array(__CLASS__, 'poll_tracking_updates'));
     }
 
     /**
@@ -24,7 +24,7 @@ class LabSupply_Tracking
      */
     public static function poll_tracking_updates()
     {
-        $api = LabSupply_API_Client::instance();
+        $api = WLP_API_Client::instance();
 
         if (!$api->is_connected()) {
             return;
@@ -64,27 +64,27 @@ class LabSupply_Tracking
         $order = wc_get_order($update['woo_order_id']);
 
         if (!$order) {
-            LabSupply_Admin::log('warning', "Cannot find order for tracking update: {$update['woo_order_id']}");
+            WLP_Admin::log('warning', "Cannot find order for tracking update: {$update['woo_order_id']}");
             return false;
         }
 
         // Verify supplier order ID matches
-        $supplier_order_id = $order->get_meta('_labsupply_order_id');
+        $supplier_order_id = $order->get_meta('_wlp_order_id');
         if ($supplier_order_id !== $update['supplier_order_id']) {
-            LabSupply_Admin::log('warning', "Supplier order ID mismatch for order {$update['woo_order_id']}");
+            WLP_Admin::log('warning', "Supplier order ID mismatch for order {$update['woo_order_id']}");
             return false;
         }
 
         // Update tracking information
-        $order->update_meta_data('_labsupply_tracking_number', $update['tracking_number']);
-        $order->update_meta_data('_labsupply_tracking_url', $update['tracking_url'] ?? '');
-        $order->update_meta_data('_labsupply_carrier', $update['carrier']);
-        $order->update_meta_data('_labsupply_shipped_at', $update['shipped_at']);
-        $order->update_meta_data('_labsupply_status', $update['status']);
+        $order->update_meta_data('_wlp_tracking_number', $update['tracking_number']);
+        $order->update_meta_data('_wlp_tracking_url', $update['tracking_url'] ?? '');
+        $order->update_meta_data('_wlp_carrier', $update['carrier']);
+        $order->update_meta_data('_wlp_shipped_at', $update['shipped_at']);
+        $order->update_meta_data('_wlp_status', $update['status']);
 
         // Add order note
         $note = sprintf(
-            __('LabSupply Tracking Update: %s via %s', 'labsupply-fulfillment'),
+            __('WhiteLabel Peptides Tracking Update: %s via %s', 'wlp-fulfillment'),
             $update['tracking_number'],
             $update['carrier']
         );
@@ -93,7 +93,7 @@ class LabSupply_Tracking
             $note .= sprintf(
                 ' - <a href="%s" target="_blank">%s</a>',
                 esc_url($update['tracking_url']),
-                __('Track Package', 'labsupply-fulfillment')
+                __('Track Package', 'wlp-fulfillment')
             );
         }
 
@@ -102,16 +102,16 @@ class LabSupply_Tracking
         // Update order status if shipped
         if ($update['status'] === 'shipped') {
             // Mark as completed or a custom shipped status
-            $target_status = apply_filters('labsupply_shipped_order_status', 'completed');
-            $order->update_status($target_status, __('Shipped via LabSupply fulfillment.', 'labsupply-fulfillment'));
+            $target_status = apply_filters('wlp_shipped_order_status', 'completed');
+            $order->update_status($target_status, __('Shipped via WhiteLabel Peptides fulfillment.', 'wlp-fulfillment'));
         }
 
         $order->save();
 
-        LabSupply_Admin::log('info', "Applied tracking update for order {$update['woo_order_id']}: {$update['tracking_number']}");
+        WLP_Admin::log('info', "Applied tracking update for order {$update['woo_order_id']}: {$update['tracking_number']}");
 
         // Trigger action for third-party integrations
-        do_action('labsupply_tracking_updated', $order, $update);
+        do_action('wlp_tracking_updated', $order, $update);
 
         return true;
     }
@@ -130,7 +130,7 @@ class LabSupply_Tracking
             return null;
         }
 
-        $tracking_number = $order->get_meta('_labsupply_tracking_number');
+        $tracking_number = $order->get_meta('_wlp_tracking_number');
 
         if (empty($tracking_number)) {
             return null;
@@ -138,9 +138,9 @@ class LabSupply_Tracking
 
         return array(
             'tracking_number' => $tracking_number,
-            'tracking_url' => $order->get_meta('_labsupply_tracking_url'),
-            'carrier' => $order->get_meta('_labsupply_carrier'),
-            'shipped_at' => $order->get_meta('_labsupply_shipped_at'),
+            'tracking_url' => $order->get_meta('_wlp_tracking_url'),
+            'carrier' => $order->get_meta('_wlp_carrier'),
+            'shipped_at' => $order->get_meta('_wlp_shipped_at'),
         );
     }
 
@@ -155,10 +155,10 @@ class LabSupply_Tracking
             return;
         }
 
-        echo '<h2>' . esc_html__('Shipping Information', 'labsupply-fulfillment') . '</h2>';
+        echo '<h2>' . esc_html__('Shipping Information', 'wlp-fulfillment') . '</h2>';
         echo '<table class="woocommerce-table">';
-        echo '<tr><th>' . esc_html__('Carrier', 'labsupply-fulfillment') . '</th><td>' . esc_html($tracking['carrier']) . '</td></tr>';
-        echo '<tr><th>' . esc_html__('Tracking Number', 'labsupply-fulfillment') . '</th><td>';
+        echo '<tr><th>' . esc_html__('Carrier', 'wlp-fulfillment') . '</th><td>' . esc_html($tracking['carrier']) . '</td></tr>';
+        echo '<tr><th>' . esc_html__('Tracking Number', 'wlp-fulfillment') . '</th><td>';
 
         if (!empty($tracking['tracking_url'])) {
             echo '<a href="' . esc_url($tracking['tracking_url']) . '" target="_blank">' . esc_html($tracking['tracking_number']) . '</a>';
@@ -169,7 +169,7 @@ class LabSupply_Tracking
         echo '</td></tr>';
 
         if (!empty($tracking['shipped_at'])) {
-            echo '<tr><th>' . esc_html__('Shipped Date', 'labsupply-fulfillment') . '</th><td>' . esc_html(date_i18n(get_option('date_format'), strtotime($tracking['shipped_at']))) . '</td></tr>';
+            echo '<tr><th>' . esc_html__('Shipped Date', 'wlp-fulfillment') . '</th><td>' . esc_html(date_i18n(get_option('date_format'), strtotime($tracking['shipped_at']))) . '</td></tr>';
         }
 
         echo '</table>';
@@ -177,4 +177,4 @@ class LabSupply_Tracking
 }
 
 // Display tracking on order details page
-add_action('woocommerce_order_details_after_order_table', array('LabSupply_Tracking', 'display_order_tracking'));
+add_action('woocommerce_order_details_after_order_table', array('WLP_Tracking', 'display_order_tracking'));

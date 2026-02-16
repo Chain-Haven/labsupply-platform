@@ -41,7 +41,7 @@ export default function DocsPage() {
                         </div>
                         <div>
                             <h1 className="text-4xl font-bold text-white">Documentation</h1>
-                            <p className="text-white/60">Learn how to integrate with LabSupply</p>
+                            <p className="text-white/60">Learn how to integrate with WhiteLabel Peptides</p>
                         </div>
                     </div>
                 </div>
@@ -143,7 +143,7 @@ export default function DocsPage() {
                                 curl -H "Authorization: Bearer YOUR_API_KEY" \
                             </div>
                             <div className="text-green-400 pl-4">
-                                https://api.labsupply.co/v1/catalog
+                                https://api.whitelabel.peptidetech.co/v1/catalog
                             </div>
                         </div>
                         <p className="text-white/50 text-sm">
@@ -173,7 +173,7 @@ export default function DocsPage() {
                 <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
                         <Package className="w-5 h-5 text-white/60" />
-                        <span className="text-white/60">© 2024 LabSupply. All rights reserved.</span>
+                        <span className="text-white/60">© 2024 WhiteLabel Peptides. All rights reserved.</span>
                     </div>
                     <div className="flex items-center gap-6 text-white/60 text-sm">
                         <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>

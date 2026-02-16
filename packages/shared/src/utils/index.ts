@@ -1,5 +1,5 @@
 /**
- * LabSupply Platform - Utility Functions
+ * WhiteLabel Peptides Platform - Utility Functions
  * HMAC signatures, crypto, and common helpers
  */
 

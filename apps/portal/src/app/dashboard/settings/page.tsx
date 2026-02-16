@@ -170,8 +170,8 @@ export default function SettingsPage() {
             setTotpSecret(secret);
 
             // Generate the TOTP URI for authenticator apps
-            const accountName = user?.email || 'user@labsupply.com';
-            const issuer = 'LabSupply';
+            const accountName = user?.email || 'user@whitelabel.peptidetech.co';
+            const issuer = 'WhiteLabel Peptides';
             const totpUri = `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(accountName)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
 
             // Use quickchart.io to generate a scannable QR code (free, no API key needed)

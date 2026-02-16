@@ -1,16 +1,16 @@
 <?php
 /**
- * REST API endpoints for receiving callbacks from LabSupply
+ * REST API endpoints for receiving callbacks from WhiteLabel Peptides
  *
- * @package LabSupply_Fulfillment
+ * @package WLP_Fulfillment
  */
 
 defined('ABSPATH') || exit;
 
-class LabSupply_REST_API
+class WLP_REST_API
 {
 
-    const NAMESPACE = 'labsupply/v1';
+    const NAMESPACE = 'wlp/v1';
 
     /**
      * Initialize REST API
@@ -65,25 +65,25 @@ class LabSupply_REST_API
         $body = $request->get_body();
 
         // Get stored secret
-        $encrypted_secret = get_option('labsupply_store_secret', '');
+        $encrypted_secret = get_option('wlp_store_secret', '');
         if (empty($encrypted_secret)) {
             return new WP_Error('not_connected', 'Store not connected', array('status' => 401));
         }
 
-        $secret = LabSupply_Crypto::decrypt_secret($encrypted_secret);
+        $secret = WLP_Crypto::decrypt_secret($encrypted_secret);
         if (!$secret) {
             return new WP_Error('secret_error', 'Failed to decrypt secret', array('status' => 500));
         }
 
         // Verify store ID matches
-        $stored_id = get_option('labsupply_store_id', '');
+        $stored_id = get_option('wlp_store_id', '');
         if ($headers['X-Store-Id'] !== $stored_id) {
             return new WP_Error('store_mismatch', 'Store ID mismatch', array('status' => 403));
         }
 
         // Verify signature
-        if (!LabSupply_Crypto::verify_signature($headers, $body, $secret)) {
-            LabSupply_Admin::log('warning', 'Invalid signature on incoming request');
+        if (!WLP_Crypto::verify_signature($headers, $body, $secret)) {
+            WLP_Admin::log('warning', 'Invalid signature on incoming request');
             return new WP_Error('invalid_signature', 'Invalid request signature', array('status' => 401));
         }
 
@@ -111,7 +111,7 @@ class LabSupply_REST_API
         $errors = array();
 
         foreach ($data['updates'] as $update) {
-            $result = LabSupply_Tracking::apply_tracking_update($update);
+            $result = WLP_Tracking::apply_tracking_update($update);
 
             if ($result) {
                 $processed[] = $update['supplier_order_id'];
@@ -120,7 +120,7 @@ class LabSupply_REST_API
             }
         }
 
-        LabSupply_Admin::log('info', sprintf(
+        WLP_Admin::log('info', sprintf(
             'Processed %d tracking updates, %d errors',
             count($processed),
             count($errors)
@@ -164,16 +164,16 @@ class LabSupply_REST_API
         }
 
         // Update supplier status meta
-        $order->update_meta_data('_labsupply_status', $new_status);
+        $order->update_meta_data('_wlp_status', $new_status);
         $order->save();
 
         // Add order note
         $order->add_order_note(sprintf(
-            __('LabSupply status updated: %s', 'labsupply-fulfillment'),
+            __('WhiteLabel Peptides status updated: %s', 'wlp-fulfillment'),
             $new_status
         ));
 
-        LabSupply_Admin::log('info', "Order {$woo_order_id} status updated to {$new_status}");
+        WLP_Admin::log('info', "Order {$woo_order_id} status updated to {$new_status}");
 
         return new WP_REST_Response(array(
             'success' => true,
@@ -187,12 +187,12 @@ class LabSupply_REST_API
      */
     public static function health_check()
     {
-        $api = LabSupply_API_Client::instance();
+        $api = WLP_API_Client::instance();
 
         return new WP_REST_Response(array(
             'status' => 'ok',
             'connected' => $api->is_connected(),
-            'version' => LABSUPPLY_VERSION,
+            'version' => WLP_VERSION,
             'woo_version' => defined('WC_VERSION') ? WC_VERSION : 'unknown',
         ), 200);
     }

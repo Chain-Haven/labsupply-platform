@@ -2,12 +2,12 @@
 /**
  * Cryptographic utilities for secure secret storage and HMAC signing
  *
- * @package LabSupply_Fulfillment
+ * @package WLP_Fulfillment
  */
 
 defined('ABSPATH') || exit;
 
-class LabSupply_Crypto
+class WLP_Crypto
 {
 
     /**
@@ -68,7 +68,7 @@ class LabSupply_Crypto
      */
     private static function get_encryption_key()
     {
-        $salt = defined('AUTH_KEY') ? AUTH_KEY : 'labsupply-default-key';
+        $salt = defined('AUTH_KEY') ? AUTH_KEY : 'wlp-default-key';
         $salt .= defined('SECURE_AUTH_KEY') ? SECURE_AUTH_KEY : '';
 
         // Derive a 32-byte key

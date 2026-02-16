@@ -1,5 +1,5 @@
 /**
- * LabSupply API - Inngest Client Configuration
+ * WhiteLabel Peptides API - Inngest Client Configuration
  * Durable workflow engine for background jobs
  */
 
@@ -7,8 +7,8 @@ import { Inngest } from 'inngest';
 
 // Create the Inngest client
 export const inngest = new Inngest({
-    id: 'labsupply-platform',
-    name: 'LabSupply Platform',
+    id: 'whitelabel-peptides-platform',
+    name: 'WhiteLabel Peptides Platform',
 });
 
 // ============================================================================
@@ -106,7 +106,7 @@ export type MercuryInvoiceCreatedEvent = {
 };
 
 // Union type of all events
-export type LabSupplyEvents =
+export type WhiteLabelPeptidesEvents =
     | OrderReceivedEvent
     | PaymentSucceededEvent
     | ShipmentCreatedEvent

@@ -4,7 +4,7 @@ const nextConfig = {
     output: 'standalone',
 
     async headers() {
-        const allowedOrigins = process.env.ALLOWED_ORIGINS || 'https://labsupply-platform-2-git-main-chain-havens-projects.vercel.app';
+        const allowedOrigins = process.env.ALLOWED_ORIGINS || 'https://whitelabel.peptidetech.co';
 
         return [
             {

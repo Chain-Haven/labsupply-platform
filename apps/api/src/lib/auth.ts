@@ -1,10 +1,10 @@
 /**
- * LabSupply API - HMAC Authentication Middleware
+ * WhiteLabel Peptides API - HMAC Authentication Middleware
  * Verifies signed requests from plugin/external clients
  */
 
 import { NextRequest } from 'next/server';
-import { verifySignature, ApiError, Errors } from '@labsupply/shared';
+import { verifySignature, ApiError, Errors } from '@whitelabel-peptides/shared';
 import { getServiceClient } from './supabase';
 import crypto from 'crypto';
 

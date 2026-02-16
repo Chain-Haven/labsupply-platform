@@ -7,7 +7,7 @@ import JSZip from 'jszip';
 export async function GET() {
     try {
         const zip = new JSZip();
-        const pluginDir = join(process.cwd(), '..', '..', 'woocommerce-plugin', 'labsupply-fulfillment');
+        const pluginDir = join(process.cwd(), '..', '..', 'woocommerce-plugin', 'wlp-fulfillment');
 
         // Function to recursively add files to zip
         function addFilesToZip(dir: string, zipFolder: typeof zip) {
@@ -31,7 +31,7 @@ export async function GET() {
         }
 
         // Add the plugin folder to the ZIP
-        const pluginFolder = zip.folder('labsupply-fulfillment');
+        const pluginFolder = zip.folder('wlp-fulfillment');
         if (pluginFolder && existsSync(pluginDir)) {
             addFilesToZip(pluginDir, pluginFolder);
         } else {
@@ -48,7 +48,7 @@ export async function GET() {
         return new Response(zipBlob, {
             headers: {
                 'Content-Type': 'application/zip',
-                'Content-Disposition': 'attachment; filename="labsupply-fulfillment.zip"',
+                'Content-Disposition': 'attachment; filename="wlp-fulfillment.zip"',
             },
         });
     } catch (error) {

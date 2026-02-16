@@ -19,10 +19,14 @@ export default function AuthErrorHandler() {
             const type = params.get('type');
             const accessToken = params.get('access_token');
 
-            // Handle recovery tokens - redirect to reset password page
+            // Handle recovery tokens - redirect to reset password page with hash preserved
             if (type === 'recovery' && accessToken) {
-                // Redirect to reset-password page with the hash fragment
                 window.location.href = '/auth/reset-password' + window.location.hash;
+                return;
+            }
+
+            // Handle signed-in tokens (e.g. magic link) - redirect to callback
+            if (accessToken && !errorType) {
                 return;
             }
 

@@ -251,7 +251,7 @@ export default function StoresPage() {
                                 <div>
                                     <h4 className="font-medium text-gray-900 dark:text-white">Download the Plugin</h4>
                                     <p className="text-sm text-gray-500 mt-1">
-                                        Download and install the LabSupply Fulfillment Connector plugin on your
+                                        Download and install the WhiteLabel Peptides Fulfillment Connector plugin on your
                                         WordPress site.
                                     </p>
                                     <a href="/api/plugin/download" download>
@@ -318,7 +318,7 @@ export default function StoresPage() {
                                 <div>
                                     <h4 className="font-medium text-gray-900 dark:text-white">Enter Code in Plugin</h4>
                                     <p className="text-sm text-gray-500 mt-1">
-                                        Go to WooCommerce → LabSupply in your WordPress admin and enter the connect
+                                        Go to WooCommerce → WhiteLabel Peptides in your WordPress admin and enter the connect
                                         code.
                                     </p>
                                 </div>

@@ -150,7 +150,7 @@ export default function AdminLoginPage() {
                         </div>
                     </div>
                     <CardTitle className="text-2xl font-bold">Admin Portal</CardTitle>
-                    <CardDescription>Sign in to access the LabSupply admin dashboard</CardDescription>
+                    <CardDescription>Sign in to access the WhiteLabel Peptides admin dashboard</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {/* Login mode tabs */}

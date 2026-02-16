@@ -10,7 +10,7 @@
 
 import { inngest } from '@/lib/inngest';
 import { getServiceClient } from '@/lib/supabase';
-import { OrderStatus } from '@labsupply/shared';
+import { OrderStatus } from '@whitelabel-peptides/shared';
 
 export const shipmentShippedFunction = inngest.createFunction(
     {

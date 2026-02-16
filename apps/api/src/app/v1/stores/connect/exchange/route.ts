@@ -8,7 +8,7 @@
 import { NextRequest } from 'next/server';
 import { getServiceClient } from '@/lib/supabase';
 import { successResponse, errorResponse } from '@/lib/auth';
-import { connectExchangeSchema, ApiError, generateStoreSecret, hashSecret } from '@labsupply/shared';
+import { connectExchangeSchema, ApiError, generateStoreSecret, hashSecret } from '@whitelabel-peptides/shared';
 
 export async function POST(request: NextRequest) {
     try {

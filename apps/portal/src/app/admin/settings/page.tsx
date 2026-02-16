@@ -90,7 +90,7 @@ export default function SettingsPage() {
         smtp_port: '587',
         smtp_user: '',
         smtp_pass: '',
-        smtp_from_name: 'LabSupply',
+        smtp_from_name: 'WhiteLabel Peptides',
         smtp_from_email: '',
         notify_new_orders: true,
         notify_low_stock: true,
@@ -242,13 +242,13 @@ export default function SettingsPage() {
                                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Company Name
                                     </label>
-                                    <Input defaultValue="LabSupply Inc" className="mt-1" />
+                                    <Input defaultValue="Peptide Technologies" className="mt-1" />
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Support Email
                                     </label>
-                                    <Input defaultValue="support@labsupply.com" className="mt-1" />
+                                    <Input defaultValue="support@whitelabel.peptidetech.co" className="mt-1" />
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">

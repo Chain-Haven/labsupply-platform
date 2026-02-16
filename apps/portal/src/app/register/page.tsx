@@ -236,7 +236,7 @@ export default function RegisterPage() {
                         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
                             <Package className="w-7 h-7 text-white" />
                         </div>
-                        <span className="text-2xl font-bold text-white">LabSupply</span>
+                        <span className="text-2xl font-bold text-white">WhiteLabel Peptides</span>
                     </Link>
                 </div>
 

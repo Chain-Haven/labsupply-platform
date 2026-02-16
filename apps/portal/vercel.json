@@ -15,7 +15,7 @@
                 },
                 {
                     "key": "Access-Control-Allow-Origin",
-                    "value": "https://labsupply-platform-2-git-main-chain-havens-projects.vercel.app"
+                    "value": "https://whitelabel.peptidetech.co"
                 },
                 {
                     "key": "Access-Control-Allow-Methods",

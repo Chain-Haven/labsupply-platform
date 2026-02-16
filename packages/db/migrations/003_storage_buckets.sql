@@ -1,5 +1,5 @@
 -- ============================================================================
--- LabSupply Platform - Storage Buckets
+-- WhiteLabel Peptides Platform - Storage Buckets
 -- Version: 003
 -- Description: Supabase Storage bucket configuration
 -- ============================================================================

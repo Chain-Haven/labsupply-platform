@@ -1,5 +1,5 @@
 -- ============================================================================
--- LabSupply Platform - Row Level Security Policies
+-- WhiteLabel Peptides Platform - Row Level Security Policies
 -- Version: 002
 -- Description: RLS policies for multi-tenant data isolation
 -- ============================================================================

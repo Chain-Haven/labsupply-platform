@@ -7,7 +7,7 @@ import { Toaster } from '@/components/ui/toaster';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-    title: 'LabSupply Portal',
+    title: 'WhiteLabel Peptides Portal',
     description: 'Supplier and Merchant Integration Platform for Research Compounds',
     keywords: ['research', 'peptides', 'supplier', 'dropship', 'fulfillment'],
 };

@@ -2,12 +2,12 @@
 /**
  * Order sync functionality
  *
- * @package LabSupply_Fulfillment
+ * @package WLP_Fulfillment
  */
 
 defined('ABSPATH') || exit;
 
-class LabSupply_Orders
+class WLP_Orders
 {
 
     /**
@@ -21,14 +21,14 @@ class LabSupply_Orders
         add_action('woocommerce_payment_complete', array(__CLASS__, 'sync_order'), 10, 1);
 
         // Cron job for retry queue
-        add_action('labsupply_sync_orders', array(__CLASS__, 'process_queue'));
+        add_action('wlp_sync_orders', array(__CLASS__, 'process_queue'));
 
         // Action Scheduler for retries
-        add_action('labsupply_retry_order_sync', array(__CLASS__, 'retry_single_order'), 10, 1);
+        add_action('wlp_retry_order_sync', array(__CLASS__, 'retry_single_order'), 10, 1);
     }
 
     /**
-     * Sync order to LabSupply
+     * Sync order to WhiteLabel Peptides
      *
      * @param int $order_id WooCommerce order ID
      * @param WC_Order|null $order Order object
@@ -43,16 +43,16 @@ class LabSupply_Orders
             return;
         }
 
-        $api = LabSupply_API_Client::instance();
+        $api = WLP_API_Client::instance();
         if (!$api->is_connected()) {
-            LabSupply_Admin::log('warning', "Cannot sync order {$order_id}: Not connected");
+            WLP_Admin::log('warning', "Cannot sync order {$order_id}: Not connected");
             return;
         }
 
         // Check if already synced
-        $supplier_order_id = $order->get_meta('_labsupply_order_id');
+        $supplier_order_id = $order->get_meta('_wlp_order_id');
         if ($supplier_order_id) {
-            LabSupply_Admin::log('debug', "Order {$order_id} already synced as {$supplier_order_id}");
+            WLP_Admin::log('debug', "Order {$order_id} already synced as {$supplier_order_id}");
             return;
         }
 
@@ -60,7 +60,7 @@ class LabSupply_Orders
         $items = self::build_order_items($order);
 
         if (empty($items)) {
-            LabSupply_Admin::log('debug', "Order {$order_id} has no supplier products, skipping");
+            WLP_Admin::log('debug', "Order {$order_id} has no supplier products, skipping");
             return;
         }
 
@@ -77,7 +77,7 @@ class LabSupply_Orders
             'items' => $items,
         );
 
-        LabSupply_Admin::log('info', "Syncing order {$order_id} with " . count($items) . " supplier items");
+        WLP_Admin::log('info', "Syncing order {$order_id} with " . count($items) . " supplier items");
 
         $result = $api->create_order($order_data);
 
@@ -87,25 +87,25 @@ class LabSupply_Orders
         }
 
         // Save supplier order ID
-        $order->update_meta_data('_labsupply_order_id', $result['supplier_order_id']);
-        $order->update_meta_data('_labsupply_status', $result['status']);
-        $order->update_meta_data('_labsupply_synced_at', current_time('mysql'));
+        $order->update_meta_data('_wlp_order_id', $result['supplier_order_id']);
+        $order->update_meta_data('_wlp_status', $result['status']);
+        $order->update_meta_data('_wlp_synced_at', current_time('mysql'));
         $order->save();
 
         // Add order note
         $note = sprintf(
-            __('Order synced to LabSupply. Supplier Order ID: %s. Status: %s.', 'labsupply-fulfillment'),
+            __('Order synced to WhiteLabel Peptides. Supplier Order ID: %s. Status: %s.', 'wlp-fulfillment'),
             $result['supplier_order_id'],
             $result['status']
         );
 
         if (!$result['is_funded']) {
-            $note .= ' ' . __('Note: Awaiting wallet funding.', 'labsupply-fulfillment');
+            $note .= ' ' . __('Note: Awaiting wallet funding.', 'wlp-fulfillment');
         }
 
         $order->add_order_note($note);
 
-        LabSupply_Admin::log('info', "Order {$order_id} synced successfully as {$result['supplier_order_id']}");
+        WLP_Admin::log('info', "Order {$order_id} synced successfully as {$result['supplier_order_id']}");
 
         // Remove from retry queue if exists
         self::remove_from_queue($order_id);
@@ -128,7 +128,7 @@ class LabSupply_Orders
             }
 
             // Check if product has supplier SKU
-            $supplier_sku = $product->get_meta('_labsupply_sku');
+            $supplier_sku = $product->get_meta('_wlp_sku');
             if (empty($supplier_sku)) {
                 continue;
             }
@@ -194,8 +194,8 @@ class LabSupply_Orders
                 }
             }
 
-            // Check for specific LabSupply shipping method selection
-            $selected_method = $order->get_meta('_labsupply_shipping_method');
+            // Check for specific WhiteLabel Peptides shipping method selection
+            $selected_method = $order->get_meta('_wlp_shipping_method');
             if ($selected_method === 'EXPEDITED') {
                 return 'EXPEDITED';
             }
@@ -214,14 +214,14 @@ class LabSupply_Orders
     {
         $error_message = $error->get_error_message();
 
-        LabSupply_Admin::log('error', "Failed to sync order {$order->get_id()}: {$error_message}");
+        WLP_Admin::log('error', "Failed to sync order {$order->get_id()}: {$error_message}");
 
         // Add to retry queue
         self::add_to_queue($order->get_id(), $error_message);
 
         // Add order note
         $order->add_order_note(sprintf(
-            __('LabSupply sync failed: %s. Will retry automatically.', 'labsupply-fulfillment'),
+            __('WhiteLabel Peptides sync failed: %s. Will retry automatically.', 'wlp-fulfillment'),
             $error_message
         ));
     }
@@ -233,7 +233,7 @@ class LabSupply_Orders
     {
         global $wpdb;
 
-        $table = $wpdb->prefix . 'labsupply_order_queue';
+        $table = $wpdb->prefix . 'wlp_order_queue';
 
         // Check if already in queue
         $existing = $wpdb->get_var($wpdb->prepare(
@@ -265,7 +265,7 @@ class LabSupply_Orders
         // Schedule retry with Action Scheduler if available
         if (function_exists('as_schedule_single_action')) {
             $delay = self::calculate_retry_delay(1);
-            as_schedule_single_action(time() + $delay, 'labsupply_retry_order_sync', array($order_id));
+            as_schedule_single_action(time() + $delay, 'wlp_retry_order_sync', array($order_id));
         }
     }
 
@@ -277,7 +277,7 @@ class LabSupply_Orders
         global $wpdb;
 
         $wpdb->update(
-            $wpdb->prefix . 'labsupply_order_queue',
+            $wpdb->prefix . 'wlp_order_queue',
             array('status' => 'completed', 'synced_at' => current_time('mysql')),
             array('order_id' => $order_id, 'status' => 'pending')
         );
@@ -301,7 +301,7 @@ class LabSupply_Orders
     {
         global $wpdb;
 
-        $table = $wpdb->prefix . 'labsupply_order_queue';
+        $table = $wpdb->prefix . 'wlp_order_queue';
         $max_attempts = 5;
 
         // Get pending orders
@@ -335,7 +335,7 @@ class LabSupply_Orders
             return;
         }
 
-        LabSupply_Admin::log('info', "Retrying sync for order {$order_id}");
+        WLP_Admin::log('info', "Retrying sync for order {$order_id}");
 
         self::sync_order($order_id, $order);
     }
@@ -352,7 +352,7 @@ class LabSupply_Orders
             'order' => 'DESC',
             'meta_query' => array(
                 array(
-                    'key' => '_labsupply_order_id',
+                    'key' => '_wlp_order_id',
                     'compare' => 'NOT EXISTS',
                 ),
             ),

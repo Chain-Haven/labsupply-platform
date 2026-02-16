@@ -1,5 +1,5 @@
 /**
- * LabSupply Platform - Shared Package
+ * WhiteLabel Peptides Platform - Shared Package
  * Re-exports all types, schemas, utils, and client
  */
 
@@ -13,12 +13,12 @@ export * from './schemas';
 export * from './utils';
 
 // Client
-export { LabSupplyClient, createLabSupplyClient, createPluginClient } from './client';
-export type { LabSupplyClientConfig } from './client';
+export { WhiteLabelPeptidesClient, createWhiteLabelPeptidesClient, createPluginClient } from './client';
+export type { WhiteLabelPeptidesClientConfig } from './client';
 
 // Constants
 export const API_VERSION = 'v1';
-export const PLATFORM_NAME = 'LabSupply';
+export const PLATFORM_NAME = 'WhiteLabel Peptides';
 
 // Compliance Disclaimers
 export const DISCLAIMERS = {

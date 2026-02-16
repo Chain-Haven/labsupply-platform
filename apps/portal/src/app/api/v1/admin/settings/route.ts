@@ -39,7 +39,7 @@ const DEFAULT_SETTINGS: Record<string, string | boolean> = {
     smtp_port: '587',
     smtp_user: '',
     smtp_pass: '',
-    smtp_from_name: 'LabSupply',
+    smtp_from_name: 'WhiteLabel Peptides',
     smtp_from_email: '',
     notify_new_orders: true,
     notify_low_stock: true,

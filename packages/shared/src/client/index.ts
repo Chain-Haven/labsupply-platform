@@ -1,6 +1,6 @@
 /**
- * LabSupply Platform - API Client SDK
- * TypeScript client for consuming the LabSupply API
+ * WhiteLabel Peptides Platform - API Client SDK
+ * TypeScript client for consuming the WhiteLabel Peptides API
  */
 
 import {
@@ -28,7 +28,7 @@ import type {
     PaginatedResponse,
 } from '../types';
 
-export interface LabSupplyClientConfig {
+export interface WhiteLabelPeptidesClientConfig {
     baseUrl: string;
     storeId?: string;
     storeSecret?: string;
@@ -40,13 +40,13 @@ export interface RequestOptions {
     signal?: AbortSignal;
 }
 
-export class LabSupplyClient {
+export class WhiteLabelPeptidesClient {
     private baseUrl: string;
     private storeId?: string;
     private storeSecret?: string;
     private timeout: number;
 
-    constructor(config: LabSupplyClientConfig) {
+    constructor(config: WhiteLabelPeptidesClientConfig) {
         this.baseUrl = config.baseUrl.replace(/\/$/, ''); // Remove trailing slash
         this.storeId = config.storeId;
         this.storeSecret = config.storeSecret;
@@ -381,10 +381,10 @@ export class LabSupplyClient {
 // ============================================================================
 
 /**
- * Create a new LabSupply client instance
+ * Create a new WhiteLabelPeptides client instance
  */
-export function createLabSupplyClient(config: LabSupplyClientConfig): LabSupplyClient {
-    return new LabSupplyClient(config);
+export function createWhiteLabelPeptidesClient(config: WhiteLabelPeptidesClientConfig): WhiteLabelPeptidesClient {
+    return new WhiteLabelPeptidesClient(config);
 }
 
 /**
@@ -394,8 +394,8 @@ export function createPluginClient(
     baseUrl: string,
     storeId: string,
     storeSecret: string
-): LabSupplyClient {
-    return new LabSupplyClient({
+): WhiteLabelPeptidesClient {
+    return new WhiteLabelPeptidesClient({
         baseUrl,
         storeId,
         storeSecret,

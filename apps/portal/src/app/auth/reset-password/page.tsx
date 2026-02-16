@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@/lib/supabase';
 import { Lock, ArrowLeft, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
@@ -16,148 +16,123 @@ export default function ResetPasswordPage() {
     const [sessionReady, setSessionReady] = useState(false);
     const router = useRouter();
     const supabase = createBrowserClient();
+    const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
 
-    // Check if there's an active session from the recovery link
     useEffect(() => {
         let mounted = true;
 
-        const checkSession = async () => {
+        const initSession = async () => {
             try {
-                // Listen for auth state changes (important for recovery links)
+                // Set up auth state listener
                 const { data: { subscription } } = supabase.auth.onAuthStateChange(
-                    async (event, session) => {
-                        // Auth event received
+                    (event, session) => {
+                        if (!mounted) return;
 
-                        if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
-                            if (session && mounted) {
-                                setSessionReady(true);
-                                setIsInitializing(false);
-                            }
+                        if (event === 'PASSWORD_RECOVERY' && session) {
+                            setSessionReady(true);
+                            setIsInitializing(false);
+                        } else if (event === 'SIGNED_IN' && session) {
+                            setSessionReady(true);
+                            setIsInitializing(false);
                         }
                     }
                 );
+                subscriptionRef.current = subscription;
 
-                // First check if we already have a session
+                // Check for existing session (set by /auth/callback code exchange)
                 const { data: { session } } = await supabase.auth.getSession();
-
-                if (session) {
-                    if (mounted) {
-                        setSessionReady(true);
-                        setIsInitializing(false);
-                    }
+                if (session && mounted) {
+                    setSessionReady(true);
+                    setIsInitializing(false);
                     return;
                 }
 
-                // No session, try to handle the hash fragment from recovery link
-                const hashParams = new URLSearchParams(window.location.hash.substring(1));
-                const accessToken = hashParams.get('access_token');
-                const refreshToken = hashParams.get('refresh_token');
-                const type = hashParams.get('type');
-                const errorCode = hashParams.get('error_code');
-                const errorDescription = hashParams.get('error_description');
+                // Handle hash fragment (implicit flow fallback)
+                const hash = window.location.hash.substring(1);
+                if (hash) {
+                    const hashParams = new URLSearchParams(hash);
+                    const accessToken = hashParams.get('access_token');
+                    const refreshToken = hashParams.get('refresh_token');
+                    const errorCode = hashParams.get('error_code');
+                    const errorDescription = hashParams.get('error_description');
 
-                // Check for reset password tokens
-                const hasToken = !!accessToken;
+                    // Clean up hash from URL
+                    window.history.replaceState(
+                        null, '', window.location.pathname + window.location.search
+                    );
 
-                // Handle expired/invalid tokens
-                if (errorCode) {
-                    const message = errorDescription?.replace(/\+/g, ' ') || 'Invalid or expired reset link';
-                    if (mounted) {
-                        setError(message);
-                        setIsInitializing(false);
-                    }
-                    return;
-                }
-
-                if (accessToken && type === 'recovery') {
-                    // Set the session manually
-                    const { error: sessionError } = await supabase.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken || '',
-                    });
-
-                    if (sessionError) {
-                        console.error('Session error:', sessionError);
+                    if (errorCode) {
+                        const message = errorDescription?.replace(/\+/g, ' ')
+                            || 'Invalid or expired reset link';
                         if (mounted) {
-                            setError(sessionError.message || 'Failed to validate reset link. Please request a new one.');
+                            setError(message);
                             setIsInitializing(false);
                         }
                         return;
                     }
 
-                    if (mounted) {
-                        setSessionReady(true);
-                        setIsInitializing(false);
-                    }
-                } else if (accessToken) {
-                    // Has access token but type is not 'recovery' - still try to use it
-                    // Access token present but type is not 'recovery' - still try to use it
-                    const { error: sessionError } = await supabase.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken || '',
-                    });
+                    if (accessToken) {
+                        const { error: sessionError } = await supabase.auth.setSession({
+                            access_token: accessToken,
+                            refresh_token: refreshToken || '',
+                        });
 
-                    if (sessionError) {
-                        console.error('Session error:', sessionError);
-                        if (mounted) {
-                            setError('Failed to validate reset link. The link may have expired. Please request a new one.');
-                            setIsInitializing(false);
-                        }
-                        return;
-                    }
-
-                    if (mounted) {
-                        setSessionReady(true);
-                        setIsInitializing(false);
-                    }
-                } else {
-                    // Check URL params as well (some Supabase versions use query params)
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const codeParam = urlParams.get('code');
-
-                    if (codeParam) {
-                        // Exchange code for session
-                        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(codeParam);
-
-                        if (exchangeError) {
-                            console.error('Code exchange error:', exchangeError);
+                        if (sessionError) {
                             if (mounted) {
                                 setError('Invalid or expired reset link. Please request a new one.');
                                 setIsInitializing(false);
                             }
-                            return;
-                        }
-
-                        if (mounted) {
+                        } else if (mounted) {
                             setSessionReady(true);
                             setIsInitializing(false);
                         }
-                    } else {
-                        // No valid recovery tokens found
-                        if (mounted) {
-                            setError('Invalid password reset link. Please request a new one from the login page.');
-                            setIsInitializing(false);
-                        }
+                        return;
                     }
                 }
 
-                // Cleanup subscription
-                return () => {
-                    subscription.unsubscribe();
-                };
+                // Handle code parameter (PKCE flow direct -- fallback)
+                const urlParams = new URLSearchParams(window.location.search);
+                const codeParam = urlParams.get('code');
+                if (codeParam) {
+                    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(
+                        codeParam
+                    );
+                    if (exchangeError) {
+                        if (mounted) {
+                            setError('Invalid or expired reset link. Please request a new one.');
+                            setIsInitializing(false);
+                        }
+                    } else if (mounted) {
+                        setSessionReady(true);
+                        setIsInitializing(false);
+                    }
+                    return;
+                }
+
+                // No tokens found -- give the auth listener a moment to fire
+                setTimeout(() => {
+                    if (mounted && !sessionReady) {
+                        setIsInitializing(false);
+                        setError(
+                            'Invalid password reset link. Please request a new one from the login page.'
+                        );
+                    }
+                }, 3000);
+
             } catch (err) {
-                console.error('Error checking session:', err);
+                console.error('Error initializing reset session:', err);
                 if (mounted) {
-                    setError('An error occurred validating your reset link. Please try again.');
+                    setError('An error occurred. Please try requesting a new reset link.');
                     setIsInitializing(false);
                 }
             }
         };
 
-        checkSession();
+        initSession();
 
         return () => {
             mounted = false;
+            subscriptionRef.current?.unsubscribe();
         };
     }, []);
 
@@ -183,13 +158,37 @@ export default function ResetPasswordPage() {
         setIsLoading(true);
 
         try {
-            const { error: updateError } = await supabase.auth.updateUser({
-                password: password
-            });
+            // Re-validate session before updating
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                setError('Your session has expired. Please request a new password reset link.');
+                setIsLoading(false);
+                return;
+            }
+
+            // Race the updateUser call against a timeout
+            const updatePromise = supabase.auth.updateUser({ password });
+            const timeoutPromise = new Promise<{ data: null; error: { message: string } }>(
+                (resolve) => {
+                    setTimeout(() => {
+                        resolve({
+                            data: null,
+                            error: { message: 'Request timed out. Please try again.' },
+                        });
+                    }, 15000);
+                }
+            );
+
+            const { error: updateError } = await Promise.race([updatePromise, timeoutPromise]);
 
             if (updateError) {
-                console.error('Update error:', updateError);
-                setError(updateError.message || 'Failed to update password');
+                console.error('Password update error:', updateError);
+                const msg = updateError.message || 'Failed to update password';
+                if (msg.toLowerCase().includes('same_password') || msg.toLowerCase().includes('different')) {
+                    setError('New password must be different from your current password.');
+                } else {
+                    setError(msg);
+                }
                 setIsLoading(false);
                 return;
             }
@@ -197,19 +196,23 @@ export default function ResetPasswordPage() {
             setSuccess(true);
             setIsLoading(false);
 
-            // Sign out and redirect to login after 3 seconds
+            // Sign out and redirect to login after a delay
             setTimeout(async () => {
-                await supabase.auth.signOut();
-                router.push('/admin/login?message=password_reset');
+                try {
+                    await supabase.auth.signOut();
+                } catch {
+                    // Sign out may fail if session is already invalidated
+                }
+                router.push('/login?message=password_reset');
             }, 3000);
+
         } catch (err) {
-            console.error('Unexpected error:', err);
+            console.error('Unexpected error during password update:', err);
             setError('An unexpected error occurred. Please try again.');
             setIsLoading(false);
         }
     };
 
-    // Loading state while checking session
     if (isInitializing) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-6">
@@ -235,13 +238,21 @@ export default function ResetPasswordPage() {
                         <p className="text-white/60 mb-6">
                             Your password has been successfully reset. Redirecting to login...
                         </p>
-                        <Link
-                            href="/admin/login"
-                            className="inline-flex items-center gap-2 text-violet-400 hover:text-violet-300 transition-colors"
-                        >
-                            <ArrowLeft className="w-4 h-4" />
-                            Go to Login
-                        </Link>
+                        <div className="flex flex-col items-center gap-2">
+                            <Link
+                                href="/login"
+                                className="inline-flex items-center gap-2 text-violet-400 hover:text-violet-300 transition-colors"
+                            >
+                                <ArrowLeft className="w-4 h-4" />
+                                Merchant Login
+                            </Link>
+                            <Link
+                                href="/admin/login"
+                                className="inline-flex items-center gap-2 text-white/40 hover:text-white/60 transition-colors text-sm"
+                            >
+                                Admin Login
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -284,7 +295,7 @@ export default function ResetPasswordPage() {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:opacity-50"
-                                placeholder="••••••••"
+                                placeholder="Minimum 8 characters"
                                 required
                                 minLength={8}
                                 disabled={!sessionReady || isLoading}
@@ -300,7 +311,7 @@ export default function ResetPasswordPage() {
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:opacity-50"
-                                placeholder="••••••••"
+                                placeholder="Re-enter your new password"
                                 required
                                 minLength={8}
                                 disabled={!sessionReady || isLoading}
@@ -323,9 +334,15 @@ export default function ResetPasswordPage() {
                         </button>
                     </form>
 
-                    <div className="mt-6 text-center">
+                    <div className="mt-6 text-center space-y-2">
                         <Link
-                            href="/admin/login"
+                            href="/forgot-password"
+                            className="block text-white/60 hover:text-white transition-colors text-sm"
+                        >
+                            Request a new reset link
+                        </Link>
+                        <Link
+                            href="/login"
                             className="inline-flex items-center gap-2 text-white/60 hover:text-white transition-colors text-sm"
                         >
                             <ArrowLeft className="w-4 h-4" />

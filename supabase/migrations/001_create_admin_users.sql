@@ -1,4 +1,4 @@
--- Admin Users Table for LabSupply Platform
+-- Admin Users Table for WhiteLabel Peptides Platform
 -- This table stores authorized admin users who can access the admin portal
 
 -- Create admin_users table

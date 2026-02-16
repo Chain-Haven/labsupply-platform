@@ -158,7 +158,7 @@ export default function StepRUOCompliance({ data, onChange, errors }: StepRUOCom
                             <li><strong>Reporting to regulatory authorities</strong> as required by law</li>
                         </ul>
                         <p className="text-red-300/80 text-sm mt-2">
-                            LabSupply reserves the right to audit merchant websites, product listings, and marketing
+                            WhiteLabel Peptides reserves the right to audit merchant websites, product listings, and marketing
                             materials at any time to ensure ongoing compliance with applicable regulations.
                         </p>
                     </div>

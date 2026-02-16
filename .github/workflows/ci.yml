@@ -26,13 +26,13 @@ jobs:
         run: pnpm install
       
       - name: Build shared package first
-        run: pnpm --filter @labsupply/shared build
+        run: pnpm --filter @whitelabel-peptides/shared build
       
       - name: Lint Portal
-        run: pnpm --filter @labsupply/portal lint
+        run: pnpm --filter @whitelabel-peptides/portal lint
       
       - name: Type check Portal
-        run: pnpm --filter @labsupply/portal typecheck
+        run: pnpm --filter @whitelabel-peptides/portal typecheck
 
   test:
     name: Test
@@ -50,10 +50,10 @@ jobs:
         run: pnpm install
       
       - name: Build shared package
-        run: pnpm --filter @labsupply/shared build
+        run: pnpm --filter @whitelabel-peptides/shared build
       
       - name: Run tests
-        run: pnpm --filter @labsupply/shared test
+        run: pnpm --filter @whitelabel-peptides/shared test
 
   build:
     name: Build
@@ -72,10 +72,10 @@ jobs:
         run: pnpm install
       
       - name: Build shared package
-        run: pnpm --filter @labsupply/shared build
+        run: pnpm --filter @whitelabel-peptides/shared build
       
       - name: Build portal
-        run: pnpm --filter @labsupply/portal build
+        run: pnpm --filter @whitelabel-peptides/portal build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
@@ -89,13 +89,13 @@ jobs:
       - name: Create plugin ZIP
         run: |
           cd woocommerce-plugin
-          zip -r labsupply-fulfillment.zip labsupply-fulfillment
+          zip -r wlp-fulfillment.zip wlp-fulfillment
       
       - name: Upload plugin artifact
         uses: actions/upload-artifact@v4
         with:
           name: woocommerce-plugin
-          path: woocommerce-plugin/labsupply-fulfillment.zip
+          path: woocommerce-plugin/wlp-fulfillment.zip
           retention-days: 30
 
   security-audit:

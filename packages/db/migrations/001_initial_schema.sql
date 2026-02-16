@@ -1,5 +1,5 @@
 -- ============================================================================
--- LabSupply Platform - Initial Database Schema
+-- WhiteLabel Peptides Platform - Initial Database Schema
 -- Version: 001
 -- Description: Core tables for supplier + merchant integration platform
 -- ============================================================================

@@ -6,7 +6,7 @@
 import { NextRequest } from 'next/server';
 import { getServiceClient } from '@/lib/supabase';
 import { verifyAdminRequest, successResponse, errorResponse } from '@/lib/auth';
-import { ApiError, OrderStatus } from '@labsupply/shared';
+import { ApiError, OrderStatus } from '@whitelabel-peptides/shared';
 
 export async function POST(request: NextRequest) {
     try {

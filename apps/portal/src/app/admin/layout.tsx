@@ -86,7 +86,7 @@ function AdminLayoutContent({ children }: { children: ReactNode }) {
                         <Package className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                        <span className="text-lg font-bold">LabSupply</span>
+                        <span className="text-lg font-bold">WhiteLabel Peptides</span>
                         <span className="ml-2 text-xs px-1.5 py-0.5 bg-orange-500/20 text-orange-400 rounded">
                             ADMIN
                         </span>

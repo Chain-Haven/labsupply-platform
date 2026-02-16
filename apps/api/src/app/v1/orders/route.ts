@@ -13,7 +13,7 @@ import {
     generateOrderIdempotencyKey,
     ApiError,
     OrderStatus,
-} from '@labsupply/shared';
+} from '@whitelabel-peptides/shared';
 
 export async function POST(request: NextRequest) {
     try {

@@ -1,5 +1,5 @@
 /**
- * LabSupply Platform - Zod Validation Schemas
+ * WhiteLabel Peptides Platform - Zod Validation Schemas
  * Complete validation schemas for all API endpoints and domain objects
  */
 
@@ -266,7 +266,7 @@ export type BillingSettingsInput = z.infer<typeof billingSettingsSchema>;
 
 export const mercuryInvoiceStatusSchema = z.enum(['Unpaid', 'Processing', 'Paid', 'Cancelled']);
 
-export type MercuryInvoiceStatus = z.infer<typeof mercuryInvoiceStatusSchema>;
+export type MercuryInvoiceStatusSchema = z.infer<typeof mercuryInvoiceStatusSchema>;
 
 export const walletAdjustmentSchema = z.object({
     merchant_id: z.string().uuid(),

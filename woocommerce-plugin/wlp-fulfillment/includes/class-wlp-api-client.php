@@ -1,13 +1,13 @@
 <?php
 /**
- * API Client for communicating with LabSupply API
+ * API Client for communicating with WhiteLabel Peptides API
  *
- * @package LabSupply_Fulfillment
+ * @package WLP_Fulfillment
  */
 
 defined('ABSPATH') || exit;
 
-class LabSupply_API_Client
+class WLP_API_Client
 {
 
     /**
@@ -46,12 +46,12 @@ class LabSupply_API_Client
      */
     private function __construct()
     {
-        $this->base_url = get_option('labsupply_api_url', 'https://api.labsupply.io');
-        $this->store_id = get_option('labsupply_store_id', '');
+        $this->base_url = get_option('wlp_api_url', 'https://api.whitelabel.peptidetech.co');
+        $this->store_id = get_option('wlp_store_id', '');
 
-        $encrypted_secret = get_option('labsupply_store_secret', '');
+        $encrypted_secret = get_option('wlp_store_secret', '');
         if ($encrypted_secret) {
-            $this->secret = LabSupply_Crypto::decrypt_secret($encrypted_secret);
+            $this->secret = WLP_Crypto::decrypt_secret($encrypted_secret);
         }
     }
 
@@ -74,16 +74,16 @@ class LabSupply_API_Client
     public function request($method, $endpoint, $data = array())
     {
         if (!$this->is_connected()) {
-            return new WP_Error('not_connected', __('Not connected to LabSupply', 'labsupply-fulfillment'));
+            return new WP_Error('not_connected', __('Not connected to WhiteLabel Peptides', 'wlp-fulfillment'));
         }
 
-        $url = trailingslashit($this->base_url) . LABSUPPLY_API_VERSION . '/' . ltrim($endpoint, '/');
+        $url = trailingslashit($this->base_url) . WLP_API_VERSION . '/' . ltrim($endpoint, '/');
         $body = !empty($data) ? wp_json_encode($data) : '';
 
         // Generate signature
         $timestamp = (string) (time() * 1000);
-        $nonce = LabSupply_Crypto::generate_nonce();
-        $signature = LabSupply_Crypto::generate_signature(
+        $nonce = WLP_Crypto::generate_nonce();
+        $signature = WLP_Crypto::generate_signature(
             $this->store_id,
             $timestamp,
             $nonce,
@@ -111,12 +111,12 @@ class LabSupply_API_Client
             $args['body'] = $body;
         }
 
-        LabSupply_Admin::log('debug', "API Request: {$method} {$endpoint}");
+        WLP_Admin::log('debug', "API Request: {$method} {$endpoint}");
 
         $response = wp_remote_request($url, $args);
 
         if (is_wp_error($response)) {
-            LabSupply_Admin::log('error', 'API Error: ' . $response->get_error_message());
+            WLP_Admin::log('error', 'API Error: ' . $response->get_error_message());
             return $response;
         }
 
@@ -129,7 +129,7 @@ class LabSupply_API_Client
                 ? $parsed['error']['message']
                 : "API returned status {$code}";
 
-            LabSupply_Admin::log('error', "API Error ({$code}): {$error_message}");
+            WLP_Admin::log('error', "API Error ({$code}): {$error_message}");
 
             return new WP_Error(
                 isset($parsed['error']['code']) ? $parsed['error']['code'] : 'api_error',
@@ -138,7 +138,7 @@ class LabSupply_API_Client
             );
         }
 
-        LabSupply_Admin::log('debug', "API Response: {$code}");
+        WLP_Admin::log('debug', "API Response: {$code}");
 
         return isset($parsed['data']) ? $parsed['data'] : $parsed;
     }
@@ -151,7 +151,7 @@ class LabSupply_API_Client
      */
     public function exchange_connect_code($connect_code)
     {
-        $url = trailingslashit($this->base_url) . LABSUPPLY_API_VERSION . '/stores/connect/exchange';
+        $url = trailingslashit($this->base_url) . WLP_API_VERSION . '/stores/connect/exchange';
 
         $data = array(
             'connect_code' => $connect_code,
@@ -252,7 +252,7 @@ class LabSupply_API_Client
      */
     public function health_check()
     {
-        $url = trailingslashit($this->base_url) . LABSUPPLY_API_VERSION . '/health';
+        $url = trailingslashit($this->base_url) . WLP_API_VERSION . '/health';
 
         $response = wp_remote_get($url, array('timeout' => 10));
 
@@ -268,11 +268,11 @@ class LabSupply_API_Client
      */
     public function save_credentials($store_id, $store_secret, $api_url = '')
     {
-        update_option('labsupply_store_id', $store_id);
-        update_option('labsupply_store_secret', LabSupply_Crypto::encrypt_secret($store_secret));
+        update_option('wlp_store_id', $store_id);
+        update_option('wlp_store_secret', WLP_Crypto::encrypt_secret($store_secret));
 
         if ($api_url) {
-            update_option('labsupply_api_url', $api_url);
+            update_option('wlp_api_url', $api_url);
         }
 
         // Reinitialize
@@ -282,7 +282,7 @@ class LabSupply_API_Client
             $this->base_url = $api_url;
         }
 
-        update_option('labsupply_connected_at', current_time('mysql'));
+        update_option('wlp_connected_at', current_time('mysql'));
     }
 
     /**
@@ -290,9 +290,9 @@ class LabSupply_API_Client
      */
     public function disconnect()
     {
-        delete_option('labsupply_store_id');
-        delete_option('labsupply_store_secret');
-        delete_option('labsupply_connected_at');
+        delete_option('wlp_store_id');
+        delete_option('wlp_store_secret');
+        delete_option('wlp_connected_at');
 
         $this->store_id = '';
         $this->secret = '';

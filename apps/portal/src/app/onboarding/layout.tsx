@@ -22,7 +22,7 @@ export default function OnboardingLayout({
                         <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
                             <Package className="w-6 h-6 text-white" />
                         </div>
-                        <span className="text-xl font-bold text-white">LabSupply</span>
+                        <span className="text-xl font-bold text-white">WhiteLabel Peptides</span>
                     </Link>
                 </header>
 

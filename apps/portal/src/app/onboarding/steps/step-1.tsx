@@ -39,7 +39,7 @@ export default function Step1Welcome({ onNext, onPrev }: StepProps) {
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Welcome to LabSupply
+                    Welcome to WhiteLabel Peptides
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 mt-1">
                     Let's set up your merchant account. This process takes about 10 minutes.
@@ -115,7 +115,7 @@ export default function Step1Welcome({ onNext, onPrev }: StepProps) {
                         className="mt-1 h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                     />
                     <span className="text-sm text-gray-600 dark:text-gray-400">
-                        I understand that all products available through LabSupply are strictly for{' '}
+                        I understand that all products available through WhiteLabel Peptides are strictly for{' '}
                         <strong>research purposes only</strong> and are not intended for human
                         consumption or any clinical/therapeutic use.
                     </span>

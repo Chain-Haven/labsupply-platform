@@ -1,5 +1,5 @@
 /**
- * LabSupply API - Supabase Server Client
+ * WhiteLabel Peptides API - Supabase Server Client
  * Creates authenticated Supabase client for API routes
  */
 

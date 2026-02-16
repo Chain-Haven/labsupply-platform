@@ -1,5 +1,5 @@
 /**
- * LabSupply API - Shipping Adapter Interface
+ * WhiteLabel Peptides API - Shipping Adapter Interface
  * Abstract interface for shipping providers with stub implementation
  */
 
@@ -438,8 +438,8 @@ export function getShippingProvider(): ShippingProvider {
 // Default origin address (supplier warehouse)
 export function getOriginAddress(): ShippingAddress {
     return {
-        name: process.env.SHIPPING_ORIGIN_NAME || 'LabSupply Fulfillment',
-        company: process.env.SHIPPING_ORIGIN_COMPANY || 'LabSupply LLC',
+        name: process.env.SHIPPING_ORIGIN_NAME || 'WhiteLabel Peptides Fulfillment',
+        company: process.env.SHIPPING_ORIGIN_COMPANY || 'Peptide Technologies',
         street1: process.env.SHIPPING_ORIGIN_STREET1 || '123 Warehouse Way',
         street2: process.env.SHIPPING_ORIGIN_STREET2,
         city: process.env.SHIPPING_ORIGIN_CITY || 'Las Vegas',

@@ -2,12 +2,12 @@
 /**
  * Settings management
  *
- * @package LabSupply_Fulfillment
+ * @package WLP_Fulfillment
  */
 
 defined('ABSPATH') || exit;
 
-class LabSupply_Settings
+class WLP_Settings
 {
 
     /**
@@ -27,7 +27,7 @@ class LabSupply_Settings
      */
     public static function get($key, $default = '')
     {
-        return get_option('labsupply_' . $key, $default);
+        return get_option('wlp_' . $key, $default);
     }
 
     /**
@@ -38,7 +38,7 @@ class LabSupply_Settings
      */
     public static function set($key, $value)
     {
-        update_option('labsupply_' . $key, $value);
+        update_option('wlp_' . $key, $value);
     }
 
     /**
@@ -46,7 +46,7 @@ class LabSupply_Settings
      */
     public static function is_connected()
     {
-        return LabSupply_API_Client::instance()->is_connected();
+        return WLP_API_Client::instance()->is_connected();
     }
 
     /**
@@ -59,7 +59,7 @@ class LabSupply_Settings
         }
 
         // Check if API is reachable
-        $api = LabSupply_API_Client::instance();
+        $api = WLP_API_Client::instance();
         if ($api->health_check()) {
             return 'connected';
         }
@@ -73,7 +73,7 @@ class LabSupply_Settings
     public static function get_all()
     {
         return array(
-            'api_url' => self::get('api_url', 'https://api.labsupply.io'),
+            'api_url' => self::get('api_url', 'https://api.whitelabel.peptidetech.co'),
             'store_id' => self::get('store_id', ''),
             'connected_at' => self::get('connected_at', ''),
             'last_import' => self::get('last_import', ''),

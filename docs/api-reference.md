@@ -1,9 +1,9 @@
-# LabSupply API Reference
+# WhiteLabel Peptides API Reference
 
 ## Base URL
 
 ```
-Production: https://api.labsupply.io/v1
+Production: https://api.whitelabel.peptidetech.co/v1
 Development: http://localhost:3001/v1
 ```
 
@@ -82,7 +82,7 @@ Exchange a connect code from the portal for store credentials. No HMAC auth requ
   "data": {
     "store_id": "uuid",
     "store_secret": "secret_xxxxx",
-    "api_base_url": "https://api.labsupply.io"
+    "api_base_url": "https://api.whitelabel.peptidetech.co"
   }
 }
 ```

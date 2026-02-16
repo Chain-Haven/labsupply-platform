@@ -1,5 +1,5 @@
 {
-    "name": "@labsupply/db",
+    "name": "@whitelabel-peptides/db",
     "version": "1.0.0",
     "private": true,
     "scripts": {

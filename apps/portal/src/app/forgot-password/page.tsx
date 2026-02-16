@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Package, Mail, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,11 +10,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { createBrowserClient } from '@/lib/supabase';
 
 export default function ForgotPasswordPage() {
+    const searchParams = useSearchParams();
     const [email, setEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
     const supabase = createBrowserClient();
+
+    // Handle error redirect from callback (e.g., expired recovery link)
+    useEffect(() => {
+        const errorParam = searchParams.get('error');
+        if (errorParam === 'expired') {
+            setError('Your password reset link has expired. Please request a new one.');
+        }
+    }, [searchParams]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -28,7 +38,7 @@ export default function ForgotPasswordPage() {
 
         try {
             const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/auth/reset-password`,
+                redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password&type=recovery`,
             });
 
             if (resetError) {
@@ -61,7 +71,7 @@ export default function ForgotPasswordPage() {
                             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
                                 <Package className="w-7 h-7 text-white" />
                             </div>
-                            <span className="text-2xl font-bold text-white">LabSupply</span>
+                            <span className="text-2xl font-bold text-white">WhiteLabel Peptides</span>
                         </Link>
                     </div>
 
@@ -108,7 +118,7 @@ export default function ForgotPasswordPage() {
                         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
                             <Package className="w-7 h-7 text-white" />
                         </div>
-                        <span className="text-2xl font-bold text-white">LabSupply</span>
+                        <span className="text-2xl font-bold text-white">WhiteLabel Peptides</span>
                     </Link>
                 </div>
 
