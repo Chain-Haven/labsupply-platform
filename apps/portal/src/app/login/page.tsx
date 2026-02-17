@@ -118,7 +118,7 @@ function LoginContent() {
             const result = await loginWithMagicLink(email);
             if (result.success) {
                 setOtpSent(true);
-                setSuccess('A 6-digit code has been sent to your email.');
+                setSuccess('An 8-digit code has been sent to your email.');
             } else {
                 setError(result.error || 'Failed to send code.');
             }

@@ -3,10 +3,12 @@
 import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Package, Mail, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
+import { Package, Mail, ArrowLeft, Loader2, CheckCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { createBrowserClient } from '@/lib/supabase';
+import { CANONICAL_ORIGIN } from '@/lib/constants';
 
 export default function ForgotPasswordPage() {
     return (
@@ -54,17 +56,19 @@ function ForgotPasswordContent() {
         }
 
         try {
-            const res = await fetch('/api/v1/auth/request-reset', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email.toLowerCase().trim() }),
-            });
+            // Use Supabase's built-in resetPasswordForEmail — reliable, no SMTP config needed.
+            // The reset link goes to /auth/confirm which exchanges the code and redirects
+            // to /auth/reset-password where the user can set a new password.
+            const supabase = createBrowserClient();
+            const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+                email.toLowerCase().trim(),
+                {
+                    redirectTo: `${CANONICAL_ORIGIN}/auth/confirm?type=recovery&next=/auth/reset-password`,
+                }
+            );
 
-            const data = await res.json();
-
-            if (!res.ok) {
-                setError(data.error || 'Failed to send reset link. Please try again.');
-                setIsLoading(false);
+            if (resetError) {
+                setError(resetError.message || 'Failed to send reset link. Please try again.');
                 return;
             }
 
@@ -105,10 +109,22 @@ function ForgotPasswordContent() {
                                 <h2 className="text-xl font-semibold text-white">Check your email</h2>
                                 <p className="text-white/60 text-sm">
                                     We've sent a password reset link to <strong className="text-white">{email}</strong>.
-                                    Please check your inbox and follow the instructions.
+                                    Click the link in your inbox to set a new password.
                                 </p>
+                                <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-left">
+                                    <Info className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                                    <p className="text-amber-300/80 text-xs">
+                                        <strong>Important:</strong> Open the reset link in this same browser — it won't work if opened in a different browser or email app. Links expire in 1 hour.
+                                    </p>
+                                </div>
                                 <p className="text-white/40 text-xs">
-                                    Didn't receive the email? Check your spam folder or try again.
+                                    Didn't receive it? Check your spam folder or{' '}
+                                    <button
+                                        onClick={() => setSuccess(false)}
+                                        className="text-violet-400 hover:text-violet-300 underline"
+                                    >
+                                        try again
+                                    </button>.
                                 </p>
                                 <Link href="/login">
                                     <Button variant="outline" className="mt-4 border-white/20 text-white hover:bg-white/10">
