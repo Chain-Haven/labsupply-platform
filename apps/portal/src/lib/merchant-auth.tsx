@@ -32,6 +32,8 @@ interface MerchantAuthContextType {
     isLoading: boolean;
     login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
     loginWithMagicLink: (email: string) => Promise<{ success: boolean; error?: string }>;
+    verifyOtp: (email: string, token: string) => Promise<{ success: boolean; error?: string }>;
+    verifySignupOtp: (email: string, token: string) => Promise<{ success: boolean; error?: string }>;
     register: (email: string, password: string, companyName?: string) => Promise<{ success: boolean; error?: string }>;
     logout: () => Promise<void>;
     updateMerchant: (data: Partial<Merchant>) => Promise<{ success: boolean; error?: string }>;
@@ -157,6 +159,72 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    // Verify OTP code for magic link sign-in
+    const verifyOtp = async (email: string, token: string): Promise<{ success: boolean; error?: string }> => {
+        try {
+            const { data, error } = await supabase.auth.verifyOtp({
+                email: email.toLowerCase().trim(),
+                token,
+                type: 'email',
+            });
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            if (data.user) {
+                const merchantData = await fetchMerchant(data.user.id);
+                if (!merchantData) {
+                    return { success: false, error: 'Merchant profile not found. Please register first.' };
+                }
+                setMerchant(merchantData);
+            }
+
+            return { success: true };
+        } catch (err) {
+            return { success: false, error: 'Failed to verify code. Please try again.' };
+        }
+    };
+
+    // Verify OTP code for email confirmation after signup
+    const verifySignupOtp = async (email: string, token: string): Promise<{ success: boolean; error?: string }> => {
+        try {
+            const { data, error } = await supabase.auth.verifyOtp({
+                email: email.toLowerCase().trim(),
+                token,
+                type: 'signup',
+            });
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            if (data.user) {
+                // Create merchant profile if it doesn't exist yet
+                try {
+                    const res = await fetch('/api/v1/merchant/me', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({}),
+                    });
+                    if (!res.ok) {
+                        console.error('Error ensuring merchant profile: status', res.status);
+                    }
+                } catch (profileErr) {
+                    console.error('Error ensuring merchant profile:', profileErr);
+                }
+
+                const merchantData = await fetchMerchant(data.user.id);
+                setMerchant(merchantData);
+            }
+
+            return { success: true };
+        } catch (err) {
+            return { success: false, error: 'Failed to verify code. Please try again.' };
+        }
+    };
+
     // Register function
     const register = async (
         email: string,
@@ -256,6 +324,8 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         login,
         loginWithMagicLink,
+        verifyOtp,
+        verifySignupOtp,
         register,
         logout,
         updateMerchant,

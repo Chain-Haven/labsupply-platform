@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Package, Mail, Lock, ArrowRight, Loader2,
-    CheckCircle, Wand2, AlertCircle,
+    CheckCircle, Wand2, AlertCircle, KeyRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +30,7 @@ function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const {
-        login, loginWithMagicLink,
+        login, loginWithMagicLink, verifyOtp,
         isLoading: authLoading, isAuthenticated,
     } = useMerchantAuth();
 
@@ -41,8 +41,9 @@ function LoginContent() {
     const [success, setSuccess] = useState('');
     const [loginMode, setLoginMode] = useState<LoginMode>('magic-link');
 
-    // Magic link state
-    const [magicLinkSent, setMagicLinkSent] = useState(false);
+    // OTP state
+    const [otpSent, setOtpSent] = useState(false);
+    const [otpCode, setOtpCode] = useState('');
 
     // Redirect if already authenticated
     useEffect(() => {
@@ -77,7 +78,8 @@ function LoginContent() {
         setLoginMode(mode);
         setError('');
         setSuccess('');
-        setMagicLinkSent(false);
+        setOtpSent(false);
+        setOtpCode('');
     };
 
     // --- Password login ---
@@ -106,8 +108,8 @@ function LoginContent() {
         }
     };
 
-    // --- Magic link ---
-    const handleSendMagicLink = async () => {
+    // --- Send OTP code ---
+    const handleSendOtp = async () => {
         if (!email) { setError('Please enter your email address'); return; }
         setError('');
         setSuccess('');
@@ -115,13 +117,35 @@ function LoginContent() {
         try {
             const result = await loginWithMagicLink(email);
             if (result.success) {
-                setMagicLinkSent(true);
-                setSuccess('Magic link sent! Check your email and click the link to sign in.');
+                setOtpSent(true);
+                setSuccess('A 6-digit code has been sent to your email.');
             } else {
-                setError(result.error || 'Failed to send magic link.');
+                setError(result.error || 'Failed to send code.');
             }
         } catch {
-            setError('Failed to send magic link. Please try again.');
+            setError('Failed to send code. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // --- Verify OTP code ---
+    const handleVerifyOtp = async () => {
+        if (!otpCode || otpCode.length !== 6) {
+            setError('Please enter the 6-digit code from your email');
+            return;
+        }
+        setError('');
+        setIsLoading(true);
+        try {
+            const result = await verifyOtp(email, otpCode);
+            if (result.success) {
+                router.push('/dashboard');
+            } else {
+                setError(result.error || 'Invalid or expired code.');
+            }
+        } catch {
+            setError('Failed to verify code. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -166,7 +190,7 @@ function LoginContent() {
                         {/* Login mode tabs */}
                         <div className="flex rounded-lg bg-white/5 border border-white/10 p-1 gap-1">
                             {([
-                                { id: 'magic-link' as LoginMode, label: 'Magic Link', icon: Wand2 },
+                                { id: 'magic-link' as LoginMode, label: 'Email Code', icon: Mail },
                                 { id: 'password' as LoginMode, label: 'Password', icon: Lock },
                             ]).map((tab) => (
                                 <button
@@ -214,38 +238,75 @@ function LoginContent() {
                             </div>
                         </div>
 
-                        {/* === MAGIC LINK MODE === */}
+                        {/* === EMAIL CODE MODE === */}
                         {loginMode === 'magic-link' && (
                             <div className="space-y-4">
-                                {!magicLinkSent ? (
-                                    <Button
-                                        onClick={handleSendMagicLink}
-                                        className="w-full bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700"
-                                        disabled={isLoading}
-                                    >
-                                        {isLoading ? (
-                                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending...</>
-                                        ) : (
-                                            <><Wand2 className="w-4 h-4 mr-2" /> Send Magic Link</>
-                                        )}
-                                    </Button>
-                                ) : (
-                                    <div className="text-center py-4 space-y-3">
-                                        <Mail className="w-10 h-10 mx-auto text-violet-400" />
-                                        <p className="text-sm text-white/60">
-                                            Check your email and click the link to sign in. You can close this tab.
-                                        </p>
-                                        <button
-                                            onClick={() => { setMagicLinkSent(false); setSuccess(''); }}
-                                            className="text-sm text-violet-400 hover:text-violet-300"
+                                {!otpSent ? (
+                                    <>
+                                        <Button
+                                            onClick={handleSendOtp}
+                                            className="w-full bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700"
+                                            disabled={isLoading}
                                         >
-                                            Resend link
-                                        </button>
+                                            {isLoading ? (
+                                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending code...</>
+                                            ) : (
+                                                <><Mail className="w-4 h-4 mr-2" /> Send Sign-In Code</>
+                                            )}
+                                        </Button>
+                                        <p className="text-xs text-center text-white/40">
+                                            A 6-digit code will be sent to your email. No password needed.
+                                        </p>
+                                    </>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-white/80">Enter 6-digit code</label>
+                                            <div className="relative">
+                                                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                                                <Input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    maxLength={6}
+                                                    placeholder="000000"
+                                                    value={otpCode}
+                                                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                                    className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-violet-500 text-center text-xl tracking-[0.5em] font-mono"
+                                                    autoComplete="one-time-code"
+                                                    autoFocus
+                                                />
+                                            </div>
+                                            <p className="text-xs text-white/40 text-center">
+                                                Code sent to <span className="text-white/70">{email}</span>
+                                            </p>
+                                        </div>
+                                        <Button
+                                            onClick={handleVerifyOtp}
+                                            className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-90"
+                                            disabled={isLoading || otpCode.length !== 6}
+                                        >
+                                            {isLoading ? (
+                                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</>
+                                            ) : (
+                                                <>Verify &amp; Sign In <ArrowRight className="w-4 h-4 ml-2" /></>
+                                            )}
+                                        </Button>
+                                        <div className="flex items-center justify-between">
+                                            <button
+                                                onClick={() => { setOtpSent(false); setOtpCode(''); setSuccess(''); setError(''); }}
+                                                className="text-xs text-white/40 hover:text-white/70"
+                                            >
+                                                Change email
+                                            </button>
+                                            <button
+                                                onClick={handleSendOtp}
+                                                className="text-xs text-violet-400 hover:text-violet-300"
+                                            >
+                                                Resend code
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
-                                <p className="text-xs text-center text-white/40">
-                                    A sign-in link will be sent to your email. No password needed.
-                                </p>
                             </div>
                         )}
 

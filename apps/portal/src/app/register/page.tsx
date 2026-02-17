@@ -2,17 +2,20 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Package, Loader2, Mail, Lock, Building, ArrowRight, CheckCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Package, Loader2, Mail, Lock, Building, ArrowRight, CheckCircle, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMerchantAuth } from '@/lib/merchant-auth';
 
 export default function RegisterPage() {
-    const { register } = useMerchantAuth();
+    const router = useRouter();
+    const { register, verifySignupOtp } = useMerchantAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [emailSent, setEmailSent] = useState(false);
+    const [otpCode, setOtpCode] = useState('');
 
     const [companyName, setCompanyName] = useState('');
     const [email, setEmail] = useState('');
@@ -57,6 +60,27 @@ export default function RegisterPage() {
         }
     };
 
+    const handleVerifyOtp = async () => {
+        if (!otpCode || otpCode.length !== 6) {
+            setError('Please enter the 6-digit code from your email');
+            return;
+        }
+        setError('');
+        setIsLoading(true);
+        try {
+            const result = await verifySignupOtp(email, otpCode);
+            if (result.success) {
+                router.push('/onboarding');
+            } else {
+                setError(result.error || 'Invalid or expired code.');
+            }
+        } catch {
+            setError('Failed to verify code. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     if (emailSent) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
@@ -83,23 +107,61 @@ export default function RegisterPage() {
                                 </div>
                                 <h2 className="text-2xl font-bold text-white">Verify your email</h2>
                                 <p className="text-white/60 text-sm">
-                                    We sent a confirmation link to <strong className="text-white">{email}</strong>.
-                                    Please check your inbox and click the link to verify your account.
+                                    We sent a 6-digit code to <strong className="text-white">{email}</strong>.
+                                    Enter it below to verify your account.
                                 </p>
-                                <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                                    <p className="text-sm text-amber-300">
-                                        After verifying your email, you will be guided through the onboarding
-                                        process to complete your merchant application.
+
+                                {error && (
+                                    <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-left">
+                                        <p className="text-sm text-red-400">{error}</p>
+                                    </div>
+                                )}
+
+                                <div className="space-y-2">
+                                    <div className="relative">
+                                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                                        <Input
+                                            type="text"
+                                            inputMode="numeric"
+                                            maxLength={6}
+                                            placeholder="000000"
+                                            value={otpCode}
+                                            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                            className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-violet-500 text-center text-xl tracking-[0.5em] font-mono"
+                                            autoComplete="one-time-code"
+                                            autoFocus
+                                        />
+                                    </div>
+                                </div>
+
+                                <Button
+                                    onClick={handleVerifyOtp}
+                                    disabled={isLoading || otpCode.length !== 6}
+                                    className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-90"
+                                >
+                                    {isLoading ? (
+                                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</>
+                                    ) : (
+                                        <>Verify Email <ArrowRight className="w-4 h-4 ml-2" /></>
+                                    )}
+                                </Button>
+
+                                <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                                    <p className="text-xs text-violet-300">
+                                        You can also click the verification link in the email.
+                                        After verifying, you&apos;ll complete onboarding to set up your merchant account.
                                     </p>
                                 </div>
+
                                 <p className="text-white/40 text-xs">
-                                    Didn't receive the email? Check your spam folder or try registering again.
+                                    Didn&apos;t receive the email? Check your spam folder or{' '}
+                                    <button
+                                        onClick={() => { setEmailSent(false); setError(''); setOtpCode(''); }}
+                                        className="text-violet-400 hover:text-violet-300"
+                                    >
+                                        try again
+                                    </button>.
                                 </p>
-                                <Link href="/login">
-                                    <Button variant="outline" className="mt-4 border-white/20 text-white hover:bg-white/10">
-                                        Back to Login
-                                    </Button>
-                                </Link>
                             </div>
                         </CardContent>
                     </Card>
