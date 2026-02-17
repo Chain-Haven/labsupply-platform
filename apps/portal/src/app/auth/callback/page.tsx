@@ -42,28 +42,17 @@ function AuthCallbackContent() {
                 (next && next.includes('reset-password'));
 
             // =================================================================
-            // PASSWORD RECOVERY — exchange code then redirect to reset page
+            // PASSWORD RECOVERY — forward code/token to reset page as-is.
+            // Do NOT exchange the code here; let the reset page do it so
+            // the PKCE code_verifier, session, and updateUser() all happen
+            // in the same client instance.
             // =================================================================
             if (isRecovery) {
-                setStatus('Validating reset link...');
-
-                if (code) {
-                    try {
-                        await supabase.auth.exchangeCodeForSession(code);
-                    } catch (e) {
-                        console.error('Recovery code exchange error:', e);
-                    }
-                } else if (tokenHash) {
-                    try {
-                        await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' });
-                    } catch (e) {
-                        console.error('Recovery token_hash error:', e);
-                    }
-                }
-
-                // Use window.location for a hard redirect — router.replace
-                // can silently fail in certain edge cases.
-                window.location.href = '/auth/reset-password';
+                setStatus('Redirecting to password reset...');
+                const resetUrl = new URL('/auth/reset-password', window.location.origin);
+                if (code) resetUrl.searchParams.set('code', code);
+                if (tokenHash) resetUrl.searchParams.set('token_hash', tokenHash);
+                window.location.href = resetUrl.toString();
                 return;
             }
 

@@ -50,14 +50,40 @@ export default function ResetPasswordPage() {
                 // 2. Check for `code` query parameter (PKCE flow -- most common)
                 const urlParams = new URLSearchParams(window.location.search);
                 const codeParam = urlParams.get('code');
+                const tokenHashParam = urlParams.get('token_hash');
 
                 if (codeParam) {
-                    // Clean the code from the URL so it can't be reused
                     window.history.replaceState(null, '', window.location.pathname);
 
                     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(codeParam);
                     if (exchangeError) {
                         console.error('Code exchange failed:', exchangeError.message);
+                        if (mountedRef.current) {
+                            setError('Your reset link has expired or is invalid. Please request a new one.');
+                            setIsInitializing(false);
+                        }
+                        subscription.unsubscribe();
+                        return;
+                    }
+
+                    if (mountedRef.current) {
+                        setSessionReady(true);
+                        setIsInitializing(false);
+                    }
+                    subscription.unsubscribe();
+                    return;
+                }
+
+                // 2b. Check for token_hash query parameter (forwarded by callback)
+                if (tokenHashParam) {
+                    window.history.replaceState(null, '', window.location.pathname);
+
+                    const { error: verifyError } = await supabase.auth.verifyOtp({
+                        token_hash: tokenHashParam,
+                        type: 'recovery',
+                    });
+                    if (verifyError) {
+                        console.error('Token hash verify failed:', verifyError.message);
                         if (mountedRef.current) {
                             setError('Your reset link has expired or is invalid. Please request a new one.');
                             setIsInitializing(false);
