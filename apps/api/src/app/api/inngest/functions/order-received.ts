@@ -153,7 +153,7 @@ export const orderReceivedFunction = inngest.createFunction(
 
         // Step 4: Update order status based on reservation result
         await step.run('update-order-status', async () => {
-            if (reservationResult.success) {
+            if (reservationResult.success && 'walletId' in reservationResult) {
                 // Mark as funded
                 await supabase
                     .from('orders')
@@ -183,12 +183,15 @@ export const orderReceivedFunction = inngest.createFunction(
                     })
                     .eq('id', orderId);
 
+                const available = 'available' in reservationResult ? (reservationResult.available as number) : 0;
+                const required = 'required' in reservationResult ? (reservationResult.required as number) : totalEstimateCents;
+
                 // Create notification for merchant
                 await supabase.from('notifications').insert({
                     merchant_id: merchantId,
                     type: 'ORDER_AWAITING_FUNDS',
                     title: 'Order Awaiting Payment',
-                    message: `Order requires funding. Available: $${(reservationResult.available! / 100).toFixed(2)}, Required: $${(reservationResult.required! / 100).toFixed(2)}`,
+                    message: `Order requires funding. Available: $${(available / 100).toFixed(2)}, Required: $${(required / 100).toFixed(2)}`,
                     data: { order_id: orderId },
                 });
 

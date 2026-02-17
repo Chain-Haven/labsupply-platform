@@ -10,7 +10,7 @@ import {
     billingSettingsSchema,
     validateInput,
     formatZodErrors,
-} from '../src/schemas';
+} from '../schemas';
 
 describe('Address Schema', () => {
     it('should validate a complete address', () => {
@@ -32,8 +32,6 @@ describe('Address Schema', () => {
 
     it('should accept optional fields', () => {
         const address = {
-            first_name: 'John',
-            last_name: 'Doe',
             address_1: '123 Main St',
             city: 'New York',
             state: 'NY',
@@ -57,8 +55,6 @@ describe('Address Schema', () => {
 
     it('should reject invalid email', () => {
         const address = {
-            first_name: 'John',
-            last_name: 'Doe',
             address_1: '123 Main St',
             city: 'New York',
             state: 'NY',
@@ -116,8 +112,6 @@ describe('Create Order Schema', () => {
         woo_order_number: 'WC-1001',
         currency: 'USD',
         shipping_address: {
-            first_name: 'John',
-            last_name: 'Doe',
             address_1: '123 Research Blvd',
             city: 'Las Vegas',
             state: 'NV',
@@ -127,7 +121,10 @@ describe('Create Order Schema', () => {
         items: [
             {
                 supplier_sku: 'BPC-157-5MG',
+                woo_product_id: 'prod-123',
                 qty: 2,
+                unit_price_cents: 2999,
+                name: 'BPC-157 5mg',
             },
         ],
     };
@@ -146,7 +143,7 @@ describe('Create Order Schema', () => {
     it('should require positive quantity', () => {
         const order = {
             ...validOrder,
-            items: [{ supplier_sku: 'BPC-157-5MG', qty: 0 }],
+            items: [{ supplier_sku: 'BPC-157-5MG', woo_product_id: 'prod-123', qty: 0, unit_price_cents: 2999, name: 'BPC-157' }],
         };
         const result = createOrderSchema.safeParse(order);
         expect(result.success).toBe(false);
@@ -185,7 +182,7 @@ describe('Billing Settings Schema', () => {
     it('should reject threshold below minimum', () => {
         const settings = {
             billing_email: 'billing@example.com',
-            low_balance_threshold_cents: 100, // $1 - below $100 min
+            low_balance_threshold_cents: 100,
             target_balance_cents: 300000,
         };
 
@@ -215,7 +212,7 @@ describe('Validation Helpers', () => {
 
         expect(result.success).toBe(false);
         if (!result.success) {
-            expect(result.error).toBeDefined();
+            expect(result.errors).toBeDefined();
         }
     });
 

@@ -2,6 +2,7 @@
 const nextConfig = {
     reactStrictMode: true,
     output: 'standalone',
+    transpilePackages: ['@whitelabel-peptides/shared'],
 
     async headers() {
         const allowedOrigins = process.env.ALLOWED_ORIGINS || 'https://whitelabel.peptidetech.co';

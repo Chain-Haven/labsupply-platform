@@ -110,10 +110,12 @@ async function handlePost(request: NextRequest, auth: AdminAuthResult) {
         'inventory',
         null,
         {
-            total_requested: updates.length,
-            successful: results.success.length,
-            failed: results.errors.length,
-            mode: replace ? 'replace' : 'adjust',
+            after: {
+                total_requested: updates.length,
+                successful: results.success.length,
+                failed: results.errors.length,
+                mode: replace ? 'replace' : 'adjust',
+            },
         },
         request
     );

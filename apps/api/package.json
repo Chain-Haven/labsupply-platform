@@ -12,6 +12,7 @@
         "test:watch": "vitest"
     },
     "dependencies": {
+        "@whitelabel-peptides/shared": "workspace:*",
         "@supabase/supabase-js": "^2.39.0",
         "bip32": "^5.0.0",
         "bitcoinjs-lib": "^7.0.1",

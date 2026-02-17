@@ -95,9 +95,11 @@ async function handlePost(
         'merchant',
         merchantId,
         {
-            decision: validated.decision,
-            previous_status: merchant.kyb_status,
-            new_status: newStatus,
+            before: { status: merchant.kyb_status },
+            after: {
+                decision: validated.decision,
+                status: newStatus,
+            },
         },
         request
     );

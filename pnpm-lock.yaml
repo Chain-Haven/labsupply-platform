@@ -41,6 +41,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.39.0
         version: 2.95.3
+      '@whitelabel-peptides/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       bip32:
         specifier: ^5.0.0
         version: 5.0.0(typescript@5.9.3)

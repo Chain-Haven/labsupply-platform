@@ -8,11 +8,12 @@ export interface AdminAuthResult {
     adminId?: string;
     apiKeyId?: string;
     role?: string;
-    permissions?: Record<string, { read: boolean; write: boolean }>;
+    permissions?: Record<string, { read: boolean; write: boolean } | undefined>;
     error?: string;
 }
 
 export interface ApiKeyPermissions {
+    [key: string]: { read: boolean; write: boolean } | undefined;
     inventory?: { read: boolean; write: boolean };
     merchants?: { read: boolean; write: boolean };
     orders?: { read: boolean; write: boolean };
