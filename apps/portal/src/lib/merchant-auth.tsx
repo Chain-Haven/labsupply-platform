@@ -200,13 +200,16 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
             }
 
             if (data.user) {
-                // Create merchant profile if it doesn't exist yet
+                // Read company name from user metadata (stored during signUp)
+                const companyName = data.user.user_metadata?.company_name || '';
+
+                // Create merchant profile now that the session is established
                 try {
                     const res = await fetch('/api/v1/merchant/me', {
                         method: 'POST',
                         credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({}),
+                        body: JSON.stringify({ companyName }),
                     });
                     if (!res.ok) {
                         console.error('Error ensuring merchant profile: status', res.status);
@@ -232,12 +235,16 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
         companyName?: string
     ): Promise<{ success: boolean; error?: string }> => {
         try {
-            // Sign up the user
+            // Sign up the user — store companyName in user metadata
+            // so it's available after email confirmation
             const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
                     emailRedirectTo: `${CANONICAL_ORIGIN}/auth/confirm?next=/dashboard`,
+                    data: {
+                        company_name: companyName || '',
+                    },
                 }
             });
 
@@ -245,8 +252,10 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
                 return { success: false, error: error.message };
             }
 
-            if (data.user) {
-                // Create merchant profile via server API
+            // Profile creation happens after email verification (verifySignupOtp or auth/confirm)
+            // because the session isn't fully established until then.
+            if (data.session && data.user) {
+                // If auto-confirm is on (no email verification required), create profile now
                 try {
                     const res = await fetch('/api/v1/merchant/me', {
                         method: 'POST',
@@ -257,13 +266,11 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
                     if (!res.ok) {
                         console.error('Error creating merchant profile: status', res.status);
                     }
+                    const merchantData = await fetchMerchant(data.user.id);
+                    setMerchant(merchantData);
                 } catch (profileErr) {
                     console.error('Error creating merchant profile:', profileErr);
                 }
-
-                // Fetch the created merchant
-                const merchantData = await fetchMerchant(data.user.id);
-                setMerchant(merchantData);
             }
 
             return { success: true };

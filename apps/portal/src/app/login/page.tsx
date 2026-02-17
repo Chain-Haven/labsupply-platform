@@ -131,8 +131,8 @@ function LoginContent() {
 
     // --- Verify OTP code ---
     const handleVerifyOtp = async () => {
-        if (!otpCode || otpCode.length !== 6) {
-            setError('Please enter the 6-digit code from your email');
+        if (!otpCode || otpCode.length < 6) {
+            setError('Please enter the verification code from your email');
             return;
         }
         setError('');
@@ -267,11 +267,11 @@ function LoginContent() {
                                                 <Input
                                                     type="text"
                                                     inputMode="numeric"
-                                                    maxLength={6}
-                                                    placeholder="000000"
+                                                    maxLength={8}
+                                                    placeholder="Enter code"
                                                     value={otpCode}
-                                                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                                    className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-violet-500 text-center text-xl tracking-[0.5em] font-mono"
+                                                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                                                    className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-violet-500 text-center text-xl tracking-[0.3em] font-mono"
                                                     autoComplete="one-time-code"
                                                     autoFocus
                                                 />
@@ -283,7 +283,7 @@ function LoginContent() {
                                         <Button
                                             onClick={handleVerifyOtp}
                                             className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-90"
-                                            disabled={isLoading || otpCode.length !== 6}
+                                            disabled={isLoading || otpCode.length < 6}
                                         >
                                             {isLoading ? (
                                                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</>

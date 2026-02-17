@@ -175,8 +175,33 @@ export async function GET(request: NextRequest) {
             ]);
 
             const isAdmin = !!adminResult.data;
-            const isMerchant = !!merchantResult.data;
-            const needsOnboarding = merchantResult.data?.kyb_status === 'not_started';
+            let isMerchant = !!merchantResult.data;
+            let needsOnboarding = merchantResult.data?.kyb_status === 'not_started';
+
+            // Auto-create merchant profile for users confirming email with no profile
+            // This handles the case where someone clicked the email link instead of using OTP
+            if (!isMerchant && !isAdmin) {
+                const companyName = user.user_metadata?.company_name || '';
+                const { data: newMerchant, error: createErr } = await serviceClient
+                    .from('merchants')
+                    .insert({
+                        user_id: user.id,
+                        email: email,
+                        company_name: companyName || null,
+                        status: 'pending',
+                        kyb_status: 'not_started',
+                    })
+                    .select('id, kyb_status')
+                    .single();
+
+                if (createErr) {
+                    console.error('[auth/confirm] failed to auto-create merchant', createErr.message);
+                } else if (newMerchant) {
+                    isMerchant = true;
+                    needsOnboarding = true;
+                    console.log('[auth/confirm] auto-created merchant profile for', email);
+                }
+            }
 
             // Merchant who hasn't completed onboarding -> send to onboarding
             if (isMerchant && needsOnboarding) {

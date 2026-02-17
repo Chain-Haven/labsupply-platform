@@ -1,0 +1,46 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e6]:
+    - link "WhiteLabel Peptides" [ref=e8] [cursor=pointer]:
+      - /url: /
+      - img [ref=e10]
+      - generic [ref=e14]: WhiteLabel Peptides
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - heading "Welcome back" [level=3] [ref=e17]
+        - paragraph [ref=e18]: Sign in to your merchant account
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - button "Magic Link" [ref=e21] [cursor=pointer]:
+            - img [ref=e22]
+            - text: Magic Link
+          - button "Password" [ref=e25] [cursor=pointer]:
+            - img [ref=e26]
+            - text: Password
+        - generic [ref=e29]:
+          - text: Email
+          - generic [ref=e30]:
+            - img [ref=e31]
+            - textbox "you@company.com" [ref=e34]
+        - generic [ref=e35]:
+          - button "Send Magic Link" [ref=e36] [cursor=pointer]:
+            - img [ref=e37]
+            - text: Send Magic Link
+          - paragraph [ref=e40]: A sign-in link will be sent to your email. No password needed.
+        - paragraph [ref=e42]:
+          - text: Don't have an account?
+          - link "Create one" [ref=e43] [cursor=pointer]:
+            - /url: /register
+    - paragraph [ref=e44]:
+      - text: By signing in, you agree to our
+      - link "Terms" [ref=e45] [cursor=pointer]:
+        - /url: /terms
+      - text: and
+      - link "Privacy Policy" [ref=e46] [cursor=pointer]:
+        - /url: /privacy
+  - region "Notifications (F8)":
+    - list
+  - alert [ref=e47]
+```
