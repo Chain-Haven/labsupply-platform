@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { withAdminAuth, logAdminAction, AdminAuthResult } from '@/lib/admin-auth';
+import { getSupabaseAdmin } from '@/lib/supabase';
 import { z } from 'zod';
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // Validation schemas
 const listQuerySchema = z.object({
@@ -48,7 +43,7 @@ async function handleGet(request: NextRequest, auth: AdminAuthResult) {
     const query = listQuerySchema.parse(params);
     const offset = (query.page - 1) * query.limit;
 
-    let dbQuery = supabase
+    let dbQuery = getSupabaseAdmin()
         .from('products')
         .select('*', { count: 'exact' });
 
@@ -62,7 +57,7 @@ async function handleGet(request: NextRequest, auth: AdminAuthResult) {
     }
 
     if (query.low_stock) {
-        dbQuery = dbQuery.lt('available_qty', supabase.rpc('get_low_stock_threshold'));
+        dbQuery = dbQuery.lt('available_qty', getSupabaseAdmin().rpc('get_low_stock_threshold'));
     }
 
     if (query.status !== 'all') {
@@ -82,7 +77,7 @@ async function handleGet(request: NextRequest, auth: AdminAuthResult) {
     }
 
     // Get low stock count
-    const { count: lowStockCount } = await supabase
+    const { count: lowStockCount } = await getSupabaseAdmin()
         .from('products')
         .select('*', { count: 'exact', head: true })
         .lt('available_qty', 10) // Default threshold
@@ -112,7 +107,7 @@ async function handlePost(request: NextRequest, auth: AdminAuthResult) {
     const validated = createProductSchema.parse(body);
 
     // Check if SKU already exists
-    const { data: existing } = await supabase
+    const { data: existing } = await getSupabaseAdmin()
         .from('products')
         .select('id')
         .eq('sku', validated.sku)
@@ -125,7 +120,7 @@ async function handlePost(request: NextRequest, auth: AdminAuthResult) {
         );
     }
 
-    const { data: product, error } = await supabase
+    const { data: product, error } = await getSupabaseAdmin()
         .from('products')
         .insert({
             ...validated,
@@ -151,7 +146,7 @@ async function handlePost(request: NextRequest, auth: AdminAuthResult) {
 
     // Log initial inventory
     if (validated.available_qty > 0) {
-        await supabase.from('inventory_log').insert({
+        await getSupabaseAdmin().from('inventory_log').insert({
             product_id: product.id,
             sku: product.sku,
             change_type: 'import',

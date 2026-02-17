@@ -5,15 +5,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { withAdminAuth, AdminAuthResult, logAdminAction } from '@/lib/admin-auth';
+import { getSupabaseAdmin } from '@/lib/supabase';
 import { z } from 'zod';
 import { sendComplianceNotificationEmail, sendComplianceBlockEmail } from '@/lib/compliance-emails';
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 const patchSchema = z.object({
     action: z.enum(['ignored', 'notified', 'blocked']),
@@ -25,7 +20,7 @@ async function handleGet(
     auth: AdminAuthResult,
     { params }: { params: { id: string } }
 ) {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseAdmin()
         .from('compliance_violations')
         .select(`
             *,
@@ -67,7 +62,7 @@ async function handlePatch(
     const parsed = patchSchema.parse(body);
 
     // Get the violation with merchant info
-    const { data: violation, error: fetchError } = await supabase
+    const { data: violation, error: fetchError } = await getSupabaseAdmin()
         .from('compliance_violations')
         .select(`
             *,
@@ -106,7 +101,7 @@ async function handlePatch(
         updates.notified_at = now;
     }
 
-    const { data: updated, error: updateError } = await supabase
+    const { data: updated, error: updateError } = await getSupabaseAdmin()
         .from('compliance_violations')
         .update(updates)
         .eq('id', params.id)
@@ -135,7 +130,7 @@ async function handlePatch(
         }
 
         // Create in-app notification
-        await supabase.from('notifications').insert({
+        await getSupabaseAdmin().from('notifications').insert({
             merchant_id: merchant.id,
             type: 'COMPLIANCE_VIOLATION',
             title: 'Compliance Issue Found',
@@ -151,7 +146,7 @@ async function handlePatch(
 
     if (parsed.action === 'blocked') {
         // Suspend the merchant
-        await supabase
+        await getSupabaseAdmin()
             .from('merchants')
             .update({
                 status: 'suspended',
@@ -162,7 +157,7 @@ async function handlePatch(
             .eq('id', merchant.id);
 
         // Put all pending orders on compliance hold
-        await supabase
+        await getSupabaseAdmin()
             .from('orders')
             .update({
                 status: 'ON_HOLD_COMPLIANCE',
@@ -187,7 +182,7 @@ async function handlePatch(
         }
 
         // Create in-app notification
-        await supabase.from('notifications').insert({
+        await getSupabaseAdmin().from('notifications').insert({
             merchant_id: merchant.id,
             type: 'COMPLIANCE_BLOCKED',
             title: 'Services Blocked - Compliance Violation',

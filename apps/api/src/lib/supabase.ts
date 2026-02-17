@@ -1,59 +1,21 @@
-/**
- * WhiteLabel Peptides API - Supabase Server Client
- * Creates authenticated Supabase client for API routes
- */
-
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Service role client for admin operations
-let serviceClient: SupabaseClient | null = null;
+let _client: SupabaseClient | null = null;
 
-export function getServiceClient(): SupabaseClient {
-    if (!serviceClient) {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-        if (!supabaseUrl || !serviceRoleKey) {
-            throw new Error('Missing Supabase environment variables');
-        }
-
-        serviceClient = createClient(supabaseUrl, serviceRoleKey, {
-            auth: {
-                autoRefreshToken: false,
-                persistSession: false,
-            },
-        });
+/**
+ * Lazy singleton Supabase admin client.
+ * Defers creation until first call so module-level imports
+ * don't crash during Next.js build when env vars are absent.
+ */
+export function getSupabaseAdmin(): SupabaseClient {
+    if (!_client) {
+        _client = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
     }
-
-    return serviceClient;
+    return _client;
 }
 
-// Anon client for user-authenticated requests
-export function getAnonClient(accessToken?: string): SupabaseClient {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !anonKey) {
-        throw new Error('Missing Supabase environment variables');
-    }
-
-    const client = createClient(supabaseUrl, anonKey, {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false,
-        },
-    });
-
-    // Set the user's access token if provided
-    if (accessToken) {
-        client.auth.setSession({
-            access_token: accessToken,
-            refresh_token: '',
-        });
-    }
-
-    return client;
-}
-
-// Re-export for convenience
-export { SupabaseClient };
+/** @deprecated Use getSupabaseAdmin instead. Alias for backwards compatibility. */
+export const getServiceClient = getSupabaseAdmin;

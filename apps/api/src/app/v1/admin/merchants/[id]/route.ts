@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { withAdminAuth, logAdminAction, AdminAuthResult } from '@/lib/admin-auth';
+import { getSupabaseAdmin } from '@/lib/supabase';
 import { z } from 'zod';
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 const updateMerchantSchema = z.object({
     kyb_status: z.enum(['pending', 'in_review', 'approved', 'rejected', 'more_info_requested']).optional(),
@@ -26,7 +21,7 @@ async function handleGet(
     const merchantId = context.params.id;
 
     // Get merchant
-    const { data: merchant, error } = await supabase
+    const { data: merchant, error } = await getSupabaseAdmin()
         .from('merchants')
         .select('*')
         .eq('id', merchantId)
@@ -41,19 +36,19 @@ async function handleGet(
 
     // Get related data in parallel
     const [stores, orders, wallet, kybReviews] = await Promise.all([
-        supabase.from('stores').select('*').eq('merchant_id', merchantId),
-        supabase.from('orders').select('id, status, total_cents, created_at').eq('merchant_id', merchantId).order('created_at', { ascending: false }).limit(10),
-        supabase.from('wallets').select('*').eq('merchant_id', merchantId).single(),
-        supabase.from('kyb_reviews').select('*').eq('merchant_id', merchantId).order('created_at', { ascending: false }),
+        getSupabaseAdmin().from('stores').select('*').eq('merchant_id', merchantId),
+        getSupabaseAdmin().from('orders').select('id, status, total_cents, created_at').eq('merchant_id', merchantId).order('created_at', { ascending: false }).limit(10),
+        getSupabaseAdmin().from('wallets').select('*').eq('merchant_id', merchantId).single(),
+        getSupabaseAdmin().from('kyb_reviews').select('*').eq('merchant_id', merchantId).order('created_at', { ascending: false }),
     ]);
 
     // Calculate stats
-    const { count: totalOrders } = await supabase
+    const { count: totalOrders } = await getSupabaseAdmin()
         .from('orders')
         .select('*', { count: 'exact', head: true })
         .eq('merchant_id', merchantId);
 
-    const { data: revenueData } = await supabase
+    const { data: revenueData } = await getSupabaseAdmin()
         .from('orders')
         .select('total_cents')
         .eq('merchant_id', merchantId)
@@ -89,7 +84,7 @@ async function handlePatch(
     const validated = updateMerchantSchema.parse(body);
 
     // Get current merchant
-    const { data: currentMerchant, error: fetchError } = await supabase
+    const { data: currentMerchant, error: fetchError } = await getSupabaseAdmin()
         .from('merchants')
         .select('*')
         .eq('id', merchantId)
@@ -124,7 +119,7 @@ async function handlePatch(
     }
 
     // Update merchant
-    const { data: updatedMerchant, error: updateError } = await supabase
+    const { data: updatedMerchant, error: updateError } = await getSupabaseAdmin()
         .from('merchants')
         .update(updateData)
         .eq('id', merchantId)

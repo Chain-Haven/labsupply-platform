@@ -4,15 +4,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { withAdminAuth, AdminAuthResult, logAdminAction } from '@/lib/admin-auth';
+import { getSupabaseAdmin } from '@/lib/supabase';
 import { inngest } from '@/lib/inngest';
 import { z } from 'zod';
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 const scanRequestSchema = z.object({
     merchant_id: z.string().uuid(),
@@ -23,7 +18,7 @@ async function handlePost(request: NextRequest, auth: AdminAuthResult) {
     const { merchant_id } = scanRequestSchema.parse(body);
 
     // Verify merchant exists
-    const { data: merchant, error } = await supabase
+    const { data: merchant, error } = await getSupabaseAdmin()
         .from('merchants')
         .select('id, company_name')
         .eq('id', merchant_id)
@@ -34,7 +29,7 @@ async function handlePost(request: NextRequest, auth: AdminAuthResult) {
     }
 
     // Check if there's already a running scan for this merchant
-    const { data: runningScan } = await supabase
+    const { data: runningScan } = await getSupabaseAdmin()
         .from('compliance_scans')
         .select('id')
         .eq('merchant_id', merchant_id)

@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { withAdminAuth, logAdminAction, AdminAuthResult } from '@/lib/admin-auth';
+import { getSupabaseAdmin } from '@/lib/supabase';
 import { z } from 'zod';
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 const kybDecisionSchema = z.object({
     decision: z.enum(['approved', 'rejected', 'more_info_requested']),
@@ -37,7 +32,7 @@ async function handlePost(
     }
 
     // Get current merchant
-    const { data: merchant, error: fetchError } = await supabase
+    const { data: merchant, error: fetchError } = await getSupabaseAdmin()
         .from('merchants')
         .select('*')
         .eq('id', merchantId)
@@ -51,7 +46,7 @@ async function handlePost(
     }
 
     // Create KYB review record
-    const { data: review, error: reviewError } = await supabase
+    const { data: review, error: reviewError } = await getSupabaseAdmin()
         .from('kyb_reviews')
         .insert({
             merchant_id: merchantId,
@@ -74,7 +69,7 @@ async function handlePost(
         ? 'more_info_requested'
         : validated.decision;
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await getSupabaseAdmin()
         .from('merchants')
         .update({
             kyb_status: newStatus,

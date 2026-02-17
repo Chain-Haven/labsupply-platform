@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { withAdminAuth, logAdminAction, AdminAuthResult } from '@/lib/admin-auth';
+import { getSupabaseAdmin } from '@/lib/supabase';
 import { z } from 'zod';
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // Validation schemas
 const updateProductSchema = z.object({
@@ -36,7 +31,7 @@ async function handleGet(
 ) {
     const sku = context.params.sku;
 
-    const { data: product, error } = await supabase
+    const { data: product, error } = await getSupabaseAdmin()
         .from('products')
         .select('*')
         .eq('sku', sku)
@@ -50,7 +45,7 @@ async function handleGet(
     }
 
     // Get recent inventory history
-    const { data: inventoryHistory } = await supabase
+    const { data: inventoryHistory } = await getSupabaseAdmin()
         .from('inventory_log')
         .select('*')
         .eq('product_id', product.id)
@@ -77,7 +72,7 @@ async function handlePatch(
     const validated = updateProductSchema.parse(body);
 
     // Get current product
-    const { data: currentProduct, error: fetchError } = await supabase
+    const { data: currentProduct, error: fetchError } = await getSupabaseAdmin()
         .from('products')
         .select('*')
         .eq('sku', sku)
@@ -95,7 +90,7 @@ async function handlePatch(
         validated.available_qty !== currentProduct.available_qty;
 
     // Update product
-    const { data: updatedProduct, error: updateError } = await supabase
+    const { data: updatedProduct, error: updateError } = await getSupabaseAdmin()
         .from('products')
         .update({
             ...validated,
@@ -111,7 +106,7 @@ async function handlePatch(
 
     // Log inventory change if stock was updated
     if (stockChanged) {
-        await supabase.from('inventory_log').insert({
+        await getSupabaseAdmin().from('inventory_log').insert({
             product_id: currentProduct.id,
             sku: currentProduct.sku,
             change_type: 'adjustment',
@@ -149,7 +144,7 @@ async function handleDelete(
     const sku = context.params.sku;
 
     // Get current product
-    const { data: currentProduct, error: fetchError } = await supabase
+    const { data: currentProduct, error: fetchError } = await getSupabaseAdmin()
         .from('products')
         .select('*')
         .eq('sku', sku)
@@ -163,7 +158,7 @@ async function handleDelete(
     }
 
     // Soft delete by setting is_active = false
-    const { error: updateError } = await supabase
+    const { error: updateError } = await getSupabaseAdmin()
         .from('products')
         .update({
             is_active: false,

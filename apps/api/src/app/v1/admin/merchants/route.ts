@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { withAdminAuth, AdminAuthResult } from '@/lib/admin-auth';
+import { getSupabaseAdmin } from '@/lib/supabase';
 import { z } from 'zod';
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // Validation schemas
 const listQuerySchema = z.object({
@@ -30,7 +25,7 @@ async function handleGet(request: NextRequest, auth: AdminAuthResult) {
     const query = listQuerySchema.parse(params);
     const offset = (query.page - 1) * query.limit;
 
-    let dbQuery = supabase
+    let dbQuery = getSupabaseAdmin()
         .from('merchants')
         .select('*, stores:stores(count)', { count: 'exact' });
 
@@ -61,10 +56,10 @@ async function handleGet(request: NextRequest, auth: AdminAuthResult) {
 
     // Get status counts
     const statusCounts = await Promise.all([
-        supabase.from('merchants').select('*', { count: 'exact', head: true }).eq('kyb_status', 'pending'),
-        supabase.from('merchants').select('*', { count: 'exact', head: true }).eq('kyb_status', 'in_review'),
-        supabase.from('merchants').select('*', { count: 'exact', head: true }).eq('kyb_status', 'approved'),
-        supabase.from('merchants').select('*', { count: 'exact', head: true }).eq('kyb_status', 'rejected'),
+        getSupabaseAdmin().from('merchants').select('*', { count: 'exact', head: true }).eq('kyb_status', 'pending'),
+        getSupabaseAdmin().from('merchants').select('*', { count: 'exact', head: true }).eq('kyb_status', 'in_review'),
+        getSupabaseAdmin().from('merchants').select('*', { count: 'exact', head: true }).eq('kyb_status', 'approved'),
+        getSupabaseAdmin().from('merchants').select('*', { count: 'exact', head: true }).eq('kyb_status', 'rejected'),
     ]);
 
     return NextResponse.json({

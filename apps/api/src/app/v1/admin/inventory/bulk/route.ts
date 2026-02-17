@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { withAdminAuth, logAdminAction, AdminAuthResult } from '@/lib/admin-auth';
+import { getSupabaseAdmin } from '@/lib/supabase';
 import { z } from 'zod';
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // Validation schema for bulk update
 const bulkUpdateSchema = z.object({
@@ -38,7 +33,7 @@ async function handlePost(request: NextRequest, auth: AdminAuthResult) {
     for (const update of updates) {
         try {
             // Get current product
-            const { data: product, error: fetchError } = await supabase
+            const { data: product, error: fetchError } = await getSupabaseAdmin()
                 .from('products')
                 .select('id, sku, available_qty')
                 .eq('sku', update.sku)
@@ -61,7 +56,7 @@ async function handlePost(request: NextRequest, auth: AdminAuthResult) {
             const finalQty = Math.max(0, newQty);
 
             // Update product
-            const { error: updateError } = await supabase
+            const { error: updateError } = await getSupabaseAdmin()
                 .from('products')
                 .update({
                     available_qty: finalQty,
@@ -78,7 +73,7 @@ async function handlePost(request: NextRequest, auth: AdminAuthResult) {
             }
 
             // Log inventory change
-            await supabase.from('inventory_log').insert({
+            await getSupabaseAdmin().from('inventory_log').insert({
                 product_id: product.id,
                 sku: product.sku,
                 change_type: replace ? 'adjustment' : (update.available_qty >= 0 ? 'restock' : 'adjustment'),

@@ -4,14 +4,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { withAdminAuth, AdminAuthResult } from '@/lib/admin-auth';
+import { getSupabaseAdmin } from '@/lib/supabase';
 import { z } from 'zod';
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 const violationsQuerySchema = z.object({
     page: z.coerce.number().min(1).default(1),
@@ -43,7 +38,7 @@ async function handleGetViolations(
     query: z.infer<typeof violationsQuerySchema>,
     offset: number
 ) {
-    let dbQuery = supabase
+    let dbQuery = getSupabaseAdmin()
         .from('compliance_violations')
         .select(`
             *,
@@ -99,21 +94,21 @@ async function handleGetViolations(
 
     // Get summary counts
     const [pendingCount, criticalCount, highCount, todayScansCount] = await Promise.all([
-        supabase
+        getSupabaseAdmin()
             .from('compliance_violations')
             .select('*', { count: 'exact', head: true })
             .eq('admin_action', 'pending'),
-        supabase
+        getSupabaseAdmin()
             .from('compliance_violations')
             .select('*', { count: 'exact', head: true })
             .eq('severity', 'critical')
             .eq('admin_action', 'pending'),
-        supabase
+        getSupabaseAdmin()
             .from('compliance_violations')
             .select('*', { count: 'exact', head: true })
             .eq('severity', 'high')
             .eq('admin_action', 'pending'),
-        supabase
+        getSupabaseAdmin()
             .from('compliance_scans')
             .select('*', { count: 'exact', head: true })
             .gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
@@ -140,7 +135,7 @@ async function handleGetScans(
     query: z.infer<typeof violationsQuerySchema>,
     offset: number
 ) {
-    let dbQuery = supabase
+    let dbQuery = getSupabaseAdmin()
         .from('compliance_scans')
         .select(`
             *,

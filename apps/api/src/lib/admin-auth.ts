@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import * as crypto from 'crypto';
+import { getSupabaseAdmin } from './supabase';
 
 // Types
 export interface AdminAuthResult {
@@ -18,12 +18,6 @@ export interface ApiKeyPermissions {
     merchants?: { read: boolean; write: boolean };
     orders?: { read: boolean; write: boolean };
 }
-
-// Initialize Supabase admin client
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 /**
  * Verify HMAC signature for API requests
@@ -116,7 +110,7 @@ async function authenticateWithApiKey(
     }
 
     // Look up API key by prefix
-    const { data: keyRecord, error } = await supabaseAdmin
+    const { data: keyRecord, error } = await getSupabaseAdmin()
         .from('api_keys')
         .select('*')
         .eq('key_prefix', keyPrefix)
@@ -173,7 +167,7 @@ async function authenticateWithApiKey(
     }
 
     // Update last used timestamp
-    await supabaseAdmin
+    await getSupabaseAdmin()
         .from('api_keys')
         .update({
             last_used_at: new Date().toISOString(),
@@ -207,7 +201,7 @@ async function authenticateWithSession(
     }
 
     // Verify the session
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(supabaseAuthToken);
+    const { data: { user }, error } = await getSupabaseAdmin().auth.getUser(supabaseAuthToken);
 
     if (error || !user) {
         return {
@@ -217,7 +211,7 @@ async function authenticateWithSession(
     }
 
     // Check if user is an admin
-    const { data: adminUser, error: adminError } = await supabaseAdmin
+    const { data: adminUser, error: adminError } = await getSupabaseAdmin()
         .from('admin_users')
         .select('*')
         .eq('id', user.id)
@@ -232,7 +226,7 @@ async function authenticateWithSession(
     }
 
     // Update last login
-    await supabaseAdmin
+    await getSupabaseAdmin()
         .from('admin_users')
         .update({ last_login_at: new Date().toISOString() })
         .eq('id', user.id);
@@ -316,7 +310,7 @@ export async function generateApiKey(
     const keyPrefix = key.substring(0, 12);
     const keyHash = hashApiKey(key);
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await getSupabaseAdmin()
         .from('api_keys')
         .insert({
             name,
@@ -345,7 +339,7 @@ export async function revokeApiKey(
     keyId: string,
     revokedBy: string
 ): Promise<void> {
-    const { error } = await supabaseAdmin
+    const { error } = await getSupabaseAdmin()
         .from('api_keys')
         .update({
             revoked_at: new Date().toISOString(),
@@ -369,7 +363,7 @@ export async function logAdminAction(
     changes?: { before?: unknown; after?: unknown },
     request?: NextRequest
 ): Promise<void> {
-    await supabaseAdmin.from('admin_audit_log').insert({
+    await getSupabaseAdmin().from('admin_audit_log').insert({
         admin_user_id: auth.adminId,
         api_key_id: auth.apiKeyId,
         action,
