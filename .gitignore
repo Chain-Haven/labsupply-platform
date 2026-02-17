@@ -27,6 +27,9 @@ Thumbs.db
 # Testing
 coverage/
 .nyc_output/
+playwright-report/
+test-results/
+blob-report/
 
 # Turbo
 .turbo/
