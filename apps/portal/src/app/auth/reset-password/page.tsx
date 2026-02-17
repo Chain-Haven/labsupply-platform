@@ -6,6 +6,17 @@ import { createBrowserClient } from '@/lib/supabase';
 import { Lock, ArrowLeft, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
+/**
+ * Password reset page.
+ *
+ * Supabase redirects here after the user clicks the reset link in their email.
+ * The URL will contain either:
+ *   - A `code` query parameter (PKCE flow) that we exchange for a session, OR
+ *   - Hash-fragment tokens (implicit flow) that the Supabase client picks up.
+ *
+ * Once a session is established, the user can set their new password via
+ * supabase.auth.updateUser().
+ */
 export default function ResetPasswordPage() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -15,39 +26,55 @@ export default function ResetPasswordPage() {
     const [success, setSuccess] = useState(false);
     const [sessionReady, setSessionReady] = useState(false);
     const router = useRouter();
-    const supabase = createBrowserClient();
-    const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
+    const supabaseRef = useRef(createBrowserClient());
+    const mountedRef = useRef(true);
 
     useEffect(() => {
-        let mounted = true;
+        mountedRef.current = true;
+        const supabase = supabaseRef.current;
 
         const initSession = async () => {
             try {
-                // Set up auth state listener
+                // 1. Listen for PASSWORD_RECOVERY or SIGNED_IN events
+                //    (fires when the Supabase client processes hash-fragment tokens)
                 const { data: { subscription } } = supabase.auth.onAuthStateChange(
                     (event, session) => {
-                        if (!mounted) return;
-
-                        if (event === 'PASSWORD_RECOVERY' && session) {
-                            setSessionReady(true);
-                            setIsInitializing(false);
-                        } else if (event === 'SIGNED_IN' && session) {
+                        if (!mountedRef.current) return;
+                        if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session) {
                             setSessionReady(true);
                             setIsInitializing(false);
                         }
                     }
                 );
-                subscriptionRef.current = subscription;
 
-                // Check for existing session (set by /auth/callback code exchange)
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session && mounted) {
-                    setSessionReady(true);
-                    setIsInitializing(false);
+                // 2. Check for `code` query parameter (PKCE flow -- most common)
+                const urlParams = new URLSearchParams(window.location.search);
+                const codeParam = urlParams.get('code');
+
+                if (codeParam) {
+                    // Clean the code from the URL so it can't be reused
+                    window.history.replaceState(null, '', window.location.pathname);
+
+                    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(codeParam);
+                    if (exchangeError) {
+                        console.error('Code exchange failed:', exchangeError.message);
+                        if (mountedRef.current) {
+                            setError('Your reset link has expired or is invalid. Please request a new one.');
+                            setIsInitializing(false);
+                        }
+                        subscription.unsubscribe();
+                        return;
+                    }
+
+                    if (mountedRef.current) {
+                        setSessionReady(true);
+                        setIsInitializing(false);
+                    }
+                    subscription.unsubscribe();
                     return;
                 }
 
-                // Handle hash fragment (implicit flow fallback)
+                // 3. Check for hash-fragment tokens (implicit flow fallback)
                 const hash = window.location.hash.substring(1);
                 if (hash) {
                     const hashParams = new URLSearchParams(hash);
@@ -56,18 +83,15 @@ export default function ResetPasswordPage() {
                     const errorCode = hashParams.get('error_code');
                     const errorDescription = hashParams.get('error_description');
 
-                    // Clean up hash from URL
-                    window.history.replaceState(
-                        null, '', window.location.pathname + window.location.search
-                    );
+                    window.history.replaceState(null, '', window.location.pathname);
 
                     if (errorCode) {
-                        const message = errorDescription?.replace(/\+/g, ' ')
-                            || 'Invalid or expired reset link';
-                        if (mounted) {
+                        const message = errorDescription?.replace(/\+/g, ' ') || 'Invalid or expired reset link';
+                        if (mountedRef.current) {
                             setError(message);
                             setIsInitializing(false);
                         }
+                        subscription.unsubscribe();
                         return;
                     }
 
@@ -77,51 +101,41 @@ export default function ResetPasswordPage() {
                             refresh_token: refreshToken || '',
                         });
 
-                        if (sessionError) {
-                            if (mounted) {
+                        if (mountedRef.current) {
+                            if (sessionError) {
                                 setError('Invalid or expired reset link. Please request a new one.');
-                                setIsInitializing(false);
+                            } else {
+                                setSessionReady(true);
                             }
-                        } else if (mounted) {
-                            setSessionReady(true);
                             setIsInitializing(false);
                         }
+                        subscription.unsubscribe();
                         return;
                     }
                 }
 
-                // Handle code parameter (PKCE flow direct -- fallback)
-                const urlParams = new URLSearchParams(window.location.search);
-                const codeParam = urlParams.get('code');
-                if (codeParam) {
-                    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(
-                        codeParam
-                    );
-                    if (exchangeError) {
-                        if (mounted) {
-                            setError('Invalid or expired reset link. Please request a new one.');
-                            setIsInitializing(false);
-                        }
-                    } else if (mounted) {
-                        setSessionReady(true);
-                        setIsInitializing(false);
-                    }
+                // 4. Check if there's already a valid session
+                //    (e.g. user arrived via /auth/callback which exchanged the code)
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session && mountedRef.current) {
+                    setSessionReady(true);
+                    setIsInitializing(false);
+                    subscription.unsubscribe();
                     return;
                 }
 
-                // No tokens found -- give the auth listener a moment to fire
+                // 5. No tokens found -- wait briefly for the auth listener, then show error
                 setTimeout(() => {
-                    if (mounted && !sessionReady) {
+                    if (mountedRef.current && !sessionReady) {
                         setIsInitializing(false);
-                        setError(
-                            'Invalid password reset link. Please request a new one from the login page.'
-                        );
+                        setError('Invalid password reset link. Please request a new one from the login page.');
                     }
+                    subscription.unsubscribe();
                 }, 3000);
 
             } catch (err) {
                 console.error('Error initializing reset session:', err);
-                if (mounted) {
+                if (mountedRef.current) {
                     setError('An error occurred. Please try requesting a new reset link.');
                     setIsInitializing(false);
                 }
@@ -131,8 +145,7 @@ export default function ResetPasswordPage() {
         initSession();
 
         return () => {
-            mounted = false;
-            subscriptionRef.current?.unsubscribe();
+            mountedRef.current = false;
         };
     }, []);
 
@@ -158,28 +171,9 @@ export default function ResetPasswordPage() {
         setIsLoading(true);
 
         try {
-            // Re-validate session before updating
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                setError('Your session has expired. Please request a new password reset link.');
-                setIsLoading(false);
-                return;
-            }
+            const supabase = supabaseRef.current;
 
-            // Race the updateUser call against a timeout
-            const updatePromise = supabase.auth.updateUser({ password });
-            const timeoutPromise = new Promise<{ data: null; error: { message: string } }>(
-                (resolve) => {
-                    setTimeout(() => {
-                        resolve({
-                            data: null,
-                            error: { message: 'Request timed out. Please try again.' },
-                        });
-                    }, 15000);
-                }
-            );
-
-            const { error: updateError } = await Promise.race([updatePromise, timeoutPromise]);
+            const { error: updateError } = await supabase.auth.updateUser({ password });
 
             if (updateError) {
                 console.error('Password update error:', updateError);
@@ -196,12 +190,12 @@ export default function ResetPasswordPage() {
             setSuccess(true);
             setIsLoading(false);
 
-            // Sign out and redirect to login after a delay
+            // Sign out and redirect to login
             setTimeout(async () => {
                 try {
                     await supabase.auth.signOut();
                 } catch {
-                    // Sign out may fail if session is already invalidated
+                    // Ignore sign-out errors
                 }
                 router.push('/login?message=password_reset');
             }, 3000);
@@ -244,13 +238,7 @@ export default function ResetPasswordPage() {
                                 className="inline-flex items-center gap-2 text-violet-400 hover:text-violet-300 transition-colors"
                             >
                                 <ArrowLeft className="w-4 h-4" />
-                                Merchant Login
-                            </Link>
-                            <Link
-                                href="/admin/login"
-                                className="inline-flex items-center gap-2 text-white/40 hover:text-white/60 transition-colors text-sm"
-                            >
-                                Admin Login
+                                Go to Login
                             </Link>
                         </div>
                     </div>

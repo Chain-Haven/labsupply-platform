@@ -32,13 +32,26 @@ export default function AuthCallbackPage() {
             const tokenHash = searchParams.get('token_hash');
 
             // ---- Password recovery ----
+            // Forward the code/token_hash to the reset-password page so it can
+            // handle the exchange in the same client instance as the password update.
             if (type === 'recovery') {
                 if (code) {
-                    await supabase.auth.exchangeCodeForSession(code);
+                    router.replace(`/auth/reset-password?code=${encodeURIComponent(code)}`);
                 } else if (tokenHash) {
-                    await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' });
+                    router.replace(`/auth/reset-password?token_hash=${encodeURIComponent(tokenHash)}&type=recovery`);
+                } else {
+                    router.replace('/auth/reset-password');
                 }
-                router.replace('/auth/reset-password');
+                return;
+            }
+
+            // Also handle explicit next=/auth/reset-password (legacy links)
+            if (next === '/auth/reset-password') {
+                if (code) {
+                    router.replace(`/auth/reset-password?code=${encodeURIComponent(code)}`);
+                } else {
+                    router.replace('/auth/reset-password');
+                }
                 return;
             }
 
@@ -68,12 +81,6 @@ export default function AuthCallbackPage() {
                 setStatus('Authentication failed. Redirecting...');
                 const errorPath = next?.startsWith('/admin') ? '/admin/login' : '/login';
                 router.replace(`${errorPath}?error=auth_failed`);
-                return;
-            }
-
-            // ---- Password recovery with explicit next ----
-            if (next === '/auth/reset-password') {
-                router.replace('/auth/reset-password');
                 return;
             }
 
