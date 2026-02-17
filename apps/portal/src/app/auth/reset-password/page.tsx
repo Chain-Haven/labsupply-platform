@@ -44,7 +44,35 @@ export default function ResetPasswordPage() {
                     }
                 );
 
-                // Primary path: session was set by /auth/confirm route handler
+                // === PRIMARY PATH: token_hash in query params (from our custom reset email) ===
+                // This bypasses PKCE entirely — verifyOtp exchanges the token directly.
+                const urlParams = new URLSearchParams(window.location.search);
+                const tokenHashParam = urlParams.get('token_hash');
+                const typeParam = urlParams.get('type');
+
+                if (tokenHashParam) {
+                    window.history.replaceState(null, '', window.location.pathname);
+
+                    const { error: verifyError } = await supabase.auth.verifyOtp({
+                        token_hash: tokenHashParam,
+                        type: (typeParam as 'recovery') || 'recovery',
+                    });
+
+                    if (mountedRef.current) {
+                        if (verifyError) {
+                            console.error('token_hash verify failed:', verifyError.message);
+                            setError('Your reset link has expired or is invalid. Please request a new one.');
+                            setIsInitializing(false);
+                        } else {
+                            setSessionReady(true);
+                            setIsInitializing(false);
+                        }
+                    }
+                    subscription.unsubscribe();
+                    return;
+                }
+
+                // === FALLBACK: session already set (e.g. via /auth/confirm server route) ===
                 const { data: { session } } = await supabase.auth.getSession();
                 if (session && mountedRef.current) {
                     setSessionReady(true);
@@ -53,7 +81,7 @@ export default function ResetPasswordPage() {
                     return;
                 }
 
-                // Fallback: hash-fragment tokens (implicit flow)
+                // === FALLBACK: hash-fragment tokens (implicit flow) ===
                 const hash = window.location.hash.substring(1);
                 if (hash) {
                     const hashParams = new URLSearchParams(hash);

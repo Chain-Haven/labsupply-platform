@@ -7,7 +7,6 @@ import { Package, Mail, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { createBrowserClient } from '@/lib/supabase';
 
 export default function ForgotPasswordPage() {
     return (
@@ -27,7 +26,6 @@ function ForgotPasswordContent() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
-    const supabase = createBrowserClient();
 
     // Handle error redirect from callback (e.g., expired recovery link)
     useEffect(() => {
@@ -49,12 +47,16 @@ function ForgotPasswordContent() {
         }
 
         try {
-            const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/auth/confirm?next=/auth/reset-password`,
+            const res = await fetch('/api/v1/auth/request-reset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email.toLowerCase().trim() }),
             });
 
-            if (resetError) {
-                setError(resetError.message);
+            const data = await res.json();
+
+            if (!res.ok) {
+                setError(data.error || 'Failed to send reset link. Please try again.');
                 setIsLoading(false);
                 return;
             }
