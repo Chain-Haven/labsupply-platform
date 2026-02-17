@@ -142,7 +142,7 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
             const { error } = await supabase.auth.signInWithOtp({
                 email: normalizedEmail,
                 options: {
-                    emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+                    emailRedirectTo: `${window.location.origin}/auth/confirm?next=/dashboard`,
                 },
             });
 
@@ -168,7 +168,7 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
                 email,
                 password,
                 options: {
-                    emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+                    emailRedirectTo: `${window.location.origin}/auth/confirm?next=/dashboard`,
                 }
             });
 

@@ -9,13 +9,11 @@ import Link from 'next/link';
 /**
  * Password reset page.
  *
- * Supabase redirects here after the user clicks the reset link in their email.
- * The URL will contain either:
- *   - A `code` query parameter (PKCE flow) that we exchange for a session, OR
- *   - Hash-fragment tokens (implicit flow) that the Supabase client picks up.
+ * The user arrives here AFTER the server-side Route Handler at /auth/confirm
+ * has already exchanged the PKCE code and set session cookies. This page just
+ * needs to pick up the existing session and let the user set a new password.
  *
- * Once a session is established, the user can set their new password via
- * supabase.auth.updateUser().
+ * Fallbacks are kept for edge cases (hash fragments, onAuthStateChange).
  */
 export default function ResetPasswordPage() {
     const [password, setPassword] = useState('');
@@ -35,8 +33,7 @@ export default function ResetPasswordPage() {
 
         const initSession = async () => {
             try {
-                // 1. Listen for PASSWORD_RECOVERY or SIGNED_IN events
-                //    (fires when the Supabase client processes hash-fragment tokens)
+                // Listen for PASSWORD_RECOVERY or SIGNED_IN events
                 const { data: { subscription } } = supabase.auth.onAuthStateChange(
                     (event, session) => {
                         if (!mountedRef.current) return;
@@ -47,60 +44,16 @@ export default function ResetPasswordPage() {
                     }
                 );
 
-                // 2. Check for `code` query parameter (PKCE flow -- most common)
-                const urlParams = new URLSearchParams(window.location.search);
-                const codeParam = urlParams.get('code');
-                const tokenHashParam = urlParams.get('token_hash');
-
-                if (codeParam) {
-                    window.history.replaceState(null, '', window.location.pathname);
-
-                    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(codeParam);
-                    if (exchangeError) {
-                        console.error('Code exchange failed:', exchangeError.message);
-                        if (mountedRef.current) {
-                            setError('Your reset link has expired or is invalid. Please request a new one.');
-                            setIsInitializing(false);
-                        }
-                        subscription.unsubscribe();
-                        return;
-                    }
-
-                    if (mountedRef.current) {
-                        setSessionReady(true);
-                        setIsInitializing(false);
-                    }
+                // Primary path: session was set by /auth/confirm route handler
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session && mountedRef.current) {
+                    setSessionReady(true);
+                    setIsInitializing(false);
                     subscription.unsubscribe();
                     return;
                 }
 
-                // 2b. Check for token_hash query parameter (forwarded by callback)
-                if (tokenHashParam) {
-                    window.history.replaceState(null, '', window.location.pathname);
-
-                    const { error: verifyError } = await supabase.auth.verifyOtp({
-                        token_hash: tokenHashParam,
-                        type: 'recovery',
-                    });
-                    if (verifyError) {
-                        console.error('Token hash verify failed:', verifyError.message);
-                        if (mountedRef.current) {
-                            setError('Your reset link has expired or is invalid. Please request a new one.');
-                            setIsInitializing(false);
-                        }
-                        subscription.unsubscribe();
-                        return;
-                    }
-
-                    if (mountedRef.current) {
-                        setSessionReady(true);
-                        setIsInitializing(false);
-                    }
-                    subscription.unsubscribe();
-                    return;
-                }
-
-                // 3. Check for hash-fragment tokens (implicit flow fallback)
+                // Fallback: hash-fragment tokens (implicit flow)
                 const hash = window.location.hash.substring(1);
                 if (hash) {
                     const hashParams = new URLSearchParams(hash);
@@ -140,24 +93,14 @@ export default function ResetPasswordPage() {
                     }
                 }
 
-                // 4. Check if there's already a valid session
-                //    (e.g. user arrived via /auth/callback which exchanged the code)
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session && mountedRef.current) {
-                    setSessionReady(true);
-                    setIsInitializing(false);
-                    subscription.unsubscribe();
-                    return;
-                }
-
-                // 5. No tokens found -- wait briefly for the auth listener, then show error
+                // Last resort: wait for auth state change listener, then show error
                 setTimeout(() => {
                     if (mountedRef.current && !sessionReady) {
                         setIsInitializing(false);
                         setError('Invalid password reset link. Please request a new one from the login page.');
                     }
                     subscription.unsubscribe();
-                }, 3000);
+                }, 4000);
 
             } catch (err) {
                 console.error('Error initializing reset session:', err);
@@ -198,7 +141,6 @@ export default function ResetPasswordPage() {
 
         try {
             const supabase = supabaseRef.current;
-
             const { error: updateError } = await supabase.auth.updateUser({ password });
 
             if (updateError) {
@@ -216,13 +158,8 @@ export default function ResetPasswordPage() {
             setSuccess(true);
             setIsLoading(false);
 
-            // Sign out and redirect to login
             setTimeout(async () => {
-                try {
-                    await supabase.auth.signOut();
-                } catch {
-                    // Ignore sign-out errors
-                }
+                try { await supabase.auth.signOut(); } catch { /* ignore */ }
                 router.push('/login?message=password_reset');
             }, 3000);
 
@@ -258,15 +195,13 @@ export default function ResetPasswordPage() {
                         <p className="text-white/60 mb-6">
                             Your password has been successfully reset. Redirecting to login...
                         </p>
-                        <div className="flex flex-col items-center gap-2">
-                            <Link
-                                href="/login"
-                                className="inline-flex items-center gap-2 text-violet-400 hover:text-violet-300 transition-colors"
-                            >
-                                <ArrowLeft className="w-4 h-4" />
-                                Go to Login
-                            </Link>
-                        </div>
+                        <Link
+                            href="/login"
+                            className="inline-flex items-center gap-2 text-violet-400 hover:text-violet-300 transition-colors"
+                        >
+                            <ArrowLeft className="w-4 h-4" />
+                            Go to Login
+                        </Link>
                     </div>
                 </div>
             </div>
@@ -301,9 +236,7 @@ export default function ResetPasswordPage() {
                         )}
 
                         <div>
-                            <label className="block text-sm font-medium text-white/80 mb-2">
-                                New Password
-                            </label>
+                            <label className="block text-sm font-medium text-white/80 mb-2">New Password</label>
                             <input
                                 type="password"
                                 value={password}
@@ -317,9 +250,7 @@ export default function ResetPasswordPage() {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-white/80 mb-2">
-                                Confirm Password
-                            </label>
+                            <label className="block text-sm font-medium text-white/80 mb-2">Confirm Password</label>
                             <input
                                 type="password"
                                 value={confirmPassword}
@@ -338,10 +269,7 @@ export default function ResetPasswordPage() {
                             className="w-full py-3 px-4 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
                             {isLoading ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Updating...
-                                </>
+                                <><Loader2 className="w-4 h-4 animate-spin" /> Updating...</>
                             ) : (
                                 'Update Password'
                             )}
@@ -349,16 +277,10 @@ export default function ResetPasswordPage() {
                     </form>
 
                     <div className="mt-6 text-center space-y-2">
-                        <Link
-                            href="/forgot-password"
-                            className="block text-white/60 hover:text-white transition-colors text-sm"
-                        >
+                        <Link href="/forgot-password" className="block text-white/60 hover:text-white transition-colors text-sm">
                             Request a new reset link
                         </Link>
-                        <Link
-                            href="/login"
-                            className="inline-flex items-center gap-2 text-white/60 hover:text-white transition-colors text-sm"
-                        >
+                        <Link href="/login" className="inline-flex items-center gap-2 text-white/60 hover:text-white transition-colors text-sm">
                             <ArrowLeft className="w-4 h-4" />
                             Back to Login
                         </Link>

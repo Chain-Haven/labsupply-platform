@@ -246,7 +246,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.auth.signInWithOtp({
             email: normalizedEmail,
             options: {
-                emailRedirectTo: `${window.location.origin}/auth/callback?next=/admin`,
+                emailRedirectTo: `${window.location.origin}/auth/confirm?next=/admin`,
             },
         });
 
