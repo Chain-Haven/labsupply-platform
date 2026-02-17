@@ -48,17 +48,17 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
 
     const supabase = createBrowserClient();
 
-    // Fetch merchant profile from database
-    const fetchMerchant = async (userId: string) => {
+    // Fetch merchant profile via server API (avoids client-side RLS issues)
+    const fetchMerchant = async (_userId: string) => {
         try {
-            const { data, error } = await supabase
-                .from('merchants')
-                .select('*')
-                .eq('user_id', userId)
-                .single();
-
-            if (error) {
-                console.error('Error fetching merchant:', error);
+            const res = await fetch('/api/v1/merchant/me', { credentials: 'include' });
+            if (!res.ok) {
+                console.error('Error fetching merchant: status', res.status);
+                return null;
+            }
+            const data = await res.json();
+            if (data.error) {
+                console.error('Error fetching merchant:', data.error);
                 return null;
             }
             return data as Merchant;
@@ -178,21 +178,19 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
             }
 
             if (data.user) {
-                // Create merchant profile
-                const { error: merchantError } = await supabase
-                    .from('merchants')
-                    .insert({
-                        user_id: data.user.id,
-                        email: email,
-                        company_name: companyName || null,
-                        status: 'pending',
-                        kyb_status: 'not_started',
-                        wallet_balance_cents: 0,
+                // Create merchant profile via server API
+                try {
+                    const res = await fetch('/api/v1/merchant/me', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ companyName }),
                     });
-
-                if (merchantError) {
-                    console.error('Error creating merchant profile:', merchantError);
-                    // Don't fail registration if profile creation fails - it can be fixed later
+                    if (!res.ok) {
+                        console.error('Error creating merchant profile: status', res.status);
+                    }
+                } catch (profileErr) {
+                    console.error('Error creating merchant profile:', profileErr);
                 }
 
                 // Fetch the created merchant
@@ -214,25 +212,27 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
         setMerchant(null);
     };
 
-    // Update merchant profile
+    // Update merchant profile via server API
     const updateMerchant = async (data: Partial<Merchant>): Promise<{ success: boolean; error?: string }> => {
         if (!user) {
             return { success: false, error: 'Not authenticated' };
         }
 
         try {
-            const { error } = await supabase
-                .from('merchants')
-                .update(data)
-                .eq('user_id', user.id);
+            const res = await fetch('/api/v1/merchant/me', {
+                method: 'PATCH',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
 
-            if (error) {
-                return { success: false, error: error.message };
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                return { success: false, error: body.error || 'Failed to update profile' };
             }
 
-            // Refresh merchant data
-            const updatedMerchant = await fetchMerchant(user.id);
-            setMerchant(updatedMerchant);
+            const updatedMerchant = await res.json();
+            setMerchant(updatedMerchant as Merchant);
 
             return { success: true };
         } catch (err) {
