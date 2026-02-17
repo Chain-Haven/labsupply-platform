@@ -9,11 +9,11 @@ import Link from 'next/link';
 /**
  * Password reset page.
  *
- * The user arrives here AFTER the server-side Route Handler at /auth/confirm
- * has already exchanged the PKCE code and set session cookies. This page just
- * needs to pick up the existing session and let the user set a new password.
+ * The user arrives here from our custom reset email with ?email=xxx&token=yyy
+ * We call verifyOtp({ email, token, type: 'recovery' }) to establish a session,
+ * then the user can set their new password via updateUser({ password }).
  *
- * Fallbacks are kept for edge cases (hash fragments, onAuthStateChange).
+ * This approach has ZERO dependency on PKCE, cookies, or code exchange.
  */
 export default function ResetPasswordPage() {
     const [password, setPassword] = useState('');
@@ -33,102 +33,110 @@ export default function ResetPasswordPage() {
 
         const initSession = async () => {
             try {
-                // Listen for PASSWORD_RECOVERY or SIGNED_IN events
-                const { data: { subscription } } = supabase.auth.onAuthStateChange(
-                    (event, session) => {
-                        if (!mountedRef.current) return;
-                        if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session) {
-                            setSessionReady(true);
-                            setIsInitializing(false);
-                        }
-                    }
-                );
-
-                // === PRIMARY PATH: token_hash in query params (from our custom reset email) ===
-                // This bypasses PKCE entirely — verifyOtp exchanges the token directly.
                 const urlParams = new URLSearchParams(window.location.search);
+                const emailParam = urlParams.get('email');
+                const tokenParam = urlParams.get('token');
                 const tokenHashParam = urlParams.get('token_hash');
-                const typeParam = urlParams.get('type');
+                const codeParam = urlParams.get('code');
 
-                if (tokenHashParam) {
+                // Clean params from URL immediately (they're one-time use)
+                if (emailParam || tokenParam || tokenHashParam || codeParam) {
                     window.history.replaceState(null, '', window.location.pathname);
+                }
 
+                // === PRIMARY PATH: email + OTP token (from our custom reset email) ===
+                if (emailParam && tokenParam) {
+                    const { error: verifyError } = await supabase.auth.verifyOtp({
+                        email: emailParam,
+                        token: tokenParam,
+                        type: 'recovery',
+                    });
+
+                    if (mountedRef.current) {
+                        if (verifyError) {
+                            console.error('OTP verify failed:', verifyError.message);
+                            setError('Your reset link has expired or is invalid. Please request a new one.');
+                        } else {
+                            setSessionReady(true);
+                        }
+                        setIsInitializing(false);
+                    }
+                    return;
+                }
+
+                // === FALLBACK: token_hash (from Supabase default emails or /auth/confirm) ===
+                if (tokenHashParam) {
                     const { error: verifyError } = await supabase.auth.verifyOtp({
                         token_hash: tokenHashParam,
-                        type: (typeParam as 'recovery') || 'recovery',
+                        type: 'recovery',
                     });
 
                     if (mountedRef.current) {
                         if (verifyError) {
                             console.error('token_hash verify failed:', verifyError.message);
                             setError('Your reset link has expired or is invalid. Please request a new one.');
-                            setIsInitializing(false);
                         } else {
                             setSessionReady(true);
-                            setIsInitializing(false);
                         }
+                        setIsInitializing(false);
                     }
-                    subscription.unsubscribe();
                     return;
                 }
 
-                // === FALLBACK: session already set (e.g. via /auth/confirm server route) ===
+                // === FALLBACK: PKCE code (from /auth/confirm server redirect) ===
+                if (codeParam) {
+                    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(codeParam);
+
+                    if (mountedRef.current) {
+                        if (exchangeError) {
+                            console.error('Code exchange failed:', exchangeError.message);
+                            setError('Your reset link has expired or is invalid. Please request a new one.');
+                        } else {
+                            setSessionReady(true);
+                        }
+                        setIsInitializing(false);
+                    }
+                    return;
+                }
+
+                // === FALLBACK: existing session (already logged in via callback) ===
                 const { data: { session } } = await supabase.auth.getSession();
                 if (session && mountedRef.current) {
                     setSessionReady(true);
                     setIsInitializing(false);
-                    subscription.unsubscribe();
                     return;
                 }
 
-                // === FALLBACK: hash-fragment tokens (implicit flow) ===
+                // === FALLBACK: hash-fragment tokens ===
                 const hash = window.location.hash.substring(1);
                 if (hash) {
                     const hashParams = new URLSearchParams(hash);
                     const accessToken = hashParams.get('access_token');
                     const refreshToken = hashParams.get('refresh_token');
-                    const errorCode = hashParams.get('error_code');
-                    const errorDescription = hashParams.get('error_description');
-
                     window.history.replaceState(null, '', window.location.pathname);
-
-                    if (errorCode) {
-                        const message = errorDescription?.replace(/\+/g, ' ') || 'Invalid or expired reset link';
-                        if (mountedRef.current) {
-                            setError(message);
-                            setIsInitializing(false);
-                        }
-                        subscription.unsubscribe();
-                        return;
-                    }
 
                     if (accessToken) {
                         const { error: sessionError } = await supabase.auth.setSession({
                             access_token: accessToken,
                             refresh_token: refreshToken || '',
                         });
-
                         if (mountedRef.current) {
                             if (sessionError) {
-                                setError('Invalid or expired reset link. Please request a new one.');
+                                setError('Your reset link has expired or is invalid. Please request a new one.');
                             } else {
                                 setSessionReady(true);
                             }
                             setIsInitializing(false);
                         }
-                        subscription.unsubscribe();
                         return;
                     }
                 }
 
-                // Last resort: wait for auth state change listener, then show error
-                setTimeout(() => {
-                    if (mountedRef.current && !sessionReady) {
-                        setIsInitializing(false);
-                        setError('Invalid password reset link. Please request a new one from the login page.');
-                    }
-                    subscription.unsubscribe();
-                }, 4000);
+                // Nothing worked
+                if (mountedRef.current) {
+                    setIsInitializing(false);
+                    setError('Invalid password reset link. Please request a new one from the login page.');
+                }
 
             } catch (err) {
                 console.error('Error initializing reset session:', err);
@@ -141,9 +149,7 @@ export default function ResetPasswordPage() {
 
         initSession();
 
-        return () => {
-            mountedRef.current = false;
-        };
+        return () => { mountedRef.current = false; };
     }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -154,12 +160,10 @@ export default function ResetPasswordPage() {
             setError('Password must be at least 8 characters');
             return;
         }
-
         if (password !== confirmPassword) {
             setError('Passwords do not match');
             return;
         }
-
         if (!sessionReady) {
             setError('Session expired. Please request a new password reset link.');
             return;
@@ -174,7 +178,7 @@ export default function ResetPasswordPage() {
             if (updateError) {
                 console.error('Password update error:', updateError);
                 const msg = updateError.message || 'Failed to update password';
-                if (msg.toLowerCase().includes('same_password') || msg.toLowerCase().includes('different')) {
+                if (msg.toLowerCase().includes('same') || msg.toLowerCase().includes('different')) {
                     setError('New password must be different from your current password.');
                 } else {
                     setError(msg);
@@ -190,9 +194,8 @@ export default function ResetPasswordPage() {
                 try { await supabase.auth.signOut(); } catch { /* ignore */ }
                 router.push('/login?message=password_reset');
             }, 3000);
-
         } catch (err) {
-            console.error('Unexpected error during password update:', err);
+            console.error('Password update error:', err);
             setError('An unexpected error occurred. Please try again.');
             setIsLoading(false);
         }
@@ -220,15 +223,9 @@ export default function ResetPasswordPage() {
                             <CheckCircle className="w-8 h-8 text-green-400" />
                         </div>
                         <h1 className="text-2xl font-bold text-white mb-2">Password Updated!</h1>
-                        <p className="text-white/60 mb-6">
-                            Your password has been successfully reset. Redirecting to login...
-                        </p>
-                        <Link
-                            href="/login"
-                            className="inline-flex items-center gap-2 text-violet-400 hover:text-violet-300 transition-colors"
-                        >
-                            <ArrowLeft className="w-4 h-4" />
-                            Go to Login
+                        <p className="text-white/60 mb-6">Your password has been successfully reset. Redirecting to login...</p>
+                        <Link href="/login" className="inline-flex items-center gap-2 text-violet-400 hover:text-violet-300 transition-colors">
+                            <ArrowLeft className="w-4 h-4" /> Go to Login
                         </Link>
                     </div>
                 </div>
@@ -265,52 +262,28 @@ export default function ResetPasswordPage() {
 
                         <div>
                             <label className="block text-sm font-medium text-white/80 mb-2">New Password</label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
                                 className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:opacity-50"
-                                placeholder="Minimum 8 characters"
-                                required
-                                minLength={8}
-                                disabled={!sessionReady || isLoading}
-                            />
+                                placeholder="Minimum 8 characters" required minLength={8} disabled={!sessionReady || isLoading} />
                         </div>
 
                         <div>
                             <label className="block text-sm font-medium text-white/80 mb-2">Confirm Password</label>
-                            <input
-                                type="password"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
+                            <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
                                 className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:opacity-50"
-                                placeholder="Re-enter your new password"
-                                required
-                                minLength={8}
-                                disabled={!sessionReady || isLoading}
-                            />
+                                placeholder="Re-enter your new password" required minLength={8} disabled={!sessionReady || isLoading} />
                         </div>
 
-                        <button
-                            type="submit"
-                            disabled={isLoading || !sessionReady}
-                            className="w-full py-3 px-4 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            {isLoading ? (
-                                <><Loader2 className="w-4 h-4 animate-spin" /> Updating...</>
-                            ) : (
-                                'Update Password'
-                            )}
+                        <button type="submit" disabled={isLoading || !sessionReady}
+                            className="w-full py-3 px-4 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                            {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Updating...</> : 'Update Password'}
                         </button>
                     </form>
 
                     <div className="mt-6 text-center space-y-2">
-                        <Link href="/forgot-password" className="block text-white/60 hover:text-white transition-colors text-sm">
-                            Request a new reset link
-                        </Link>
+                        <Link href="/forgot-password" className="block text-white/60 hover:text-white transition-colors text-sm">Request a new reset link</Link>
                         <Link href="/login" className="inline-flex items-center gap-2 text-white/60 hover:text-white transition-colors text-sm">
-                            <ArrowLeft className="w-4 h-4" />
-                            Back to Login
+                            <ArrowLeft className="w-4 h-4" /> Back to Login
                         </Link>
                     </div>
                 </div>

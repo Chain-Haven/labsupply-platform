@@ -2,10 +2,10 @@
  * POST /api/v1/auth/request-reset
  *
  * Server-side password reset that BYPASSES PKCE entirely.
- * Uses Supabase admin.generateLink to create a recovery token_hash,
- * then sends a custom email with a link containing the token_hash.
- * The reset-password page verifies the token_hash directly via
- * supabase.auth.verifyOtp — no code exchange needed.
+ * Uses Supabase admin.generateLink to get an email_otp code,
+ * then sends a custom email with a link containing the email + otp.
+ * The reset page verifies via supabase.auth.verifyOtp({ email, token, type })
+ * which is a direct API call — no PKCE, no code exchange, no cookies.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -35,14 +35,14 @@ export async function POST(request: NextRequest) {
             process.env.SUPABASE_SERVICE_ROLE_KEY!
         );
 
-        // Generate a recovery link via admin API (no PKCE involved)
+        // Generate a recovery link via admin API — gives us the OTP code
         const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
             type: 'recovery',
             email: normalizedEmail,
         });
 
-        if (linkError) {
-            console.error('generateLink error:', linkError.message);
+        if (linkError || !linkData) {
+            console.error('generateLink error:', linkError?.message);
             // Don't reveal whether the email exists
             return NextResponse.json({
                 success: true,
@@ -50,22 +50,22 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // Extract the hashed_token from the generated link
-        const hashedToken = linkData.properties?.hashed_token;
+        // Get the OTP code — this is what verifyOtp({ email, token, type }) needs
+        const otp = linkData.properties?.email_otp;
 
-        if (!hashedToken) {
-            console.error('No hashed_token in generateLink response');
+        if (!otp) {
+            console.error('No email_otp in generateLink response. Properties:', JSON.stringify(linkData.properties));
             return NextResponse.json({
                 success: true,
                 message: 'If this email is registered, a reset link will be sent.',
             });
         }
 
-        // Build the reset URL with token_hash (goes directly to reset page, no callback)
-        const origin = request.headers.get('origin') || request.headers.get('referer')?.replace(/\/[^/]*$/, '') || 'https://whitelabel.peptidetech.co';
-        const resetUrl = `${origin}/auth/reset-password?token_hash=${encodeURIComponent(hashedToken)}&type=recovery`;
+        // Always use the production domain
+        const origin = 'https://whitelabel.peptidetech.co';
+        const resetUrl = `${origin}/auth/reset-password?email=${encodeURIComponent(normalizedEmail)}&token=${encodeURIComponent(otp)}`;
 
-        // Send the email via SMTP
+        // Send the email
         if (SMTP_USER && SMTP_PASS) {
             try {
                 const transporter = nodemailer.createTransport({
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
                                 </a>
                             </div>
                             <p style="color: #999; font-size: 13px; line-height: 1.5;">
-                                This link expires in 1 hour. If the button doesn't work, copy and paste this link into your browser:
+                                This link expires in 1 hour. If the button doesn't work, copy and paste this URL:
                             </p>
                             <p style="color: #7c3aed; font-size: 12px; word-break: break-all;">
                                 ${resetUrl}
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Failed to send reset email. Please try again.' }, { status: 500 });
             }
         } else {
-            console.warn('SMTP not configured. Reset link generated but not sent.');
+            console.warn('SMTP not configured.');
         }
 
         return NextResponse.json({
