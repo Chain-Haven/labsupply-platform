@@ -12,7 +12,6 @@ function getServiceClient() {
 }
 
 // Safe query helper -- returns empty on missing table/column errors
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function safeQuery(queryFn: () => any): Promise<{ data: any; count: number; error: null }> {
     try {
         const result = await queryFn();
