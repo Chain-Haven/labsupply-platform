@@ -609,7 +609,7 @@ export default function HomePage() {
                                 <ArrowRight className="w-5 h-5" />
                             </Link>
                             <a
-                                href="mailto:support@whitelabel.peptidetech.co"
+                                href="mailto:whitelabel@peptidetech.co"
                                 className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-white/10 text-white font-semibold text-lg hover:bg-white/20 transition-colors"
                             >
                                 Contact Sales
@@ -630,7 +630,7 @@ export default function HomePage() {
                         <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
                         <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
                         <Link href="/docs" className="hover:text-white transition-colors">Docs</Link>
-                        <a href="mailto:support@whitelabel.peptidetech.co" className="hover:text-white transition-colors">Contact</a>
+                        <a href="mailto:whitelabel@peptidetech.co" className="hover:text-white transition-colors">Contact</a>
                     </div>
                 </div>
             </footer>

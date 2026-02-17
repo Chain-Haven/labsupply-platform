@@ -101,10 +101,12 @@ export async function GET() {
                 mercury_customer_id,
                 wallet_accounts(
                     balance_cents,
-                    reserved_cents
+                    reserved_cents,
+                    currency
                 )
             `)
             .eq('status', 'ACTIVE')
+            .eq('wallet_accounts.currency', 'USD')
             .not('mercury_customer_id', 'is', null);
 
         if (merchantsError) {
@@ -223,8 +225,9 @@ export async function POST(request: NextRequest) {
         // Get merchant info
         const { data: merchant } = await supabase
             .from('merchants')
-            .select('id, name, mercury_customer_id, billing_email, target_balance_cents, wallet_accounts(balance_cents, reserved_cents)')
+            .select('id, name, mercury_customer_id, billing_email, target_balance_cents, wallet_accounts(balance_cents, reserved_cents, currency)')
             .eq('id', merchant_id)
+            .eq('wallet_accounts.currency', 'USD')
             .single();
 
         if (!merchant || !merchant.mercury_customer_id) {

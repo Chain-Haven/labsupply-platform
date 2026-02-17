@@ -177,5 +177,5 @@ To fully remove:
 ## Support
 
 - **Documentation**: https://docs.whitelabel.peptidetech.co
-- **Email**: support@whitelabel.peptidetech.co
+- **Email**: whitelabel@peptidetech.co
 - **Portal**: https://portal.whitelabel.peptidetech.co/support

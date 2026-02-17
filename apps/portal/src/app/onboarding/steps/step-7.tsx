@@ -217,7 +217,7 @@ export default function Step6Review({ onNext, onPrev }: StepProps) {
                 totalSteps={totalSteps}
                 onNext={handleSubmit}
                 onPrev={onPrev}
-                canProceed={isStepValid(6)}
+                canProceed={isStepValid(7)}
                 isSubmitting={isSubmitting}
             />
         </div>

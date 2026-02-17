@@ -16,7 +16,8 @@ import {
     DollarSign,
     LogOut,
     Loader2,
-    Shield
+    Shield,
+    Bitcoin,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,8 @@ const navigation = [
     { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
     { name: 'Reports', href: '/admin/reports', icon: BarChart3 },
     { name: 'Mercury', href: '/admin/mercury', icon: DollarSign },
+    { name: 'Crypto', href: '/admin/crypto', icon: Bitcoin },
+    { name: 'Withdrawals', href: '/admin/withdrawals', icon: LogOut },
     { name: 'API Keys', href: '/admin/api-keys', icon: Key },
     { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];

@@ -124,8 +124,8 @@ export default function OnboardingPendingPage() {
                 {/* Help text */}
                 <p className="mt-6 text-center text-white/40 text-sm">
                     Questions? Contact{' '}
-                    <a href="mailto:support@whitelabel.peptidetech.co" className="text-violet-400 hover:text-violet-300">
-                        support@whitelabel.peptidetech.co
+                    <a href="mailto:whitelabel@peptidetech.co" className="text-violet-400 hover:text-violet-300">
+                        whitelabel@peptidetech.co
                     </a>
                 </p>
             </div>

@@ -13,11 +13,12 @@ export async function GET(request: NextRequest) {
         const store = await verifyStoreRequest(request);
         const supabase = getServiceClient();
 
-        // Get wallet
+        // Get USD wallet (store API returns USD balance)
         const { data: wallet, error } = await supabase
             .from('wallet_accounts')
             .select('*')
             .eq('merchant_id', store.merchantId)
+            .eq('currency', 'USD')
             .single();
 
         if (error || !wallet) {

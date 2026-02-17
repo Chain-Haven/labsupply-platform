@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
                 .from('wallet_accounts')
                 .select('balance_cents, reserved_cents')
                 .eq('merchant_id', store.merchantId)
+                .eq('currency', 'USD')
                 .single();
 
             return successResponse({
@@ -181,11 +182,12 @@ export async function POST(request: NextRequest) {
             throw new ApiError('ORDER_ITEMS_FAILED', 'Failed to create order items', 500);
         }
 
-        // Get wallet balance
+        // Get USD wallet balance (orders use USD)
         const { data: wallet } = await supabase
             .from('wallet_accounts')
             .select('id, balance_cents, reserved_cents')
             .eq('merchant_id', store.merchantId)
+            .eq('currency', 'USD')
             .single();
 
         // MANDATORY $500 COMPLIANCE RESERVE CHECK

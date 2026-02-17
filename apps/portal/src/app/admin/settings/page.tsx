@@ -25,7 +25,10 @@ import {
     Users,
     Plus,
     Trash2,
-    Loader2
+    Loader2,
+    FlaskConical,
+    Pencil,
+    Star
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAdminAuth, SUPER_ADMIN_EMAIL } from '@/lib/admin-auth';
@@ -184,11 +187,93 @@ export default function SettingsPage() {
         }
     };
 
+    // Testing Labs state
+    const [testingLabs, setTestingLabs] = useState<Array<{
+        id: string; name: string; email: string; phone?: string; is_default: boolean; active: boolean;
+    }>>([]);
+    const [labsLoading, setLabsLoading] = useState(false);
+    const [showAddLabForm, setShowAddLabForm] = useState(false);
+    const [editingLabId, setEditingLabId] = useState<string | null>(null);
+    const [labFormData, setLabFormData] = useState({ name: '', email: '', phone: '', is_default: false });
+
+    const fetchTestingLabs = useCallback(async () => {
+        setLabsLoading(true);
+        try {
+            const res = await fetch('/api/v1/admin/testing-labs');
+            if (res.ok) {
+                const json = await res.json();
+                setTestingLabs(json.data || []);
+            }
+        } catch { /* ignore */ }
+        setLabsLoading(false);
+    }, []);
+
+    useEffect(() => {
+        if (activeTab === 'testing') {
+            fetchTestingLabs();
+        }
+    }, [activeTab, fetchTestingLabs]);
+
+    const handleSaveLab = async () => {
+        try {
+            if (editingLabId) {
+                const res = await fetch('/api/v1/admin/testing-labs', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: editingLabId, ...labFormData }),
+                });
+                if (res.ok) {
+                    toast({ title: 'Lab updated' });
+                } else {
+                    toast({ title: 'Error', description: 'Failed to update lab', variant: 'destructive' });
+                }
+            } else {
+                const res = await fetch('/api/v1/admin/testing-labs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(labFormData),
+                });
+                if (res.ok) {
+                    toast({ title: 'Lab added' });
+                } else {
+                    toast({ title: 'Error', description: 'Failed to add lab', variant: 'destructive' });
+                }
+            }
+            setShowAddLabForm(false);
+            setEditingLabId(null);
+            setLabFormData({ name: '', email: '', phone: '', is_default: false });
+            fetchTestingLabs();
+        } catch {
+            toast({ title: 'Error', description: 'Network error', variant: 'destructive' });
+        }
+    };
+
+    const handleDeleteLab = async (id: string) => {
+        try {
+            const res = await fetch('/api/v1/admin/testing-labs', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id }),
+            });
+            if (res.ok) {
+                toast({ title: 'Lab deactivated' });
+                fetchTestingLabs();
+            }
+        } catch { /* ignore */ }
+    };
+
+    const startEditLab = (lab: typeof testingLabs[0]) => {
+        setLabFormData({ name: lab.name, email: lab.email, phone: lab.phone || '', is_default: lab.is_default });
+        setEditingLabId(lab.id);
+        setShowAddLabForm(true);
+    };
+
     const tabs = [
         { id: 'general', label: 'General', icon: Building },
         { id: 'payments', label: 'Payments', icon: DollarSign },
         { id: 'fulfillment', label: 'Fulfillment', icon: Truck },
         { id: 'pricing', label: 'Pricing & Fees', icon: DollarSign },
+        { id: 'testing', label: 'Testing Labs', icon: FlaskConical },
         { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'security', label: 'Security', icon: Shield },
         ...(isSuperAdmin ? [{ id: 'admins', label: 'Admin Users', icon: Users }] : []),
@@ -248,7 +333,7 @@ export default function SettingsPage() {
                                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Support Email
                                     </label>
-                                    <Input defaultValue="support@whitelabel.peptidetech.co" className="mt-1" />
+                                    <Input defaultValue="whitelabel@peptidetech.co" className="mt-1" />
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -724,6 +809,204 @@ export default function SettingsPage() {
                                             </label>
                                         </div>
                                     ))}
+                                </CardContent>
+                            </Card>
+                        </>
+                    )}
+
+                    {activeTab === 'testing' && (
+                        <>
+                            {/* Testing Labs */}
+                            <Card>
+                                <CardHeader>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <CardTitle className="flex items-center gap-2">
+                                                <FlaskConical className="w-5 h-5" />
+                                                Testing Laboratories
+                                            </CardTitle>
+                                            <CardDescription>
+                                                Manage labs that receive testing shipments and the email that auto-sends when tracking is detected.
+                                            </CardDescription>
+                                        </div>
+                                        <Button onClick={() => { setShowAddLabForm(true); setEditingLabId(null); setLabFormData({ name: '', email: '', phone: '', is_default: false }); fetchTestingLabs(); }}>
+                                            <Plus className="w-4 h-4 mr-2" />
+                                            Add Lab
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    {/* Add / Edit Lab Form */}
+                                    {showAddLabForm && (
+                                        <div className="p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 space-y-4">
+                                            <h4 className="font-medium text-gray-900 dark:text-white">
+                                                {editingLabId ? 'Edit Testing Lab' : 'Add New Testing Lab'}
+                                            </h4>
+                                            <div className="grid gap-4 md:grid-cols-2">
+                                                <div>
+                                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Lab Name</label>
+                                                    <Input
+                                                        placeholder="Freedom Diagnostics"
+                                                        value={labFormData.name}
+                                                        onChange={(e) => setLabFormData(prev => ({ ...prev, name: e.target.value }))}
+                                                        className="mt-1"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email Address</label>
+                                                    <Input
+                                                        type="email"
+                                                        placeholder="lab@example.com"
+                                                        value={labFormData.email}
+                                                        onChange={(e) => setLabFormData(prev => ({ ...prev, email: e.target.value }))}
+                                                        className="mt-1"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Phone (optional)</label>
+                                                    <Input
+                                                        placeholder="(555) 123-4567"
+                                                        value={labFormData.phone}
+                                                        onChange={(e) => setLabFormData(prev => ({ ...prev, phone: e.target.value }))}
+                                                        className="mt-1"
+                                                    />
+                                                </div>
+                                                <div className="flex items-center gap-2 pt-5">
+                                                    <button
+                                                        onClick={() => setLabFormData(prev => ({ ...prev, is_default: !prev.is_default }))}
+                                                        className={cn(
+                                                            'w-5 h-5 rounded border flex items-center justify-center',
+                                                            labFormData.is_default ? 'bg-purple-600 border-purple-600' : 'border-gray-300'
+                                                        )}
+                                                    >
+                                                        {labFormData.is_default && <CheckCircle className="w-3.5 h-3.5 text-white" />}
+                                                    </button>
+                                                    <label className="text-sm text-gray-700 dark:text-gray-300">Set as default lab</label>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Button onClick={handleSaveLab}>
+                                                    <Save className="w-4 h-4 mr-2" />
+                                                    {editingLabId ? 'Update Lab' : 'Add Lab'}
+                                                </Button>
+                                                <Button variant="outline" onClick={() => { setShowAddLabForm(false); setEditingLabId(null); }}>
+                                                    Cancel
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Labs List */}
+                                    {!labsLoading && testingLabs.length === 0 && !showAddLabForm && (
+                                        <div className="text-center py-8 text-gray-500">
+                                            <FlaskConical className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+                                            <p>No testing labs configured yet.</p>
+                                            <p className="text-sm">Add a lab to enable automated testing notifications.</p>
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-2">
+                                        {testingLabs.filter(l => l.active).map((lab) => (
+                                            <div key={lab.id} className="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-medium">
+                                                        <FlaskConical className="w-5 h-5" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                                                            {lab.name}
+                                                            {lab.is_default && (
+                                                                <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 rounded">
+                                                                    <Star className="w-3 h-3" />
+                                                                    Default
+                                                                </span>
+                                                            )}
+                                                        </p>
+                                                        <p className="text-sm text-gray-500">{lab.email}{lab.phone ? ` · ${lab.phone}` : ''}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Button size="sm" variant="ghost" onClick={() => startEditLab(lab)}>
+                                                        <Pencil className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteLab(lab.id)}>
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Testing Settings */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Mail className="w-5 h-5" />
+                                        Testing Email Settings
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Configure automated email behavior for testing orders
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div>
+                                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Invoice-To Email
+                                        </label>
+                                        <Input
+                                            value={settings.testing_invoice_email as string || 'whitelabel@peptidetech.co'}
+                                            onChange={(e) => updateSetting('testing_invoice_email', e.target.value)}
+                                            className="mt-1"
+                                            placeholder="whitelabel@peptidetech.co"
+                                        />
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Labs will be asked to send invoices to this email address.
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center justify-between py-3">
+                                        <div>
+                                            <p className="font-medium text-gray-900 dark:text-white">Auto-email lab on tracking detection</p>
+                                            <p className="text-sm text-gray-500">Automatically notify the lab when a tracking number is assigned to a testing shipment.</p>
+                                        </div>
+                                        <button
+                                            onClick={() => updateSetting('testing_auto_email_enabled', !(settings.testing_auto_email_enabled ?? true))}
+                                            className={cn(
+                                                'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
+                                                (settings.testing_auto_email_enabled ?? true) ? 'bg-purple-600' : 'bg-gray-200'
+                                            )}
+                                        >
+                                            <span className={cn(
+                                                'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                                                (settings.testing_auto_email_enabled ?? true) ? 'translate-x-6' : 'translate-x-1'
+                                            )} />
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center justify-between py-3">
+                                        <div>
+                                            <p className="font-medium text-gray-900 dark:text-white">Notify merchant on status changes</p>
+                                            <p className="text-sm text-gray-500">Send email updates to merchants when their testing order status changes.</p>
+                                        </div>
+                                        <button
+                                            onClick={() => updateSetting('testing_notify_merchant', !(settings.testing_notify_merchant ?? true))}
+                                            className={cn(
+                                                'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
+                                                (settings.testing_notify_merchant ?? true) ? 'bg-purple-600' : 'bg-gray-200'
+                                            )}
+                                        >
+                                            <span className={cn(
+                                                'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                                                (settings.testing_notify_merchant ?? true) ? 'translate-x-6' : 'translate-x-1'
+                                            )} />
+                                        </button>
+                                    </div>
+                                    <div className="pt-4">
+                                        <Button onClick={handleSave} disabled={isSaving}>
+                                            {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                                            Save Testing Settings
+                                        </Button>
+                                    </div>
                                 </CardContent>
                             </Card>
                         </>

@@ -51,6 +51,7 @@ export async function POST(
                 .from('wallet_accounts')
                 .select('id, balance_cents, reserved_cents')
                 .eq('merchant_id', order.merchant_id)
+                .eq('currency', 'USD')
                 .single();
 
             if (wallet) {

@@ -16,6 +16,8 @@ import {
     WebhookEventStatus,
     UserRole,
     ProductAssetType,
+    TestingOrderStatus,
+    TestingAddon,
 } from '../types';
 
 // ============================================================================
@@ -432,6 +434,64 @@ export const merchantFiltersSchema = z.object({
 }).merge(paginationSchema);
 
 export type MerchantFiltersInput = z.infer<typeof merchantFiltersSchema>;
+
+// ============================================================================
+// Testing Schemas
+// ============================================================================
+
+export const createTestingLabSchema = z.object({
+    name: z.string().min(1).max(255),
+    email: z.string().email(),
+    phone: z.string().max(30).optional(),
+    address: addressSchema.optional(),
+    is_default: z.boolean().default(false),
+});
+
+export type CreateTestingLabInput = z.infer<typeof createTestingLabSchema>;
+
+export const updateTestingLabSchema = createTestingLabSchema.partial();
+
+export type UpdateTestingLabInput = z.infer<typeof updateTestingLabSchema>;
+
+export const testingOrderItemSchema = z.object({
+    product_id: z.string().uuid(),
+    sku: z.string().min(1).max(50),
+    product_name: z.string().min(1).max(255),
+    product_cost_cents: z.number().int().min(0),
+    addon_conformity: z.boolean().default(false),
+    addon_sterility: z.boolean().default(false),
+    addon_endotoxins: z.boolean().default(false),
+    addon_net_content: z.boolean().default(false),
+    addon_purity: z.boolean().default(false),
+});
+
+export type TestingOrderItemInput = z.infer<typeof testingOrderItemSchema>;
+
+export const createTestingOrderSchema = z.object({
+    merchant_id: z.string().uuid(),
+    testing_lab_id: z.string().uuid(),
+    items: z.array(testingOrderItemSchema).min(1).max(50),
+    notes: z.string().max(2000).optional(),
+});
+
+export type CreateTestingOrderInput = z.infer<typeof createTestingOrderSchema>;
+
+export const updateTestingOrderStatusSchema = z.object({
+    status: z.nativeEnum(TestingOrderStatus),
+    notes: z.string().max(2000).optional(),
+    lab_invoice_number: z.string().max(100).optional(),
+    lab_invoice_amount_cents: z.number().int().min(0).optional(),
+});
+
+export type UpdateTestingOrderStatusInput = z.infer<typeof updateTestingOrderStatusSchema>;
+
+export const testingOrderFiltersSchema = z.object({
+    merchant_id: z.string().uuid().optional(),
+    testing_lab_id: z.string().uuid().optional(),
+    status: z.nativeEnum(TestingOrderStatus).optional(),
+}).merge(paginationSchema);
+
+export type TestingOrderFiltersInput = z.infer<typeof testingOrderFiltersSchema>;
 
 // ============================================================================
 // Validation Helpers

@@ -79,11 +79,12 @@ export const shipmentShippedFunction = inngest.createFunction(
             const actualTotal = subtotal + actualShipping;
             const difference = estimatedTotal - actualTotal;
 
-            // Get wallet
+            // Get USD wallet (order settlements are in USD)
             const { data: wallet } = await supabase
                 .from('wallet_accounts')
                 .select('id, balance_cents, reserved_cents')
                 .eq('merchant_id', merchantId)
+                .eq('currency', 'USD')
                 .single();
 
             if (!wallet) {

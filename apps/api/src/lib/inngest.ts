@@ -117,6 +117,26 @@ export type ComplianceScanMerchantEvent = {
     };
 };
 
+export type BtcSyncDepositsEvent = {
+    name: 'btc/sync-deposits';
+    data: Record<string, never>;
+};
+
+export type TestingTrackingPollEvent = {
+    name: 'testing/tracking-poll';
+    data: Record<string, never>;
+};
+
+export type TestingTrackingFoundEvent = {
+    name: 'testing/tracking-found';
+    data: {
+        testingOrderId: string;
+        trackingNumber: string;
+        carrier: string;
+        trackingUrl?: string | null;
+    };
+};
+
 // Union type of all events
 export type WhiteLabelPeptidesEvents =
     | OrderReceivedEvent
@@ -130,4 +150,7 @@ export type WhiteLabelPeptidesEvents =
     | MercurySyncInvoicesEvent
     | MercuryInvoiceCreatedEvent
     | ComplianceScanEvent
-    | ComplianceScanMerchantEvent;
+    | ComplianceScanMerchantEvent
+    | BtcSyncDepositsEvent
+    | TestingTrackingPollEvent
+    | TestingTrackingFoundEvent;

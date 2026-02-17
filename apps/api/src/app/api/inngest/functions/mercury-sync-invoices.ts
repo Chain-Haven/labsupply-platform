@@ -209,11 +209,12 @@ async function creditWallet(
         return { success: false };
     }
 
-    // Get wallet
+    // Get USD wallet (Mercury invoicing is USD-only)
     const { data: wallet, error: walletError } = await supabase
         .from('wallet_accounts')
         .select('id, balance_cents')
         .eq('merchant_id', merchantId)
+        .eq('currency', 'USD')
         .single();
 
     if (walletError || !wallet) {

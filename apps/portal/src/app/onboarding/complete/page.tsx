@@ -119,7 +119,7 @@ export default function OnboardingCompletePage() {
                 {/* Support link */}
                 <p className="text-center text-sm text-white/60 mt-6">
                     Have questions?{' '}
-                    <a href="mailto:support@whitelabel.peptidetech.co" className="text-white/80 hover:text-white underline">
+                    <a href="mailto:whitelabel@peptidetech.co" className="text-white/80 hover:text-white underline">
                         Contact our support team
                     </a>
                 </p>

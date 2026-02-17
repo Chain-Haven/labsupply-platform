@@ -61,7 +61,11 @@ export interface OnboardingData {
         governmentId: 'pending' | 'uploaded' | 'approved' | 'rejected';
     };
 
-    // Step 6: Acknowledgments
+    // Step 6: Agreement & Signature
+    agreementSignature: string;  // base64 data URL of drawn signature
+    agreementSignedAt: string;   // ISO timestamp
+
+    // Step 7: Acknowledgments
     acknowledgeResearchOnly: boolean;
     acknowledgeNoHumanConsumption: boolean;
     acknowledgeCompliance: boolean;
@@ -115,6 +119,8 @@ const initialData: OnboardingData = {
         researchCredentials: 'pending',
         governmentId: 'pending',
     },
+    agreementSignature: '',
+    agreementSignedAt: '',
     acknowledgeResearchOnly: false,
     acknowledgeNoHumanConsumption: false,
     acknowledgeCompliance: false,
@@ -139,7 +145,7 @@ const STORAGE_KEY = 'wlp_onboarding';
 export function OnboardingProvider({ children }: { children: ReactNode }) {
     const [data, setData] = useState<OnboardingData>(initialData);
     const [currentStep, setCurrentStep] = useState(1);
-    const totalSteps = 6;
+    const totalSteps = 7;
 
     // Load from localStorage on mount
     useEffect(() => {
@@ -222,6 +228,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                 // At minimum, business license is required
                 return data.documentStatus.businessLicense === 'uploaded';
             case 6:
+                // Agreement must be signed
+                return data.agreementSignature !== '';
+            case 7:
                 return (
                     data.acknowledgeResearchOnly &&
                     data.acknowledgeNoHumanConsumption &&

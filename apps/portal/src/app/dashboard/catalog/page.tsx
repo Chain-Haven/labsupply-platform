@@ -75,14 +75,35 @@ export default function CatalogPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // 3rd Party Testing state
-    const TESTING_FEE_CENTS = 30000; // $300 per product
     const SHIPPING_FEE_CENTS = 5000; // $50 overnight shipping
 
     const [testingMode, setTestingMode] = useState(false);
     const [selectedForTesting, setSelectedForTesting] = useState<Set<string>>(new Set());
     const [testingModalOpen, setTestingModalOpen] = useState(false);
-    const [testingStep, setTestingStep] = useState(1); // 1-4 for confirmation steps
+    const [testingStep, setTestingStep] = useState(1); // 1-5 for confirmation steps
     const [isProcessingTesting, setIsProcessingTesting] = useState(false);
+
+    // Per-product addon selections: { productId: { conformity: bool, sterility: bool, ... } }
+    const [testingAddons, setTestingAddons] = useState<Record<string, {
+        conformity: boolean;
+        sterility: boolean;
+        endotoxins: boolean;
+        net_content: boolean;
+        purity: boolean;
+    }>>({});
+
+    // Testing labs from API
+    const [testingLabs, setTestingLabs] = useState<Array<{ id: string; name: string; email: string; is_default: boolean }>>([]);
+    const [selectedLabId, setSelectedLabId] = useState<string>('');
+    const [labsLoaded, setLabsLoaded] = useState(false);
+
+    // Addon pricing constants
+    const ADDON_EXTRA_QTY: Record<string, number> = {
+        conformity: 2, sterility: 1, endotoxins: 1, net_content: 0, purity: 0,
+    };
+    const ADDON_FEE_CENTS: Record<string, number> = {
+        conformity: 5000, sterility: 25000, endotoxins: 25000, net_content: 0, purity: 0,
+    };
 
     const filteredProducts = products.filter((product) => {
         const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -117,21 +138,94 @@ export default function CatalogPage() {
         });
     };
 
+    // Initialize addons for a product when selected
+    const ensureAddonState = (productId: string) => {
+        if (!testingAddons[productId]) {
+            setTestingAddons(prev => ({
+                ...prev,
+                [productId]: {
+                    conformity: false,
+                    sterility: false,
+                    endotoxins: false,
+                    net_content: false,
+                    purity: false,
+                },
+            }));
+        }
+    };
+
+    // Toggle an addon for a specific product
+    const toggleAddon = (productId: string, addon: string) => {
+        ensureAddonState(productId);
+        setTestingAddons(prev => ({
+            ...prev,
+            [productId]: {
+                ...prev[productId],
+                [addon]: !prev[productId]?.[addon as keyof typeof prev[string]],
+            },
+        }));
+    };
+
+    // Calculate per-item costs
+    const calculateItemCost = (product: Product, addons: typeof testingAddons[string]) => {
+        if (!addons) return { totalQty: 1, productCost: product.wholesale_price_cents, testingFee: 0 };
+        let extraQty = 0;
+        let testingFee = 0;
+        for (const [key, enabled] of Object.entries(addons)) {
+            if (enabled) {
+                extraQty += ADDON_EXTRA_QTY[key] || 0;
+                testingFee += ADDON_FEE_CENTS[key] || 0;
+            }
+        }
+        const totalQty = 1 + extraQty;
+        const productCost = product.wholesale_price_cents * totalQty;
+        return { totalQty, productCost, testingFee };
+    };
+
     // Calculate testing costs
     const calculateTestingCosts = () => {
         const selectedProducts = products.filter(p => selectedForTesting.has(p.id));
-        const productCostCents = selectedProducts.reduce((sum, p) => sum + p.wholesale_price_cents, 0);
-        const testingFeeCents = selectedProducts.length * TESTING_FEE_CENTS;
-        const totalCents = productCostCents + testingFeeCents + SHIPPING_FEE_CENTS;
+        let totalProductCost = 0;
+        let totalTestingFee = 0;
+
+        const itemDetails = selectedProducts.map(p => {
+            const addons = testingAddons[p.id];
+            const calc = calculateItemCost(p, addons);
+            totalProductCost += calc.productCost;
+            totalTestingFee += calc.testingFee;
+            return { product: p, ...calc, addons };
+        });
+
+        const totalCents = totalProductCost + totalTestingFee + SHIPPING_FEE_CENTS;
 
         return {
             productCount: selectedProducts.length,
-            productCostCents,
-            testingFeeCents,
+            productCostCents: totalProductCost,
+            testingFeeCents: totalTestingFee,
             shippingCents: SHIPPING_FEE_CENTS,
             totalCents,
             products: selectedProducts,
+            itemDetails,
         };
+    };
+
+    // Fetch testing labs from API
+    const fetchTestingLabs = async () => {
+        if (labsLoaded) return;
+        try {
+            const res = await fetch('/api/v1/admin/testing-labs');
+            if (res.ok) {
+                const json = await res.json();
+                const labs = (json.data || []).filter((l: { active: boolean }) => l.active);
+                setTestingLabs(labs);
+                const defaultLab = labs.find((l: { is_default: boolean }) => l.is_default);
+                if (defaultLab) setSelectedLabId(defaultLab.id);
+                else if (labs.length > 0) setSelectedLabId(labs[0].id);
+            }
+        } catch {
+            // Labs will show empty, user can still proceed
+        }
+        setLabsLoaded(true);
     };
 
     // Start testing flow
@@ -144,6 +238,9 @@ export default function CatalogPage() {
             });
             return;
         }
+        // Initialize addon state for all selected products
+        selectedForTesting.forEach(id => ensureAddonState(id));
+        fetchTestingLabs();
         setTestingStep(1);
         setTestingModalOpen(true);
     };
@@ -152,30 +249,62 @@ export default function CatalogPage() {
     const cancelTestingMode = () => {
         setTestingMode(false);
         setSelectedForTesting(new Set());
+        setTestingAddons({});
     };
 
-    // Process testing order
+    // Process testing order - real API call
     const processTestingOrder = async () => {
         setIsProcessingTesting(true);
 
         const costs = calculateTestingCosts();
 
-        // Simulate processing
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        try {
+            const items = costs.products.map(p => ({
+                product_id: p.id,
+                sku: p.sku,
+                product_name: p.name,
+                product_cost_cents: p.wholesale_price_cents,
+                addon_conformity: testingAddons[p.id]?.conformity || false,
+                addon_sterility: testingAddons[p.id]?.sterility || false,
+                addon_endotoxins: testingAddons[p.id]?.endotoxins || false,
+                addon_net_content: testingAddons[p.id]?.net_content || false,
+                addon_purity: testingAddons[p.id]?.purity || false,
+            }));
 
-        // Simulate creating testing order
-        await new Promise(resolve => setTimeout(resolve, 500));
+            const res = await fetch('/api/v1/admin/testing-orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    merchant_id: 'current', // The API will resolve from auth context
+                    testing_lab_id: selectedLabId,
+                    items,
+                }),
+            });
 
-        setIsProcessingTesting(false);
-        setTestingModalOpen(false);
-        setTestingMode(false);
-        setSelectedForTesting(new Set());
-        setTestingStep(1);
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to create testing order');
+            }
 
-        toast({
-            title: 'Testing order submitted!',
-            description: `${costs.productCount} product(s) have been sent for 3rd party testing. Total charged: ${formatCurrency(costs.totalCents)}`,
-        });
+            setIsProcessingTesting(false);
+            setTestingModalOpen(false);
+            setTestingMode(false);
+            setSelectedForTesting(new Set());
+            setTestingAddons({});
+            setTestingStep(1);
+
+            toast({
+                title: 'Testing order submitted!',
+                description: `${costs.productCount} product(s) sent for 3rd party testing. Total: ${formatCurrency(costs.totalCents)}`,
+            });
+        } catch (error) {
+            setIsProcessingTesting(false);
+            toast({
+                title: 'Testing order failed',
+                description: error instanceof Error ? error.message : 'An error occurred',
+                variant: 'destructive',
+            });
+        }
     };
 
     // Handle file selection
@@ -705,8 +834,8 @@ export default function CatalogPage() {
 
             {/* 3rd Party Testing Confirmation Modal */}
             {testingModalOpen && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <Card className="w-full max-w-lg">
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+                    <Card className="w-full max-w-2xl my-8">
                         <CardHeader>
                             <div className="flex items-center justify-between">
                                 <CardTitle className="flex items-center gap-2">
@@ -725,7 +854,7 @@ export default function CatalogPage() {
                                 </Button>
                             </div>
                             <CardDescription>
-                                Step {testingStep} of 4
+                                Step {testingStep} of 5
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -767,8 +896,91 @@ export default function CatalogPage() {
                                 </div>
                             )}
 
-                            {/* Step 2: Lab Selection */}
+                            {/* Step 2: Per-Product Addon Selection */}
                             {testingStep === 2 && (
+                                <div className="space-y-4">
+                                    <div className="flex items-start gap-3 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200">
+                                        <FlaskConical className="w-6 h-6 text-purple-600 shrink-0 mt-0.5" />
+                                        <div>
+                                            <h4 className="font-semibold text-purple-900 dark:text-purple-100">
+                                                Select Tests Per Product
+                                            </h4>
+                                            <p className="text-sm text-purple-700 dark:text-purple-300 mt-1">
+                                                Choose which tests to run on each product. Additional quantities are automatically added for testing.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
+                                        {products.filter(p => selectedForTesting.has(p.id)).map(product => {
+                                            const addons = testingAddons[product.id] || { conformity: false, sterility: false, endotoxins: false, net_content: false, purity: false };
+                                            const calc = calculateItemCost(product, addons);
+                                            return (
+                                                <div key={product.id} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border">
+                                                    <div className="flex justify-between items-start mb-3">
+                                                        <div>
+                                                            <p className="font-medium text-gray-900 dark:text-white">{product.name}</p>
+                                                            <p className="text-xs text-gray-500">{product.sku} &middot; {formatCurrency(product.wholesale_price_cents)}/unit &middot; Qty: {calc.totalQty}</p>
+                                                        </div>
+                                                        <span className="text-sm font-semibold text-purple-600">
+                                                            {formatCurrency(calc.productCost + calc.testingFee)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                        {[
+                                                            { key: 'conformity', label: 'Conformity', desc: '+2 qty, +$50', fee: '$50' },
+                                                            { key: 'sterility', label: 'Sterility', desc: '+1 qty, +$250', fee: '$250' },
+                                                            { key: 'endotoxins', label: 'Endotoxins', desc: '+1 qty, +$250', fee: '$250' },
+                                                            { key: 'net_content', label: 'Net Content', desc: 'No extra cost', fee: '' },
+                                                            { key: 'purity', label: 'Purity', desc: 'No extra cost', fee: '' },
+                                                        ].map(addon => (
+                                                            <button
+                                                                key={addon.key}
+                                                                onClick={() => toggleAddon(product.id, addon.key)}
+                                                                className={cn(
+                                                                    'p-2 rounded-lg border text-left transition-all text-xs',
+                                                                    addons[addon.key as keyof typeof addons]
+                                                                        ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30 ring-1 ring-purple-500'
+                                                                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                                                                )}
+                                                            >
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <div className={cn(
+                                                                        'w-3.5 h-3.5 rounded border flex items-center justify-center',
+                                                                        addons[addon.key as keyof typeof addons]
+                                                                            ? 'bg-purple-600 border-purple-600'
+                                                                            : 'border-gray-300'
+                                                                    )}>
+                                                                        {addons[addon.key as keyof typeof addons] && (
+                                                                            <Check className="w-2.5 h-2.5 text-white" />
+                                                                        )}
+                                                                    </div>
+                                                                    <span className="font-medium text-gray-900 dark:text-white">{addon.label}</span>
+                                                                </div>
+                                                                <p className="text-gray-500 mt-0.5 pl-5">{addon.desc}</p>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <div className="flex gap-3">
+                                        <Button variant="outline" className="flex-1" onClick={() => setTestingStep(1)}>
+                                            <ArrowLeft className="w-4 h-4 mr-2" />
+                                            Back
+                                        </Button>
+                                        <Button className="flex-1 bg-purple-600 hover:bg-purple-700" onClick={() => setTestingStep(3)}>
+                                            Continue
+                                            <ArrowRight className="w-4 h-4 ml-2" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Step 3: Lab Selection */}
+                            {testingStep === 3 && (
                                 <div className="space-y-4">
                                     <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200">
                                         <Building className="w-6 h-6 text-blue-600 shrink-0 mt-0.5" />
@@ -777,34 +989,65 @@ export default function CatalogPage() {
                                                 Laboratory Selection
                                             </h4>
                                             <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                                                We will send your products to the lab of our choice, typically
-                                                <strong> Freedom Diagnostics</strong>.
-                                                Are you okay with this?
+                                                Select the testing laboratory for your products.
                                             </p>
                                         </div>
                                     </div>
+
+                                    {testingLabs.length > 0 ? (
+                                        <div className="space-y-2">
+                                            {testingLabs.map(lab => (
+                                                <button
+                                                    key={lab.id}
+                                                    onClick={() => setSelectedLabId(lab.id)}
+                                                    className={cn(
+                                                        'w-full p-3 rounded-lg border text-left transition-all',
+                                                        selectedLabId === lab.id
+                                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 ring-1 ring-blue-500'
+                                                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                                                    )}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={cn(
+                                                            'w-4 h-4 rounded-full border-2 flex items-center justify-center',
+                                                            selectedLabId === lab.id ? 'border-blue-600' : 'border-gray-300'
+                                                        )}>
+                                                            {selectedLabId === lab.id && (
+                                                                <div className="w-2 h-2 rounded-full bg-blue-600" />
+                                                            )}
+                                                        </div>
+                                                        <span className="font-medium text-gray-900 dark:text-white">{lab.name}</span>
+                                                        {lab.is_default && (
+                                                            <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Default</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs text-gray-500 mt-1 pl-6">{lab.email}</p>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-gray-500 italic">No testing labs configured. Contact your administrator.</p>
+                                    )}
+
                                     <div className="flex gap-3">
-                                        <Button
-                                            variant="outline"
-                                            className="flex-1"
-                                            onClick={() => setTestingStep(1)}
-                                        >
+                                        <Button variant="outline" className="flex-1" onClick={() => setTestingStep(2)}>
                                             <ArrowLeft className="w-4 h-4 mr-2" />
                                             Back
                                         </Button>
                                         <Button
                                             className="flex-1 bg-purple-600 hover:bg-purple-700"
-                                            onClick={() => setTestingStep(3)}
+                                            onClick={() => setTestingStep(4)}
+                                            disabled={!selectedLabId}
                                         >
-                                            Yes, Continue
+                                            Continue
                                             <ArrowRight className="w-4 h-4 ml-2" />
                                         </Button>
                                     </div>
                                 </div>
                             )}
 
-                            {/* Step 3: Billing Confirmation */}
-                            {testingStep === 3 && (
+                            {/* Step 4: Billing Confirmation */}
+                            {testingStep === 4 && (
                                 <div className="space-y-4">
                                     <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200">
                                         <CreditCard className="w-6 h-6 text-green-600 shrink-0 mt-0.5" />
@@ -813,25 +1056,19 @@ export default function CatalogPage() {
                                                 Automatic Billing
                                             </h4>
                                             <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-                                                We will bill you automatically <strong>$300 per test</strong> in
-                                                addition to product costs + <strong>$50 shipping</strong> (overnight).
-                                                Are you okay with this?
+                                                Testing fees are based on your addon selections per product.
+                                                Conformity is <strong>+$50</strong>, Sterility is <strong>+$250</strong>,
+                                                Endotoxins is <strong>+$250</strong>, plus product costs (adjusted for extra qty)
+                                                and <strong>$50 overnight shipping</strong>. This will be charged to your wallet.
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex gap-3">
-                                        <Button
-                                            variant="outline"
-                                            className="flex-1"
-                                            onClick={() => setTestingStep(2)}
-                                        >
+                                        <Button variant="outline" className="flex-1" onClick={() => setTestingStep(3)}>
                                             <ArrowLeft className="w-4 h-4 mr-2" />
                                             Back
                                         </Button>
-                                        <Button
-                                            className="flex-1 bg-purple-600 hover:bg-purple-700"
-                                            onClick={() => setTestingStep(4)}
-                                        >
+                                        <Button className="flex-1 bg-purple-600 hover:bg-purple-700" onClick={() => setTestingStep(5)}>
                                             Yes, Continue
                                             <ArrowRight className="w-4 h-4 ml-2" />
                                         </Button>
@@ -839,87 +1076,95 @@ export default function CatalogPage() {
                                 </div>
                             )}
 
-                            {/* Step 4: Cost Summary & Final Confirmation */}
-                            {testingStep === 4 && (
-                                <div className="space-y-4">
-                                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-3">
-                                        <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                            <DollarSign className="w-5 h-5 text-green-600" />
-                                            Cost Summary
-                                        </h4>
+                            {/* Step 5: Cost Summary & Final Confirmation */}
+                            {testingStep === 5 && (() => {
+                                const costs = calculateTestingCosts();
+                                return (
+                                    <div className="space-y-4">
+                                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-3">
+                                            <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                                <DollarSign className="w-5 h-5 text-green-600" />
+                                                Cost Summary
+                                            </h4>
 
-                                        {/* Selected Products */}
-                                        <div className="text-sm space-y-1">
-                                            <p className="font-medium text-gray-700 dark:text-gray-300">
-                                                Selected Products ({calculateTestingCosts().productCount}):
-                                            </p>
-                                            {calculateTestingCosts().products.map(p => (
-                                                <div key={p.id} className="flex justify-between text-gray-600 dark:text-gray-400 pl-2">
-                                                    <span>{p.name}</span>
-                                                    <span>{formatCurrency(p.wholesale_price_cents)}</span>
+                                            {/* Per-product breakdown */}
+                                            <div className="text-sm space-y-3">
+                                                {costs.itemDetails.map(({ product, totalQty, productCost, testingFee, addons }) => (
+                                                    <div key={product.id} className="border-b border-gray-200 dark:border-gray-700 pb-2">
+                                                        <div className="flex justify-between font-medium text-gray-700 dark:text-gray-300">
+                                                            <span>{product.name} (x{totalQty})</span>
+                                                            <span>{formatCurrency(productCost + testingFee)}</span>
+                                                        </div>
+                                                        <div className="text-xs text-gray-500 pl-2 space-y-0.5 mt-1">
+                                                            <div className="flex justify-between">
+                                                                <span>Product cost ({totalQty} x {formatCurrency(product.wholesale_price_cents)})</span>
+                                                                <span>{formatCurrency(productCost)}</span>
+                                                            </div>
+                                                            {addons && Object.entries(addons).filter(([, v]) => v).map(([key]) => (
+                                                                <div key={key} className="flex justify-between text-purple-600">
+                                                                    <span className="capitalize">{key.replace('_', ' ')} test{ADDON_EXTRA_QTY[key] > 0 ? ` (+${ADDON_EXTRA_QTY[key]} qty)` : ''}</span>
+                                                                    <span>{ADDON_FEE_CENTS[key] > 0 ? formatCurrency(ADDON_FEE_CENTS[key]) : 'Included'}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Product Costs (all items)</span>
+                                                    <span className="font-medium">{formatCurrency(costs.productCostCents)}</span>
                                                 </div>
-                                            ))}
-                                        </div>
-
-                                        <hr className="border-gray-200 dark:border-gray-700" />
-
-                                        {/* Cost Breakdown */}
-                                        <div className="space-y-2 text-sm">
-                                            <div className="flex justify-between">
-                                                <span className="text-gray-600 dark:text-gray-400">Product Costs</span>
-                                                <span className="font-medium">{formatCurrency(calculateTestingCosts().productCostCents)}</span>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Testing Fees</span>
+                                                    <span className="font-medium">{formatCurrency(costs.testingFeeCents)}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600 dark:text-gray-400">Overnight Shipping</span>
+                                                    <span className="font-medium">{formatCurrency(costs.shippingCents)}</span>
+                                                </div>
                                             </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-gray-600 dark:text-gray-400">
-                                                    Testing Fees ({calculateTestingCosts().productCount} × $300)
-                                                </span>
-                                                <span className="font-medium">{formatCurrency(calculateTestingCosts().testingFeeCents)}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-gray-600 dark:text-gray-400">Overnight Shipping</span>
-                                                <span className="font-medium">{formatCurrency(calculateTestingCosts().shippingCents)}</span>
+
+                                            <hr className="border-gray-200 dark:border-gray-700" />
+
+                                            <div className="flex justify-between text-lg font-bold">
+                                                <span className="text-gray-900 dark:text-white">Total</span>
+                                                <span className="text-purple-600">{formatCurrency(costs.totalCents)}</span>
                                             </div>
                                         </div>
 
-                                        <hr className="border-gray-200 dark:border-gray-700" />
-
-                                        {/* Total */}
-                                        <div className="flex justify-between text-lg font-bold">
-                                            <span className="text-gray-900 dark:text-white">Total</span>
-                                            <span className="text-purple-600">{formatCurrency(calculateTestingCosts().totalCents)}</span>
+                                        <div className="flex gap-3">
+                                            <Button
+                                                variant="outline"
+                                                className="flex-1"
+                                                onClick={() => setTestingStep(4)}
+                                                disabled={isProcessingTesting}
+                                            >
+                                                <ArrowLeft className="w-4 h-4 mr-2" />
+                                                Back
+                                            </Button>
+                                            <Button
+                                                className="flex-1 bg-purple-600 hover:bg-purple-700"
+                                                onClick={processTestingOrder}
+                                                disabled={isProcessingTesting}
+                                            >
+                                                {isProcessingTesting ? (
+                                                    <>
+                                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                        Processing...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <CheckCircle className="w-4 h-4 mr-2" />
+                                                        Confirm & Pay
+                                                    </>
+                                                )}
+                                            </Button>
                                         </div>
                                     </div>
-
-                                    <div className="flex gap-3">
-                                        <Button
-                                            variant="outline"
-                                            className="flex-1"
-                                            onClick={() => setTestingStep(3)}
-                                            disabled={isProcessingTesting}
-                                        >
-                                            <ArrowLeft className="w-4 h-4 mr-2" />
-                                            Back
-                                        </Button>
-                                        <Button
-                                            className="flex-1 bg-purple-600 hover:bg-purple-700"
-                                            onClick={processTestingOrder}
-                                            disabled={isProcessingTesting}
-                                        >
-                                            {isProcessingTesting ? (
-                                                <>
-                                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                                    Processing...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <CheckCircle className="w-4 h-4 mr-2" />
-                                                    Confirm & Pay
-                                                </>
-                                            )}
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
+                                );
+                            })()}
                         </CardContent>
                     </Card>
                 </div>

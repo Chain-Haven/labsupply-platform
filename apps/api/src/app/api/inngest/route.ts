@@ -13,6 +13,9 @@ import { mercuryCheckBalancesFunction } from './functions/mercury-check-balances
 import { mercurySyncInvoicesFunction } from './functions/mercury-sync-invoices';
 import { storeNotifyTrackingFunction } from './functions/store-notify-tracking';
 import { complianceScanFunction, complianceScanOnDemandFunction } from './functions/compliance-scan';
+import { btcSyncDepositsFunction } from './functions/btc-sync-deposits';
+import { testingTrackingPollFunction } from './functions/testing-tracking-poll';
+import { testingLabNotifyFunction } from './functions/testing-lab-notify';
 
 // Export the Inngest handler
 export const { GET, POST, PUT } = serve({
@@ -27,5 +30,8 @@ export const { GET, POST, PUT } = serve({
         storeNotifyTrackingFunction,
         complianceScanFunction,
         complianceScanOnDemandFunction,
+        btcSyncDepositsFunction,
+        testingTrackingPollFunction,
+        testingLabNotifyFunction,
     ],
 });

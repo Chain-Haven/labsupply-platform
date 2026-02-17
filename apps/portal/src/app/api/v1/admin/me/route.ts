@@ -45,7 +45,7 @@ export async function GET() {
                 .insert({
                     user_id: user.id,
                     email,
-                    name: 'ChainHaven Admin',
+                    name: 'WhiteLabel Admin',
                     role: 'super_admin',
                 })
                 .select()

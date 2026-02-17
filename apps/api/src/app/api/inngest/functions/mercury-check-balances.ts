@@ -40,10 +40,12 @@ export const mercuryCheckBalancesFunction = inngest.createFunction(
                     wallet_accounts!inner(
                         id,
                         balance_cents,
-                        reserved_cents
+                        reserved_cents,
+                        currency
                     )
                 `)
                 .eq('status', 'ACTIVE')
+                .eq('wallet_accounts.currency', 'USD')
                 .not('mercury_customer_id', 'is', null)
                 .not('billing_email', 'is', null);
 

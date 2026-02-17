@@ -11,7 +11,8 @@ import Step2Business from './steps/step-2';
 import Step3Address from './steps/step-3';
 import Step4Contact from './steps/step-4';
 import Step5Documents from './steps/step-5';
-import Step6Review from './steps/step-6';
+import Step6Agreement from './steps/step-6-agreement';
+import Step7Review from './steps/step-7';
 
 const steps = [
     { title: 'Welcome', description: 'Account type' },
@@ -19,6 +20,7 @@ const steps = [
     { title: 'Address', description: 'Locations' },
     { title: 'Contact', description: 'Representative' },
     { title: 'Documents', description: 'Verification' },
+    { title: 'Agreement', description: 'Sign' },
     { title: 'Review', description: 'Submit' },
 ];
 
@@ -48,7 +50,9 @@ export default function OnboardingPage() {
             case 5:
                 return <Step5Documents onNext={handleNext} onPrev={prevStep} />;
             case 6:
-                return <Step6Review onNext={handleNext} onPrev={prevStep} />;
+                return <Step6Agreement onNext={handleNext} onPrev={prevStep} />;
+            case 7:
+                return <Step7Review onNext={handleNext} onPrev={prevStep} />;
             default:
                 return <Step1Welcome onNext={handleNext} onPrev={prevStep} />;
         }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +24,11 @@ import {
     AlertCircle,
     Ship,
     Tag,
-    FlaskConical
+    FlaskConical,
+    Mail,
+    Building,
+    ArrowRight,
+    Loader2
 } from 'lucide-react';
 import { cn, formatCurrency, formatRelativeTime } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -90,6 +94,116 @@ export default function OrdersPage() {
     const [isPushingToShipStation, setIsPushingToShipStation] = useState(false);
     const [isExportingLabels, setIsExportingLabels] = useState(false);
     const [showOrderDetails, setShowOrderDetails] = useState<Order | null>(null);
+
+    // Testing orders state
+    interface TestingOrderView {
+        id: string;
+        merchant_id: string;
+        testing_lab_id: string;
+        status: string;
+        tracking_number?: string;
+        tracking_notified_at?: string;
+        shipping_fee_cents: number;
+        total_testing_fee_cents: number;
+        total_product_cost_cents: number;
+        grand_total_cents: number;
+        invoice_email: string;
+        lab_invoice_number?: string;
+        notes?: string;
+        created_at: string;
+        testing_labs?: { id: string; name: string; email: string };
+        merchants?: { id: string; name: string; company_name?: string; contact_email: string };
+        testing_order_items?: Array<{
+            id: string;
+            product_name: string;
+            sku: string;
+            total_qty: number;
+            addon_conformity: boolean;
+            addon_sterility: boolean;
+            addon_endotoxins: boolean;
+            addon_net_content: boolean;
+            addon_purity: boolean;
+            testing_fee_cents: number;
+            product_cost_cents: number;
+        }>;
+    }
+
+    const [testingOrders, setTestingOrders] = useState<TestingOrderView[]>([]);
+    const [testingLoading, setTestingLoading] = useState(false);
+    const [showTestingPanel, setShowTestingPanel] = useState(false);
+    const [selectedTestingOrder, setSelectedTestingOrder] = useState<TestingOrderView | null>(null);
+    const [updatingTestingStatus, setUpdatingTestingStatus] = useState(false);
+    const [resendingEmail, setResendingEmail] = useState<string | null>(null);
+
+    const fetchTestingOrders = useCallback(async () => {
+        setTestingLoading(true);
+        try {
+            const res = await fetch('/api/v1/admin/testing-orders');
+            if (res.ok) {
+                const json = await res.json();
+                setTestingOrders(json.data || []);
+            }
+        } catch { /* ignore */ }
+        setTestingLoading(false);
+    }, []);
+
+    const updateTestingStatus = async (id: string, status: string) => {
+        setUpdatingTestingStatus(true);
+        try {
+            const res = await fetch(`/api/v1/admin/testing-orders/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status }),
+            });
+            if (res.ok) {
+                toast({ title: 'Status updated', description: `Testing order updated to ${status.replace('_', ' ')}` });
+                fetchTestingOrders();
+            }
+        } catch {
+            toast({ title: 'Error', description: 'Failed to update status', variant: 'destructive' });
+        }
+        setUpdatingTestingStatus(false);
+    };
+
+    const resendLabEmail = async (id: string) => {
+        setResendingEmail(id);
+        try {
+            const res = await fetch(`/api/v1/admin/testing-orders/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'resend_lab_email' }),
+            });
+            if (res.ok) {
+                const json = await res.json();
+                toast({ title: 'Email queued', description: json.message });
+            }
+        } catch {
+            toast({ title: 'Error', description: 'Failed to resend email', variant: 'destructive' });
+        }
+        setResendingEmail(null);
+    };
+
+    const getTestingStatusColor = (status: string) => {
+        switch (status) {
+            case 'PENDING': return 'bg-gray-100 text-gray-700';
+            case 'AWAITING_SHIPMENT': return 'bg-yellow-100 text-yellow-700';
+            case 'SHIPPED': return 'bg-blue-100 text-blue-700';
+            case 'IN_TESTING': return 'bg-purple-100 text-purple-700';
+            case 'RESULTS_RECEIVED': return 'bg-green-100 text-green-700';
+            case 'COMPLETE': return 'bg-emerald-100 text-emerald-700';
+            default: return 'bg-gray-100 text-gray-700';
+        }
+    };
+
+    const testingStatusOptions = [
+        'PENDING', 'AWAITING_SHIPMENT', 'SHIPPED', 'IN_TESTING', 'RESULTS_RECEIVED', 'COMPLETE',
+    ];
+
+    useEffect(() => {
+        if (statusFilter === 'TESTING' || showTestingPanel) {
+            fetchTestingOrders();
+        }
+    }, [statusFilter, showTestingPanel, fetchTestingOrders]);
 
     const filteredOrders = orders.filter((order) => {
         const matchesSearch =
@@ -355,15 +469,21 @@ export default function OrdersPage() {
 
             {/* Stats */}
             <div className="grid gap-4 md:grid-cols-6">
-                <Card className={testingOrdersCount > 0 ? 'border-purple-300 bg-purple-50/50 dark:border-purple-800 dark:bg-purple-900/10' : ''}>
+                <Card
+                    className={cn(
+                        'cursor-pointer transition-colors hover:border-purple-400',
+                        (testingOrdersCount > 0 || showTestingPanel) ? 'border-purple-300 bg-purple-50/50 dark:border-purple-800 dark:bg-purple-900/10' : ''
+                    )}
+                    onClick={() => setShowTestingPanel(!showTestingPanel)}
+                >
                     <CardContent className="p-4 flex items-center gap-3">
                         <div className={cn(
                             "w-12 h-12 rounded-lg flex items-center justify-center",
-                            testingOrdersCount > 0
+                            (testingOrdersCount > 0 || showTestingPanel)
                                 ? "bg-purple-100 dark:bg-purple-900/30"
                                 : "bg-gray-100 dark:bg-gray-800"
                         )}>
-                            <FlaskConical className={cn("w-6 h-6", testingOrdersCount > 0 ? "text-purple-600" : "text-gray-600")} />
+                            <FlaskConical className={cn("w-6 h-6", (testingOrdersCount > 0 || showTestingPanel) ? "text-purple-600" : "text-gray-600")} />
                         </div>
                         <div>
                             <p className="text-2xl font-bold text-gray-900 dark:text-white">{testingOrdersCount}</p>
@@ -657,6 +777,259 @@ export default function OrdersPage() {
                         <p className="text-gray-500">Try adjusting your search or filter criteria</p>
                     </CardContent>
                 </Card>
+            )}
+
+            {/* Testing Orders Panel - shown when filtering by Testing or explicitly */}
+            {(statusFilter === 'TESTING' || showTestingPanel) && (
+                <Card className="border-purple-200 dark:border-purple-800">
+                    <CardHeader>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <CardTitle className="flex items-center gap-2">
+                                    <FlaskConical className="w-5 h-5 text-purple-600" />
+                                    Testing Orders
+                                </CardTitle>
+                                <CardDescription>
+                                    Track 3rd party testing shipments, lab notifications, and results
+                                </CardDescription>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={fetchTestingOrders}>
+                                    <RefreshCw className={cn("w-4 h-4 mr-2", testingLoading && "animate-spin")} />
+                                    Refresh
+                                </Button>
+                                {statusFilter !== 'TESTING' && (
+                                    <Button variant="ghost" size="sm" onClick={() => setShowTestingPanel(false)}>
+                                        <X className="w-4 h-4" />
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        {testingOrders.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">
+                                <FlaskConical className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+                                <p>No testing orders found.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {testingOrders.map((to) => (
+                                    <div key={to.id} className="p-4 rounded-lg border bg-white dark:bg-gray-900 hover:border-purple-300 transition-colors">
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="font-mono text-sm font-medium text-gray-900 dark:text-white">
+                                                        #{to.id.slice(0, 8).toUpperCase()}
+                                                    </span>
+                                                    <span className={cn(
+                                                        'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
+                                                        getTestingStatusColor(to.status)
+                                                    )}>
+                                                        {to.status.replace(/_/g, ' ')}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-gray-500">
+                                                    {to.merchants?.company_name || to.merchants?.name || 'Unknown'} &middot;
+                                                    <span className="inline-flex items-center gap-1 ml-1">
+                                                        <Building className="w-3 h-3" />
+                                                        {to.testing_labs?.name || 'Unknown Lab'}
+                                                    </span>
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-semibold text-purple-600">{formatCurrency(to.grand_total_cents)}</p>
+                                                <p className="text-xs text-gray-400">{formatRelativeTime(to.created_at)}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Items */}
+                                        {to.testing_order_items && to.testing_order_items.length > 0 && (
+                                            <div className="mb-3 space-y-1">
+                                                {to.testing_order_items.map((item) => {
+                                                    const tests: string[] = [];
+                                                    if (item.addon_conformity) tests.push('Conformity');
+                                                    if (item.addon_sterility) tests.push('Sterility');
+                                                    if (item.addon_endotoxins) tests.push('Endotoxins');
+                                                    if (item.addon_net_content) tests.push('Net Content');
+                                                    if (item.addon_purity) tests.push('Purity');
+                                                    return (
+                                                        <div key={item.id} className="flex items-center justify-between text-sm">
+                                                            <span className="text-gray-700 dark:text-gray-300">
+                                                                {item.product_name} <span className="text-gray-400">({item.sku})</span> x{item.total_qty}
+                                                            </span>
+                                                            <div className="flex gap-1">
+                                                                {tests.map(t => (
+                                                                    <span key={t} className="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded">
+                                                                        {t}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        {/* Tracking */}
+                                        {to.tracking_number && (
+                                            <div className="flex items-center gap-2 text-sm mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
+                                                <Truck className="w-4 h-4 text-blue-600" />
+                                                <span className="text-blue-700 dark:text-blue-300">Tracking: {to.tracking_number}</span>
+                                                {to.tracking_notified_at && (
+                                                    <span className="text-xs text-green-600 flex items-center gap-1">
+                                                        <CheckCircle className="w-3 h-3" />
+                                                        Lab notified
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Actions */}
+                                        <div className="flex items-center gap-2 pt-2 border-t">
+                                            <select
+                                                value={to.status}
+                                                onChange={(e) => updateTestingStatus(to.id, e.target.value)}
+                                                disabled={updatingTestingStatus}
+                                                className="text-xs px-2 py-1 border rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                                            >
+                                                {testingStatusOptions.map(s => (
+                                                    <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+                                                ))}
+                                            </select>
+
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="text-xs"
+                                                onClick={() => resendLabEmail(to.id)}
+                                                disabled={resendingEmail === to.id}
+                                            >
+                                                {resendingEmail === to.id ? (
+                                                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                                ) : (
+                                                    <Mail className="w-3 h-3 mr-1" />
+                                                )}
+                                                {to.tracking_notified_at ? 'Resend' : 'Send'} Lab Email
+                                            </Button>
+
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="text-xs"
+                                                onClick={() => setSelectedTestingOrder(to)}
+                                            >
+                                                <Eye className="w-3 h-3 mr-1" />
+                                                Details
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Testing Order Detail Modal */}
+            {selectedTestingOrder && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+                    <Card className="w-full max-w-lg my-8">
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="flex items-center gap-2">
+                                    <FlaskConical className="w-5 h-5 text-purple-600" />
+                                    Testing Order #{selectedTestingOrder.id.slice(0, 8).toUpperCase()}
+                                </CardTitle>
+                                <Button variant="ghost" size="icon" onClick={() => setSelectedTestingOrder(null)}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-sm text-gray-500">Merchant</p>
+                                    <p className="font-medium">{selectedTestingOrder.merchants?.company_name || selectedTestingOrder.merchants?.name}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500">Lab</p>
+                                    <p className="font-medium">{selectedTestingOrder.testing_labs?.name}</p>
+                                    <p className="text-xs text-gray-400">{selectedTestingOrder.testing_labs?.email}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500">Status</p>
+                                    <span className={cn(
+                                        'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
+                                        getTestingStatusColor(selectedTestingOrder.status)
+                                    )}>
+                                        {selectedTestingOrder.status.replace(/_/g, ' ')}
+                                    </span>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500">Total</p>
+                                    <p className="font-semibold text-purple-600">{formatCurrency(selectedTestingOrder.grand_total_cents)}</p>
+                                </div>
+                                {selectedTestingOrder.tracking_number && (
+                                    <div className="col-span-2">
+                                        <p className="text-sm text-gray-500">Tracking</p>
+                                        <p className="font-mono text-sm">{selectedTestingOrder.tracking_number}</p>
+                                    </div>
+                                )}
+                                <div>
+                                    <p className="text-sm text-gray-500">Product Costs</p>
+                                    <p className="font-medium">{formatCurrency(selectedTestingOrder.total_product_cost_cents)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500">Testing Fees</p>
+                                    <p className="font-medium">{formatCurrency(selectedTestingOrder.total_testing_fee_cents)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500">Shipping</p>
+                                    <p className="font-medium">{formatCurrency(selectedTestingOrder.shipping_fee_cents)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500">Invoice Email</p>
+                                    <p className="text-sm">{selectedTestingOrder.invoice_email}</p>
+                                </div>
+                            </div>
+
+                            {selectedTestingOrder.testing_order_items && (
+                                <div className="pt-2 border-t">
+                                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Products & Tests</p>
+                                    {selectedTestingOrder.testing_order_items.map(item => {
+                                        const tests: string[] = [];
+                                        if (item.addon_conformity) tests.push('Conformity');
+                                        if (item.addon_sterility) tests.push('Sterility');
+                                        if (item.addon_endotoxins) tests.push('Endotoxins');
+                                        if (item.addon_net_content) tests.push('Net Content');
+                                        if (item.addon_purity) tests.push('Purity');
+                                        return (
+                                            <div key={item.id} className="flex justify-between items-center py-1 text-sm">
+                                                <div>
+                                                    <span className="text-gray-900 dark:text-white">{item.product_name}</span>
+                                                    <span className="text-gray-400 ml-1">x{item.total_qty}</span>
+                                                </div>
+                                                <div className="flex gap-1 flex-wrap justify-end">
+                                                    {tests.map(t => (
+                                                        <span key={t} className="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded">{t}</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {selectedTestingOrder.notes && (
+                                <div className="pt-2 border-t">
+                                    <p className="text-sm text-gray-500">Notes</p>
+                                    <p className="text-sm">{selectedTestingOrder.notes}</p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
             )}
 
             {/* Order Details Modal */}

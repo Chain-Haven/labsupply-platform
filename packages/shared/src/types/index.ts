@@ -28,6 +28,7 @@ export const MerchantStatus = {
     PENDING: 'PENDING',
     ACTIVE: 'ACTIVE',
     SUSPENDED: 'SUSPENDED',
+    CLOSING: 'CLOSING',
     CLOSED: 'CLOSED',
 } as const;
 
@@ -73,6 +74,12 @@ export const WalletTransactionType = {
     SETTLEMENT: 'SETTLEMENT',
     ADJUSTMENT: 'ADJUSTMENT',
     REFUND: 'REFUND',
+    BTC_DEPOSIT_TOPUP: 'BTC_DEPOSIT_TOPUP',
+    BTC_DEPOSIT_TIP: 'BTC_DEPOSIT_TIP',
+    USD_WITHDRAWAL_REQUESTED: 'USD_WITHDRAWAL_REQUESTED',
+    BTC_WITHDRAWAL_REQUESTED: 'BTC_WITHDRAWAL_REQUESTED',
+    USD_WITHDRAWAL_COMPLETED: 'USD_WITHDRAWAL_COMPLETED',
+    BTC_WITHDRAWAL_COMPLETED: 'BTC_WITHDRAWAL_COMPLETED',
 } as const;
 
 export type WalletTransactionType = (typeof WalletTransactionType)[keyof typeof WalletTransactionType];
@@ -267,6 +274,7 @@ export interface Order {
     merchant_id: string;
     woo_order_id: string;
     woo_order_number?: string;
+    order_type?: OrderType;
     status: OrderStatus;
     currency: string;
     subtotal_cents: number;
@@ -640,6 +648,115 @@ export interface SignedRequest {
 // Compliance Scanning Types
 // ============================================================================
 
+// ============================================================================
+// Testing Enums and Types
+// ============================================================================
+
+export const OrderType = {
+    REGULAR: 'REGULAR',
+    TESTING: 'TESTING',
+} as const;
+
+export type OrderType = (typeof OrderType)[keyof typeof OrderType];
+
+export const TestingOrderStatus = {
+    PENDING: 'PENDING',
+    AWAITING_SHIPMENT: 'AWAITING_SHIPMENT',
+    SHIPPED: 'SHIPPED',
+    IN_TESTING: 'IN_TESTING',
+    RESULTS_RECEIVED: 'RESULTS_RECEIVED',
+    COMPLETE: 'COMPLETE',
+} as const;
+
+export type TestingOrderStatus = (typeof TestingOrderStatus)[keyof typeof TestingOrderStatus];
+
+export const TestingAddon = {
+    CONFORMITY: 'conformity',
+    STERILITY: 'sterility',
+    ENDOTOXINS: 'endotoxins',
+    NET_CONTENT: 'net_content',
+    PURITY: 'purity',
+} as const;
+
+export type TestingAddon = (typeof TestingAddon)[keyof typeof TestingAddon];
+
+/** Extra quantity required per addon */
+export const TESTING_ADDON_EXTRA_QTY: Record<TestingAddon, number> = {
+    [TestingAddon.CONFORMITY]: 2,
+    [TestingAddon.STERILITY]: 1,
+    [TestingAddon.ENDOTOXINS]: 1,
+    [TestingAddon.NET_CONTENT]: 0,
+    [TestingAddon.PURITY]: 0,
+};
+
+/** Fee in cents per addon */
+export const TESTING_ADDON_FEE_CENTS: Record<TestingAddon, number> = {
+    [TestingAddon.CONFORMITY]: 5000,   // $50
+    [TestingAddon.STERILITY]: 25000,   // $250
+    [TestingAddon.ENDOTOXINS]: 25000,  // $250
+    [TestingAddon.NET_CONTENT]: 0,
+    [TestingAddon.PURITY]: 0,
+};
+
+export const TESTING_SHIPPING_FEE_CENTS = 5000; // $50 overnight shipping
+
+export interface TestingLab {
+    id: string;
+    name: string;
+    email: string;
+    phone?: string;
+    address?: Address;
+    is_default: boolean;
+    active: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface TestingOrder {
+    id: string;
+    order_id?: string;
+    merchant_id: string;
+    testing_lab_id: string;
+    status: TestingOrderStatus;
+    tracking_number?: string;
+    tracking_url?: string;
+    carrier?: string;
+    tracking_notified_at?: string;
+    shipping_fee_cents: number;
+    total_testing_fee_cents: number;
+    total_product_cost_cents: number;
+    grand_total_cents: number;
+    invoice_email: string;
+    lab_invoice_number?: string;
+    lab_invoice_amount_cents?: number;
+    notes?: string;
+    results_received_at?: string;
+    created_at: string;
+    updated_at: string;
+    // Joined fields
+    testing_lab?: TestingLab;
+    merchant?: Merchant;
+    items?: TestingOrderItem[];
+}
+
+export interface TestingOrderItem {
+    id: string;
+    testing_order_id: string;
+    product_id: string;
+    sku: string;
+    product_name: string;
+    base_qty: number;
+    addon_conformity: boolean;
+    addon_sterility: boolean;
+    addon_endotoxins: boolean;
+    addon_net_content: boolean;
+    addon_purity: boolean;
+    total_qty: number;
+    product_cost_cents: number;
+    testing_fee_cents: number;
+    created_at: string;
+}
+
 export const ComplianceScanStatus = {
     PENDING: 'pending',
     RUNNING: 'running',
@@ -722,4 +839,101 @@ export interface ComplianceScanConfig {
     custom_rules?: Record<string, unknown>;
     created_at: string;
     updated_at: string;
+}
+
+// ============================================================================
+// BTC Wallet Types
+// ============================================================================
+
+export const BtcPurpose = {
+    TOPUP: 'TOPUP',
+    TIP: 'TIP',
+} as const;
+
+export type BtcPurpose = (typeof BtcPurpose)[keyof typeof BtcPurpose];
+
+export const BtcAddressStatus = {
+    ACTIVE: 'ACTIVE',
+    USED: 'USED',
+    ARCHIVED: 'ARCHIVED',
+} as const;
+
+export type BtcAddressStatus = (typeof BtcAddressStatus)[keyof typeof BtcAddressStatus];
+
+export const BtcDepositStatus = {
+    PENDING: 'PENDING',
+    CONFIRMED: 'CONFIRMED',
+    CREDITED: 'CREDITED',
+    FLAGGED: 'FLAGGED',
+} as const;
+
+export type BtcDepositStatus = (typeof BtcDepositStatus)[keyof typeof BtcDepositStatus];
+
+export const WithdrawalStatus = {
+    PENDING_ADMIN: 'PENDING_ADMIN',
+    PROCESSING: 'PROCESSING',
+    COMPLETED: 'COMPLETED',
+    REJECTED: 'REJECTED',
+} as const;
+
+export type WithdrawalStatus = (typeof WithdrawalStatus)[keyof typeof WithdrawalStatus];
+
+export interface BtcAddress {
+    id: string;
+    merchant_id: string;
+    purpose: BtcPurpose;
+    derivation_index: number;
+    address: string;
+    status: BtcAddressStatus;
+    created_at: string;
+    used_at?: string;
+}
+
+export interface BtcDeposit {
+    id: string;
+    merchant_id: string;
+    purpose: BtcPurpose;
+    address: string;
+    derivation_index: number;
+    txid: string;
+    vout: number;
+    amount_sats: number;
+    confirmations: number;
+    block_height?: number;
+    status: BtcDepositStatus;
+    first_seen_at: string;
+    credited_at?: string;
+    wallet_transaction_id?: string;
+    raw_provider_payload?: Record<string, unknown>;
+}
+
+export interface WithdrawalRequest {
+    id: string;
+    merchant_id: string;
+    currency: 'USD' | 'BTC';
+    amount_minor: number;
+    payout_email?: string;
+    payout_btc_address?: string;
+    status: WithdrawalStatus;
+    merchant_name_snapshot?: string;
+    merchant_email_snapshot?: string;
+    closure_confirmed_at?: string;
+    requested_at: string;
+    completed_at?: string;
+    admin_notes?: string;
+}
+
+export interface BtcWalletBalanceResponse {
+    balance_sats: number;
+    reserved_sats: number;
+    available_sats: number;
+    balance_btc: string;
+    pending_deposits: number;
+}
+
+export interface AdminCryptoSettings {
+    btc_topup_xpub_set: boolean;
+    btc_tip_xpub_set: boolean;
+    btc_confirmation_threshold: number;
+    btc_esplora_base_url: string;
 }

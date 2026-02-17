@@ -94,11 +94,12 @@ export const orderReceivedFunction = inngest.createFunction(
 
         // Step 3: Attempt wallet reservation
         const reservationResult = await step.run('attempt-wallet-reservation', async () => {
-            // Get wallet
+            // Get USD wallet (orders use USD)
             const { data: wallet, error: walletError } = await supabase
                 .from('wallet_accounts')
                 .select('id, balance_cents, reserved_cents')
                 .eq('merchant_id', merchantId)
+                .eq('currency', 'USD')
                 .single();
 
             if (walletError || !wallet) {
