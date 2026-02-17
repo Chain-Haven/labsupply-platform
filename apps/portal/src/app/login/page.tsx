@@ -56,11 +56,21 @@ function LoginContent() {
         }
     }, [authLoading, isAuthenticated, router]);
 
-    // Show success message from password reset
+    // Show messages from redirects (password reset, auth errors)
     useEffect(() => {
         const message = searchParams.get('message');
         if (message === 'password_reset') {
             setSuccess('Password updated successfully. Please sign in with your new password.');
+        }
+
+        const errorParam = searchParams.get('error');
+        if (errorParam) {
+            const errorMessages: Record<string, string> = {
+                auth_failed: 'Authentication failed. Please try again.',
+                no_account: 'No merchant account found for this email. Please register first.',
+                not_merchant: 'This account does not have merchant access. If you are an admin, use the admin login.',
+            };
+            setError(errorMessages[errorParam] || 'An error occurred. Please try again.');
         }
     }, [searchParams]);
 

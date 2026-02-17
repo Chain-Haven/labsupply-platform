@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,20 @@ import { useAdminAuth } from '@/lib/admin-auth';
 type LoginMode = 'password' | 'magic-link' | 'backup-code';
 
 export default function AdminLoginPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-950">
+                <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
+            </div>
+        }>
+            <AdminLoginContent />
+        </Suspense>
+    );
+}
+
+function AdminLoginContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { login, loginWithMagicLink, isAuthenticated, isLoading } = useAdminAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -33,6 +46,18 @@ export default function AdminLoginPage() {
             router.push('/admin');
         }
     }, [isLoading, isAuthenticated, router]);
+
+    // Show error messages from auth redirects
+    useEffect(() => {
+        const errorParam = searchParams.get('error');
+        if (errorParam) {
+            const errorMessages: Record<string, string> = {
+                auth_failed: 'Authentication failed. Please try again.',
+                not_admin: 'This account does not have admin access. Contact your administrator.',
+            };
+            setError(errorMessages[errorParam] || 'An error occurred. Please try again.');
+        }
+    }, [searchParams]);
 
     const switchMode = (mode: LoginMode) => {
         setLoginMode(mode);
