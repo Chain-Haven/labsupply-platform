@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
@@ -19,6 +19,19 @@ import { Loader2 } from 'lucide-react';
  *  3. Determine the user's role (merchant / admin) and redirect.
  */
 export default function AuthCallbackPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+                <Loader2 className="w-8 h-8 animate-spin text-violet-400 mb-4" />
+                <p className="text-white/60 text-sm">Signing you in...</p>
+            </div>
+        }>
+            <AuthCallbackContent />
+        </Suspense>
+    );
+}
+
+function AuthCallbackContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [status, setStatus] = useState('Signing you in...');
