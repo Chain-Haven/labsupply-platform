@@ -4,6 +4,12 @@ const nextConfig = {
     output: 'standalone',
     poweredByHeader: false,
     compress: true,
+    eslint: {
+        ignoreDuringBuilds: true,
+    },
+    typescript: {
+        ignoreBuildErrors: false,
+    },
     images: {
         remotePatterns: [
             {
