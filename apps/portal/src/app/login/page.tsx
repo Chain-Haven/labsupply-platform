@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-    Package, Mail, Lock, ArrowRight, Loader2, KeyRound,
+    Package, Mail, Lock, ArrowRight, Loader2,
     CheckCircle, Wand2, AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMerchantAuth } from '@/lib/merchant-auth';
 
-type LoginMode = 'password' | 'magic-link' | 'otp';
+type LoginMode = 'password' | 'magic-link';
 
 export default function LoginPage() {
     return (
@@ -30,7 +30,7 @@ function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const {
-        login, loginWithMagicLink, loginWithOtp,
+        login, loginWithMagicLink,
         isLoading: authLoading, isAuthenticated,
     } = useMerchantAuth();
 
@@ -39,15 +39,10 @@ function LoginContent() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const [loginMode, setLoginMode] = useState<LoginMode>('password');
+    const [loginMode, setLoginMode] = useState<LoginMode>('magic-link');
 
     // Magic link state
     const [magicLinkSent, setMagicLinkSent] = useState(false);
-
-    // OTP state
-    const [otpCode, setOtpCode] = useState('');
-    const [otpSent, setOtpSent] = useState(false);
-    const [sendingOtp, setSendingOtp] = useState(false);
 
     // Redirect if already authenticated
     useEffect(() => {
@@ -79,8 +74,6 @@ function LoginContent() {
         setError('');
         setSuccess('');
         setMagicLinkSent(false);
-        setOtpSent(false);
-        setOtpCode('');
     };
 
     // --- Password login ---
@@ -130,66 +123,6 @@ function LoginContent() {
         }
     };
 
-    // --- 8-digit OTP ---
-    const handleSendOtp = async () => {
-        if (!email) { setError('Please enter your email address'); return; }
-        setSendingOtp(true);
-        setError('');
-        setSuccess('');
-        try {
-            const response = await fetch('/api/v1/auth/send-otp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email.toLowerCase().trim() }),
-            });
-            const data = await response.json();
-            if (!response.ok) {
-                setError(data.error || 'Failed to send code');
-            } else {
-                setOtpSent(true);
-                setSuccess('8-digit code sent to your email.');
-            }
-        } catch {
-            setError('Failed to send code. Please try again.');
-        } finally {
-            setSendingOtp(false);
-        }
-    };
-
-    const handleOtpLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        setSuccess('');
-        setIsLoading(true);
-        try {
-            // Verify OTP on server side
-            const response = await fetch('/api/v1/auth/verify-otp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email.toLowerCase().trim(), code: otpCode }),
-            });
-            const data = await response.json();
-
-            if (!response.ok) {
-                setError(data.error || 'Invalid or expired code');
-                setIsLoading(false);
-                return;
-            }
-
-            // Use the token_hash to establish a Supabase session
-            const result = await loginWithOtp(data.token_hash);
-            if (result.success) {
-                router.push('/dashboard');
-            } else {
-                setError(result.error || 'Login failed. Please try again.');
-            }
-        } catch {
-            setError('An error occurred. Please try again.');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     if (authLoading || isAuthenticated) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -229,20 +162,19 @@ function LoginContent() {
                         {/* Login mode tabs */}
                         <div className="flex rounded-lg bg-white/5 border border-white/10 p-1 gap-1">
                             {([
-                                { id: 'password' as LoginMode, label: 'Password', icon: Lock },
                                 { id: 'magic-link' as LoginMode, label: 'Magic Link', icon: Wand2 },
-                                { id: 'otp' as LoginMode, label: '8-Digit Code', icon: KeyRound },
+                                { id: 'password' as LoginMode, label: 'Password', icon: Lock },
                             ]).map((tab) => (
                                 <button
                                     key={tab.id}
                                     onClick={() => switchMode(tab.id)}
-                                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-md text-xs font-medium transition-colors ${
+                                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                                         loginMode === tab.id
                                             ? 'bg-white/10 text-white shadow-sm'
                                             : 'text-white/40 hover:text-white/70'
                                     }`}
                                 >
-                                    <tab.icon className="w-3.5 h-3.5" />
+                                    <tab.icon className="w-4 h-4" />
                                     {tab.label}
                                 </button>
                             ))}
@@ -277,6 +209,41 @@ function LoginContent() {
                                 />
                             </div>
                         </div>
+
+                        {/* === MAGIC LINK MODE === */}
+                        {loginMode === 'magic-link' && (
+                            <div className="space-y-4">
+                                {!magicLinkSent ? (
+                                    <Button
+                                        onClick={handleSendMagicLink}
+                                        className="w-full bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700"
+                                        disabled={isLoading}
+                                    >
+                                        {isLoading ? (
+                                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending...</>
+                                        ) : (
+                                            <><Wand2 className="w-4 h-4 mr-2" /> Send Magic Link</>
+                                        )}
+                                    </Button>
+                                ) : (
+                                    <div className="text-center py-4 space-y-3">
+                                        <Mail className="w-10 h-10 mx-auto text-violet-400" />
+                                        <p className="text-sm text-white/60">
+                                            Check your email and click the link to sign in. You can close this tab.
+                                        </p>
+                                        <button
+                                            onClick={() => { setMagicLinkSent(false); setSuccess(''); }}
+                                            className="text-sm text-violet-400 hover:text-violet-300"
+                                        >
+                                            Resend link
+                                        </button>
+                                    </div>
+                                )}
+                                <p className="text-xs text-center text-white/40">
+                                    A sign-in link will be sent to your email. No password needed.
+                                </p>
+                            </div>
+                        )}
 
                         {/* === PASSWORD MODE === */}
                         {loginMode === 'password' && (
@@ -317,101 +284,6 @@ function LoginContent() {
                                         </>
                                     )}
                                 </Button>
-                            </form>
-                        )}
-
-                        {/* === MAGIC LINK MODE === */}
-                        {loginMode === 'magic-link' && (
-                            <div className="space-y-4">
-                                {!magicLinkSent ? (
-                                    <Button
-                                        onClick={handleSendMagicLink}
-                                        className="w-full bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700"
-                                        disabled={isLoading}
-                                    >
-                                        {isLoading ? (
-                                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending...</>
-                                        ) : (
-                                            <><Wand2 className="w-4 h-4 mr-2" /> Send Magic Link</>
-                                        )}
-                                    </Button>
-                                ) : (
-                                    <div className="text-center py-4 space-y-3">
-                                        <Mail className="w-10 h-10 mx-auto text-violet-400" />
-                                        <p className="text-sm text-white/60">
-                                            Check your email and click the link to sign in. You can close this tab.
-                                        </p>
-                                        <button
-                                            onClick={() => { setMagicLinkSent(false); setSuccess(''); }}
-                                            className="text-sm text-violet-400 hover:text-violet-300"
-                                        >
-                                            Resend link
-                                        </button>
-                                    </div>
-                                )}
-                                <p className="text-xs text-center text-white/40">
-                                    A sign-in link will be sent to your email. No password needed.
-                                </p>
-                            </div>
-                        )}
-
-                        {/* === 8-DIGIT OTP MODE === */}
-                        {loginMode === 'otp' && (
-                            <form onSubmit={handleOtpLogin} className="space-y-4">
-                                {!otpSent ? (
-                                    <Button
-                                        type="button"
-                                        onClick={handleSendOtp}
-                                        className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700"
-                                        disabled={sendingOtp}
-                                    >
-                                        {sendingOtp ? (
-                                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending Code...</>
-                                        ) : (
-                                            <><Mail className="w-4 h-4 mr-2" /> Send 8-Digit Code</>
-                                        )}
-                                    </Button>
-                                ) : (
-                                    <>
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-white/80">Enter 8-Digit Code</label>
-                                            <div className="relative">
-                                                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-                                                <Input
-                                                    type="text"
-                                                    placeholder="12345678"
-                                                    value={otpCode}
-                                                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                                                    className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-violet-500 font-mono text-lg tracking-widest"
-                                                    required
-                                                    maxLength={8}
-                                                    autoComplete="one-time-code"
-                                                />
-                                            </div>
-                                        </div>
-                                        <Button
-                                            type="submit"
-                                            className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-                                            disabled={isLoading || otpCode.length !== 8}
-                                        >
-                                            {isLoading ? (
-                                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</>
-                                            ) : (
-                                                <><CheckCircle className="w-4 h-4 mr-2" /> Verify & Sign In</>
-                                            )}
-                                        </Button>
-                                        <button
-                                            type="button"
-                                            onClick={() => { setOtpSent(false); setSuccess(''); setOtpCode(''); }}
-                                            className="w-full text-sm text-white/40 hover:text-white/70"
-                                        >
-                                            Resend Code
-                                        </button>
-                                    </>
-                                )}
-                                <p className="text-xs text-center text-white/40">
-                                    An 8-digit code will be emailed to you. Expires in 10 minutes.
-                                </p>
                             </form>
                         )}
 

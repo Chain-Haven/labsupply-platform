@@ -31,7 +31,6 @@ interface MerchantAuthContextType {
     isLoading: boolean;
     login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
     loginWithMagicLink: (email: string) => Promise<{ success: boolean; error?: string }>;
-    loginWithOtp: (tokenHash: string) => Promise<{ success: boolean; error?: string }>;
     register: (email: string, password: string, companyName?: string) => Promise<{ success: boolean; error?: string }>;
     logout: () => Promise<void>;
     updateMerchant: (data: Partial<Merchant>) => Promise<{ success: boolean; error?: string }>;
@@ -157,33 +156,6 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    // OTP login -- verify a token_hash received from the verify-otp API
-    const loginWithOtp = async (tokenHash: string): Promise<{ success: boolean; error?: string }> => {
-        try {
-            const { data, error } = await supabase.auth.verifyOtp({
-                token_hash: tokenHash,
-                type: 'magiclink',
-            });
-
-            if (error) {
-                return { success: false, error: error.message };
-            }
-
-            if (data.user) {
-                const merchantData = await fetchMerchant(data.user.id);
-                if (!merchantData) {
-                    await supabase.auth.signOut();
-                    return { success: false, error: 'No merchant account found for this email.' };
-                }
-                setMerchant(merchantData);
-            }
-
-            return { success: true };
-        } catch (err) {
-            return { success: false, error: 'An unexpected error occurred' };
-        }
-    };
-
     // Register function
     const register = async (
         email: string,
@@ -283,7 +255,6 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         login,
         loginWithMagicLink,
-        loginWithOtp,
         register,
         logout,
         updateMerchant,
