@@ -46,7 +46,7 @@ export default function ResetPasswordPage() {
 
                 // === PRIMARY PATH: email + OTP token (from our custom reset email) ===
                 if (emailParam && tokenParam) {
-                    const { error: verifyError } = await supabase.auth.verifyOtp({
+                    const { data: otpData, error: verifyError } = await supabase.auth.verifyOtp({
                         email: emailParam,
                         token: tokenParam,
                         type: 'recovery',
@@ -54,8 +54,11 @@ export default function ResetPasswordPage() {
 
                     if (mountedRef.current) {
                         if (verifyError) {
-                            console.error('OTP verify failed:', verifyError.message);
-                            setError('Your reset link has expired or is invalid. Please request a new one.');
+                            console.error('OTP verify failed:', verifyError.message, 'code:', verifyError.status);
+                            setError(`Reset link error: ${verifyError.message}. Please request a new one.`);
+                        } else if (!otpData.session) {
+                            console.error('OTP verify succeeded but no session returned');
+                            setError('Verification succeeded but no session was created. Please try again.');
                         } else {
                             setSessionReady(true);
                         }

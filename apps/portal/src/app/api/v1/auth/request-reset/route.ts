@@ -30,10 +30,15 @@ export async function POST(request: NextRequest) {
 
         const normalizedEmail = email.toLowerCase().trim();
 
-        const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+        if (!serviceRoleKey || !supabaseUrl) {
+            console.error('MISSING ENV VARS - SUPABASE_SERVICE_ROLE_KEY:', !!serviceRoleKey, 'NEXT_PUBLIC_SUPABASE_URL:', !!supabaseUrl);
+            return NextResponse.json({ error: 'Server configuration error. Please contact support.' }, { status: 500 });
+        }
+
+        const supabase = createClient(supabaseUrl, serviceRoleKey);
 
         // Generate a recovery link via admin API — gives us the OTP code
         const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
@@ -42,7 +47,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (linkError || !linkData) {
-            console.error('generateLink error:', linkError?.message);
+            console.error('generateLink error:', linkError?.message, 'email:', normalizedEmail);
             // Don't reveal whether the email exists
             return NextResponse.json({
                 success: true,
@@ -52,9 +57,10 @@ export async function POST(request: NextRequest) {
 
         // Get the OTP code — this is what verifyOtp({ email, token, type }) needs
         const otp = linkData.properties?.email_otp;
+        const hashedToken = linkData.properties?.hashed_token;
 
         if (!otp) {
-            console.error('No email_otp in generateLink response. Properties:', JSON.stringify(linkData.properties));
+            console.error('No email_otp in generateLink response. hashed_token:', !!hashedToken, 'Properties keys:', Object.keys(linkData.properties || {}));
             return NextResponse.json({
                 success: true,
                 message: 'If this email is registered, a reset link will be sent.',
