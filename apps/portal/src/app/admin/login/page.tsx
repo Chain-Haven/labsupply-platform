@@ -5,10 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Package, Lock, Mail, AlertCircle, Loader2, KeyRound, CheckCircle, Wand2 } from 'lucide-react';
+import { Package, Lock, Mail, AlertCircle, Loader2, CheckCircle, Wand2 } from 'lucide-react';
 import { useAdminAuth } from '@/lib/admin-auth';
 
-type LoginMode = 'password' | 'magic-link' | 'backup-code';
+type LoginMode = 'password' | 'magic-link';
 
 export default function AdminLoginPage() {
     return (
@@ -32,11 +32,6 @@ function AdminLoginContent() {
     const [success, setSuccess] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [loginMode, setLoginMode] = useState<LoginMode>('magic-link');
-
-    // Backup code state
-    const [backupCode, setBackupCode] = useState('');
-    const [codeSent, setCodeSent] = useState(false);
-    const [sendingCode, setSendingCode] = useState(false);
 
     // Magic link state
     const [magicLinkSent, setMagicLinkSent] = useState(false);
@@ -67,8 +62,6 @@ function AdminLoginContent() {
         setLoginMode(mode);
         setError('');
         setSuccess('');
-        setCodeSent(false);
-        setBackupCode('');
         setMagicLinkSent(false);
     };
 
@@ -111,55 +104,6 @@ function AdminLoginContent() {
         }
     };
 
-    const handleSendBackupCode = async () => {
-        if (!email) { setError('Please enter your email address'); return; }
-        setSendingCode(true);
-        setError('');
-        setSuccess('');
-        try {
-            const response = await fetch('/api/v1/admin/send-backup-code', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email.toLowerCase() }),
-            });
-            const data = await response.json();
-            if (!response.ok) {
-                setError(data.error || 'Failed to send backup code');
-            } else {
-                setCodeSent(true);
-                setSuccess('Backup code sent to your email.');
-            }
-        } catch {
-            setError('Failed to send backup code.');
-        } finally {
-            setSendingCode(false);
-        }
-    };
-
-    const handleBackupLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        setSuccess('');
-        setIsSubmitting(true);
-        try {
-            const response = await fetch('/api/v1/admin/verify-backup-code', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email.toLowerCase(), code: backupCode }),
-            });
-            const data = await response.json();
-            if (!response.ok) {
-                setError(data.error || 'Invalid or expired code');
-            } else {
-                setSuccess('Verified! Redirecting...');
-                setTimeout(() => router.push('/admin'), 1000);
-            }
-        } catch {
-            setError('An error occurred. Please try again.');
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
 
     if (isLoading || isAuthenticated) {
         return (
@@ -187,18 +131,17 @@ function AdminLoginContent() {
                         {([
                             { id: 'magic-link' as LoginMode, label: 'Magic Link', icon: Wand2 },
                             { id: 'password' as LoginMode, label: 'Password', icon: Lock },
-                            { id: 'backup-code' as LoginMode, label: 'Backup Code', icon: KeyRound },
                         ]).map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => switchMode(tab.id)}
-                                className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-md text-xs font-medium transition-colors ${
+                                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                                     loginMode === tab.id
                                         ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                                         : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                                 }`}
                             >
-                                <tab.icon className="w-3.5 h-3.5" />
+                                <tab.icon className="w-4 h-4" />
                                 {tab.label}
                             </button>
                         ))}
@@ -303,61 +246,6 @@ function AdminLoginContent() {
                         </form>
                     )}
 
-                    {/* === BACKUP CODE MODE === */}
-                    {loginMode === 'backup-code' && (
-                        <form onSubmit={handleBackupLogin} className="space-y-4">
-                            {!codeSent ? (
-                                <Button
-                                    type="button"
-                                    onClick={handleSendBackupCode}
-                                    className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
-                                    disabled={sendingCode}
-                                >
-                                    {sendingCode ? (
-                                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending Code...</>
-                                    ) : (
-                                        <><Mail className="w-4 h-4 mr-2" /> Send 8-Digit Code</>
-                                    )}
-                                </Button>
-                            ) : (
-                                <>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Enter 8-Digit Code</label>
-                                        <div className="relative">
-                                            <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                            <Input
-                                                type="text"
-                                                placeholder="12345678"
-                                                value={backupCode}
-                                                onChange={(e) => setBackupCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                                                className="pl-10 font-mono text-lg tracking-widest"
-                                                required
-                                                maxLength={8}
-                                            />
-                                        </div>
-                                    </div>
-                                    <Button
-                                        type="submit"
-                                        className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-                                        disabled={isSubmitting || backupCode.length !== 8}
-                                    >
-                                        {isSubmitting ? (
-                                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</>
-                                        ) : (
-                                            <><CheckCircle className="w-4 h-4 mr-2" /> Verify & Sign In</>
-                                        )}
-                                    </Button>
-                                    <button
-                                        type="button"
-                                        onClick={() => { setCodeSent(false); setSuccess(''); setBackupCode(''); }}
-                                        className="w-full text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                                    >
-                                        Resend Code
-                                    </button>
-                                </>
-                            )}
-                        </form>
-                    )}
 
                     <p className="text-xs text-center text-gray-500 pt-2">
                         This is a restricted area. Only authorized administrators can access this portal.
