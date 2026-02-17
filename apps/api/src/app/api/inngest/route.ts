@@ -12,6 +12,7 @@ import { webhookRetryFunction } from './functions/webhook-retry';
 import { mercuryCheckBalancesFunction } from './functions/mercury-check-balances';
 import { mercurySyncInvoicesFunction } from './functions/mercury-sync-invoices';
 import { storeNotifyTrackingFunction } from './functions/store-notify-tracking';
+import { complianceScanFunction, complianceScanOnDemandFunction } from './functions/compliance-scan';
 
 // Export the Inngest handler
 export const { GET, POST, PUT } = serve({
@@ -24,5 +25,7 @@ export const { GET, POST, PUT } = serve({
         mercuryCheckBalancesFunction,
         mercurySyncInvoicesFunction,
         storeNotifyTrackingFunction,
+        complianceScanFunction,
+        complianceScanOnDemandFunction,
     ],
 });

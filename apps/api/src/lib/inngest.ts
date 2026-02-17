@@ -105,6 +105,18 @@ export type MercuryInvoiceCreatedEvent = {
     };
 };
 
+export type ComplianceScanEvent = {
+    name: 'compliance/scan';
+    data: Record<string, never>;
+};
+
+export type ComplianceScanMerchantEvent = {
+    name: 'compliance/scan-merchant';
+    data: {
+        merchantId: string;
+    };
+};
+
 // Union type of all events
 export type WhiteLabelPeptidesEvents =
     | OrderReceivedEvent
@@ -116,4 +128,6 @@ export type WhiteLabelPeptidesEvents =
     | NotifyStoreEvent
     | MercuryCheckBalancesEvent
     | MercurySyncInvoicesEvent
-    | MercuryInvoiceCreatedEvent;
+    | MercuryInvoiceCreatedEvent
+    | ComplianceScanEvent
+    | ComplianceScanMerchantEvent;

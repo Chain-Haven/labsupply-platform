@@ -26,6 +26,7 @@ const navigation = [
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
     { name: 'Merchants', href: '/admin/merchants', icon: Users },
     { name: 'KYB Review', href: '/admin/kyb-review', icon: FileCheck },
+    { name: 'Compliance', href: '/admin/compliance', icon: Shield },
     { name: 'Inventory', href: '/admin/inventory', icon: Box },
     { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
     { name: 'Reports', href: '/admin/reports', icon: BarChart3 },

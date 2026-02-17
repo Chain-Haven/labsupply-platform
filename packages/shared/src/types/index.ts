@@ -635,3 +635,91 @@ export interface SignedRequest {
     'x-nonce': string;
     'x-signature': string;
 }
+
+// ============================================================================
+// Compliance Scanning Types
+// ============================================================================
+
+export const ComplianceScanStatus = {
+    PENDING: 'pending',
+    RUNNING: 'running',
+    COMPLETED: 'completed',
+    FAILED: 'failed',
+} as const;
+
+export type ComplianceScanStatus = (typeof ComplianceScanStatus)[keyof typeof ComplianceScanStatus];
+
+export const ComplianceViolationType = {
+    HEALTH_CLAIM: 'health_claim',
+    DOSAGE_ADVICE: 'dosage_advice',
+    BRAND_NAME_USAGE: 'brand_name_usage',
+    HUMAN_USE_SUGGESTION: 'human_use_suggestion',
+    FDA_VIOLATION: 'fda_violation',
+    OTHER: 'other',
+} as const;
+
+export type ComplianceViolationType = (typeof ComplianceViolationType)[keyof typeof ComplianceViolationType];
+
+export const ComplianceViolationSeverity = {
+    LOW: 'low',
+    MEDIUM: 'medium',
+    HIGH: 'high',
+    CRITICAL: 'critical',
+} as const;
+
+export type ComplianceViolationSeverity = (typeof ComplianceViolationSeverity)[keyof typeof ComplianceViolationSeverity];
+
+export const ComplianceAdminAction = {
+    PENDING: 'pending',
+    IGNORED: 'ignored',
+    NOTIFIED: 'notified',
+    BLOCKED: 'blocked',
+} as const;
+
+export type ComplianceAdminAction = (typeof ComplianceAdminAction)[keyof typeof ComplianceAdminAction];
+
+export interface ComplianceScan {
+    id: string;
+    merchant_id: string;
+    store_id?: string;
+    scan_url: string;
+    pages_crawled: number;
+    violations_found: number;
+    status: ComplianceScanStatus;
+    error_message?: string;
+    started_at?: string;
+    completed_at?: string;
+    created_at: string;
+}
+
+export interface ComplianceViolation {
+    id: string;
+    scan_id: string;
+    merchant_id: string;
+    page_url: string;
+    violation_type: ComplianceViolationType;
+    severity: ComplianceViolationSeverity;
+    description: string;
+    violating_text: string;
+    suggested_fix?: string;
+    admin_action: ComplianceAdminAction;
+    admin_action_by?: string;
+    admin_action_at?: string;
+    ignore_reason?: string;
+    notified_at?: string;
+    created_at: string;
+    updated_at: string;
+    // Joined fields from API
+    merchant_name?: string;
+    merchant_email?: string;
+}
+
+export interface ComplianceScanConfig {
+    id: string;
+    merchant_id: string;
+    enabled: boolean;
+    max_pages: number;
+    custom_rules?: Record<string, unknown>;
+    created_at: string;
+    updated_at: string;
+}
