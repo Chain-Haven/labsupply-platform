@@ -20,14 +20,43 @@ interface StepProps {
 }
 
 export default function Step6Review({ onNext, onPrev }: StepProps) {
-    const { data, updateData, currentStep, totalSteps, isStepValid, goToStep } = useOnboarding();
+    const { data, updateData, currentStep, totalSteps, isStepValid, goToStep, resetOnboarding } = useOnboarding();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState('');
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        onNext();
+        setSubmitError('');
+
+        try {
+            // Update the merchant's kyb_status to 'in_progress' and save onboarding data.
+            // This is what the middleware checks to allow access to /dashboard.
+            const res = await fetch('/api/v1/merchant/me', {
+                method: 'PATCH',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    kyb_status: 'in_progress',
+                    company_name: data.legalBusinessName || undefined,
+                    website_url: data.website || undefined,
+                    phone: data.businessPhone || undefined,
+                    // Store onboarding metadata as JSON in a notes field if available
+                }),
+            });
+
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error || 'Failed to submit application');
+            }
+
+            // Clear localStorage onboarding state so it doesn't reload step 7 next time
+            resetOnboarding();
+
+            onNext();
+        } catch (err) {
+            setSubmitError(err instanceof Error ? err.message : 'Submission failed. Please try again.');
+            setIsSubmitting(false);
+        }
     };
 
     const businessTypeLabels: Record<string, string> = {
@@ -210,6 +239,14 @@ export default function Step6Review({ onNext, onPrev }: StepProps) {
                     </p>
                 </div>
             </div>
+
+            {/* Submit error */}
+            {submitError && (
+                <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex gap-2 text-sm text-red-700 dark:text-red-300">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    {submitError}
+                </div>
+            )}
 
             {/* Navigation */}
             <StepNavigation
