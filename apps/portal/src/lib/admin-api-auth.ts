@@ -5,8 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { createRouteHandlerClient } from '@/lib/supabase-server';
 import { cookies } from 'next/headers';
 
 const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || 'info@chainhaven.co';
@@ -30,7 +30,7 @@ export async function getAuthenticatedAdmin(request?: NextRequest): Promise<Admi
 
     // Method 1: Check Supabase session via cookies
     try {
-        const supabase = createRouteHandlerClient({ cookies });
+        const supabase = createRouteHandlerClient();
         const { data: { user }, error } = await supabase.auth.getUser();
 
         if (!error && user?.email) {

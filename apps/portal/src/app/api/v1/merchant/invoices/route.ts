@@ -5,13 +5,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createRouteHandlerClient } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
 
 async function getAuthenticatedMerchant() {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = createRouteHandlerClient();
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
