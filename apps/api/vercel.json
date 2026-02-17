@@ -1,0 +1,32 @@
+{
+    "version": 2,
+    "framework": "nextjs",
+    "installCommand": "cd ../.. && pnpm install",
+    "buildCommand": "cd ../.. && pnpm --filter @whitelabel-peptides/shared build && cd apps/api && pnpm build",
+    "regions": [
+        "iad1"
+    ],
+    "headers": [
+        {
+            "source": "/v1/(.*)",
+            "headers": [
+                {
+                    "key": "Access-Control-Allow-Credentials",
+                    "value": "true"
+                },
+                {
+                    "key": "Access-Control-Allow-Origin",
+                    "value": "https://whitelabel.peptidetech.co"
+                },
+                {
+                    "key": "Access-Control-Allow-Methods",
+                    "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT"
+                },
+                {
+                    "key": "Access-Control-Allow-Headers",
+                    "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-Store-Id, X-Timestamp, X-Nonce, X-Signature, Authorization"
+                }
+            ]
+        }
+    ]
+}

@@ -28,7 +28,7 @@ END $$;
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS testing_labs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL,
   phone VARCHAR(30),
@@ -55,7 +55,7 @@ CREATE INDEX idx_orders_order_type ON orders(order_type);
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS testing_orders (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
   merchant_id UUID NOT NULL REFERENCES merchants(id) ON DELETE RESTRICT,
   testing_lab_id UUID NOT NULL REFERENCES testing_labs(id) ON DELETE RESTRICT,
@@ -90,7 +90,7 @@ CREATE INDEX idx_testing_orders_tracking_poll
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS testing_order_items (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   testing_order_id UUID NOT NULL REFERENCES testing_orders(id) ON DELETE CASCADE,
   product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
   sku VARCHAR(50) NOT NULL,
