@@ -34,8 +34,7 @@ function isPublicRoute(pathname: string): boolean {
     if (
         pathname.startsWith('/_next') ||
         pathname.startsWith('/api') ||
-        pathname.startsWith('/auth') ||
-        pathname.startsWith('/onboarding')
+        pathname.startsWith('/auth')
     ) {
         return true;
     }
@@ -92,6 +91,16 @@ export async function middleware(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
 
     // =========================================================================
+    // Protect /onboarding/* -- must have a session (verified email)
+    // =========================================================================
+    if (pathname.startsWith('/onboarding')) {
+        if (!user) {
+            return NextResponse.redirect(new URL('/register', request.url));
+        }
+        return supabaseResponse;
+    }
+
+    // =========================================================================
     // Protect /dashboard/* -- must have a session AND be a merchant
     // =========================================================================
     if (pathname.startsWith('/dashboard')) {
@@ -112,13 +121,20 @@ export async function middleware(request: NextRequest) {
             const serviceClient = getAdminServiceClient();
             const { data: merchantRow } = await serviceClient
                 .from('merchants')
-                .select('id')
+                .select('id, kyb_status')
                 .eq('user_id', user.id)
                 .maybeSingle();
 
             if (!merchantRow) {
                 return NextResponse.redirect(
                     new URL('/login?error=not_merchant', request.url)
+                );
+            }
+
+            // Merchant hasn't completed onboarding -> redirect to onboarding
+            if (merchantRow.kyb_status === 'not_started') {
+                return NextResponse.redirect(
+                    new URL('/onboarding', request.url)
                 );
             }
 

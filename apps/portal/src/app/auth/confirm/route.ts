@@ -171,11 +171,17 @@ export async function GET(request: NextRequest) {
 
             const [adminResult, merchantResult] = await Promise.all([
                 serviceClient.from('admin_users').select('id').eq('email', email).maybeSingle(),
-                serviceClient.from('merchants').select('id').eq('user_id', user.id).maybeSingle(),
+                serviceClient.from('merchants').select('id, kyb_status').eq('user_id', user.id).maybeSingle(),
             ]);
 
             const isAdmin = !!adminResult.data;
             const isMerchant = !!merchantResult.data;
+            const needsOnboarding = merchantResult.data?.kyb_status === 'not_started';
+
+            // Merchant who hasn't completed onboarding -> send to onboarding
+            if (isMerchant && needsOnboarding) {
+                return NextResponse.redirect(new URL('/onboarding', origin));
+            }
 
             if (next === '/admin' && isAdmin) {
                 return NextResponse.redirect(new URL('/admin', origin));
