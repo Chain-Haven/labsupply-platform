@@ -12,16 +12,25 @@
         "build:portal": "pnpm --filter @whitelabel-peptides/portal build",
         "build:api": "pnpm --filter @whitelabel-peptides/api build",
         "test": "pnpm --filter @whitelabel-peptides/shared test || echo 'No tests configured'",
+        "test:e2e": "playwright test",
+        "test:e2e:headed": "playwright test --headed",
+        "test:e2e:ui": "playwright test --ui",
+        "test:e2e:debug": "playwright test --debug",
+        "create:test-user": "tsx scripts/create-test-user.ts",
         "lint": "pnpm --filter @whitelabel-peptides/portal lint || echo 'No lint errors'",
         "typecheck": "pnpm --filter @whitelabel-peptides/portal typecheck",
         "clean": "pnpm -r exec rm -rf node_modules dist .next"
     },
     "devDependencies": {
+        "@playwright/test": "^1.58.2",
+        "@supabase/supabase-js": "^2.39.0",
         "@types/node": "^20.10.0",
-        "turbo": "^2.0.0",
-        "typescript": "^5.3.0",
+        "dotenv": "^17.3.1",
         "eslint": "^8.55.0",
-        "prettier": "^3.1.0"
+        "prettier": "^3.1.0",
+        "tsx": "^4.7.0",
+        "turbo": "^2.0.0",
+        "typescript": "^5.3.0"
     },
     "engines": {
         "node": ">=18.0.0"

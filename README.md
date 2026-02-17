@@ -120,8 +120,10 @@ Database package with:
 
 ## 🧪 Testing
 
+### Unit Tests
+
 ```bash
-# Run all tests
+# Run all unit tests
 pnpm test
 
 # Run tests in watch mode
@@ -130,6 +132,35 @@ pnpm test:watch
 # Run tests with coverage
 pnpm test:coverage
 ```
+
+### E2E Tests (Playwright)
+
+End-to-end tests cover auth flows (login, register, magic links, password reset), onboarding, and error scenarios.
+
+**Prerequisites:** Supabase project with `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in `.env`.
+
+```bash
+# Create test users (run once, or when resetting test data)
+pnpm create:test-user
+
+# Run E2E tests (starts dev server automatically)
+pnpm test:e2e
+
+# Run with browser visible
+pnpm test:e2e:headed
+
+# Interactive UI mode
+pnpm test:e2e:ui
+
+# Debug mode
+pnpm test:e2e:debug
+```
+
+**CI:** E2E tests run in GitHub Actions. Configure these secrets for the `test-e2e` job:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
 ## 🚢 Deployment
 
