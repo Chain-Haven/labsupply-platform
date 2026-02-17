@@ -255,13 +255,13 @@ function LoginContent() {
                                             )}
                                         </Button>
                                         <p className="text-xs text-center text-white/40">
-                                            A 6-digit code will be sent to your email. No password needed.
+                                            A verification code will be sent to your email. No password needed.
                                         </p>
                                     </>
                                 ) : (
                                     <div className="space-y-4">
                                         <div className="space-y-2">
-                                            <label className="text-sm font-medium text-white/80">Enter 6-digit code</label>
+                                            <label className="text-sm font-medium text-white/80">Enter verification code</label>
                                             <div className="relative">
                                                 <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
                                                 <Input

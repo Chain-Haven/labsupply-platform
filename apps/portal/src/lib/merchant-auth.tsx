@@ -123,10 +123,28 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
             }
 
             if (data.user) {
-                const merchantData = await fetchMerchant(data.user.id);
+                let merchantData = await fetchMerchant(data.user.id);
+
+                // Auto-create merchant profile if user registered but profile wasn't created yet
                 if (!merchantData) {
-                    // User exists in auth but not in merchants table - shouldn't happen normally
-                    return { success: false, error: 'Merchant profile not found. Please contact support.' };
+                    const companyName = data.user.user_metadata?.company_name || '';
+                    try {
+                        const res = await fetch('/api/v1/merchant/me', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ companyName }),
+                        });
+                        if (res.ok) {
+                            merchantData = await fetchMerchant(data.user.id);
+                        }
+                    } catch (profileErr) {
+                        console.error('Error auto-creating merchant profile:', profileErr);
+                    }
+                }
+
+                if (!merchantData) {
+                    return { success: false, error: 'Unable to create merchant profile. Please contact support.' };
                 }
                 setMerchant(merchantData);
             }
@@ -173,9 +191,28 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
             }
 
             if (data.user) {
-                const merchantData = await fetchMerchant(data.user.id);
+                let merchantData = await fetchMerchant(data.user.id);
+
+                // Auto-create merchant profile if it doesn't exist
                 if (!merchantData) {
-                    return { success: false, error: 'Merchant profile not found. Please register first.' };
+                    const companyName = data.user.user_metadata?.company_name || '';
+                    try {
+                        const res = await fetch('/api/v1/merchant/me', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ companyName }),
+                        });
+                        if (res.ok) {
+                            merchantData = await fetchMerchant(data.user.id);
+                        }
+                    } catch (profileErr) {
+                        console.error('Error auto-creating merchant profile:', profileErr);
+                    }
+                }
+
+                if (!merchantData) {
+                    return { success: false, error: 'Unable to find or create your account. Please register first.' };
                 }
                 setMerchant(merchantData);
             }

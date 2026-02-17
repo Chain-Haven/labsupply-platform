@@ -107,7 +107,7 @@ export default function RegisterPage() {
                                 </div>
                                 <h2 className="text-2xl font-bold text-white">Verify your email</h2>
                                 <p className="text-white/60 text-sm">
-                                    We sent a 6-digit code to <strong className="text-white">{email}</strong>.
+                                    We sent a verification code to <strong className="text-white">{email}</strong>.
                                     Enter it below to verify your account.
                                 </p>
 
