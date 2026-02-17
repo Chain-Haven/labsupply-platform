@@ -7,6 +7,9 @@
  * cookie that was set when the user initiated the flow.
  *
  * This is the Supabase-recommended approach for Next.js App Router.
+ *
+ * IMPORTANT: All redirects use CANONICAL_ORIGIN so that preview deployments
+ * and alternate hosts never produce mismatched-origin URLs.
  */
 
 import { createServerClient } from '@supabase/ssr';
@@ -15,6 +18,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
+import { CANONICAL_ORIGIN } from '@/lib/constants';
 
 function getServiceClient() {
     return createClient(
@@ -24,8 +28,32 @@ function getServiceClient() {
     );
 }
 
+/**
+ * Map a raw error message from Supabase to a distinct error code
+ * so the UI can show a meaningful message to the user.
+ */
+function classifyAuthError(message: string): string {
+    const lower = message.toLowerCase();
+    if (lower.includes('flow_state') || lower.includes('code verifier')) {
+        return 'flow_state';
+    }
+    if (lower.includes('expired') || lower.includes('otp')) {
+        return 'otp_expired';
+    }
+    if (lower.includes('redirect') || lower.includes('mismatch')) {
+        return 'redirect_mismatch';
+    }
+    if (lower.includes('invalid')) {
+        return 'invalid_code';
+    }
+    return 'auth_failed';
+}
+
 export async function GET(request: NextRequest) {
-    const { searchParams, origin } = new URL(request.url);
+    const { searchParams } = new URL(request.url);
+    const requestOrigin = new URL(request.url).origin;
+    const origin = CANONICAL_ORIGIN;
+
     const code = searchParams.get('code');
     const tokenHash = searchParams.get('token_hash');
     const type = searchParams.get('type') as EmailOtpType | null;
@@ -36,6 +64,17 @@ export async function GET(request: NextRequest) {
         type === 'recovery' ||
         next === '/auth/reset-password' ||
         next.includes('reset-password');
+
+    console.log('[auth/confirm] incoming', {
+        handler: '/auth/confirm',
+        hasCode: !!code,
+        hasTokenHash: !!tokenHash,
+        type,
+        next,
+        isRecovery,
+        requestOrigin,
+        canonicalOrigin: origin,
+    });
 
     // Build a Supabase server client that can read/write cookies
     const cookieStore = cookies();
@@ -66,13 +105,23 @@ export async function GET(request: NextRequest) {
     if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
-            console.error('Auth confirm code exchange error:', error.message);
+            console.error('[auth/confirm] code exchange failed', {
+                handler: '/auth/confirm',
+                errorMessage: error.message,
+                isRecovery,
+                next,
+            });
             exchangeError = error.message;
         }
     } else if (tokenHash && type) {
         const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
         if (error) {
-            console.error('Auth confirm token_hash error:', error.message);
+            console.error('[auth/confirm] token_hash verify failed', {
+                handler: '/auth/confirm',
+                errorMessage: error.message,
+                isRecovery,
+                next,
+            });
             exchangeError = error.message;
         }
     } else {
@@ -81,14 +130,24 @@ export async function GET(request: NextRequest) {
 
     // ---- On error, redirect to the appropriate login/error page ----
     if (exchangeError) {
+        const errorCode = classifyAuthError(exchangeError);
+
+        console.error('[auth/confirm] redirecting with error', {
+            handler: '/auth/confirm',
+            errorCode,
+            rawError: exchangeError,
+            isRecovery,
+            next,
+        });
+
         if (isRecovery) {
             return NextResponse.redirect(
-                new URL('/forgot-password?error=expired', origin)
+                new URL(`/forgot-password?error=${errorCode}`, origin)
             );
         }
         const errorPath = next.startsWith('/admin') ? '/admin/login' : '/login';
         return NextResponse.redirect(
-            new URL(`${errorPath}?error=auth_failed`, origin)
+            new URL(`${errorPath}?error=${errorCode}`, origin)
         );
     }
 
@@ -134,7 +193,11 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(new URL('/login?error=no_account', origin));
         }
     } catch (err) {
-        console.error('Role check error in auth confirm:', err);
+        console.error('[auth/confirm] role check error', {
+            handler: '/auth/confirm',
+            error: err,
+            next,
+        });
     }
 
     // Fallback

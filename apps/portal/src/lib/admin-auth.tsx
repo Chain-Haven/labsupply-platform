@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { createBrowserClient } from '@/lib/supabase';
+import { CANONICAL_ORIGIN } from '@/lib/constants';
 import { User, Session } from '@supabase/supabase-js';
 
 // Super admin email - configurable via env var
@@ -246,7 +247,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.auth.signInWithOtp({
             email: normalizedEmail,
             options: {
-                emailRedirectTo: `${window.location.origin}/auth/confirm?next=/admin`,
+                emailRedirectTo: `${CANONICAL_ORIGIN}/auth/confirm?next=/admin`,
             },
         });
 

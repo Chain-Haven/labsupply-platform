@@ -126,7 +126,7 @@ Return your analysis as JSON only. No additional text or markdown formatting.`;
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://admin.whitelabelpeptides.com',
+                'HTTP-Referer': 'https://whitelabel.peptidetech.co',
                 'X-Title': 'WhiteLabel Peptides Compliance Scanner',
             },
             body: JSON.stringify({

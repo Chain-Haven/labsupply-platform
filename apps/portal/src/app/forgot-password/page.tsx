@@ -27,11 +27,18 @@ function ForgotPasswordContent() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
 
-    // Handle error redirect from callback (e.g., expired recovery link)
+    // Handle error redirect from auth confirm (e.g., expired recovery link)
     useEffect(() => {
         const errorParam = searchParams.get('error');
-        if (errorParam === 'expired') {
-            setError('Your password reset link has expired. Please request a new one.');
+        if (errorParam) {
+            const errorMessages: Record<string, string> = {
+                otp_expired: 'Your password reset link has expired. Please request a new one.',
+                expired: 'Your password reset link has expired. Please request a new one.',
+                flow_state: 'Please open the reset link in the same browser you used to request it. In-app email browsers (Gmail, Outlook) may not work.',
+                invalid_code: 'Your reset link is invalid. Please request a new one.',
+                redirect_mismatch: 'There was a redirect configuration error. Please try again.',
+            };
+            setError(errorMessages[errorParam] || 'Your password reset link has expired or is invalid. Please request a new one.');
         }
     }, [searchParams]);
 

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { createBrowserClient } from '@/lib/supabase';
+import { CANONICAL_ORIGIN } from '@/lib/constants';
 import { User, Session } from '@supabase/supabase-js';
 
 // Merchant type from database
@@ -142,7 +143,7 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
             const { error } = await supabase.auth.signInWithOtp({
                 email: normalizedEmail,
                 options: {
-                    emailRedirectTo: `${window.location.origin}/auth/confirm?next=/dashboard`,
+                    emailRedirectTo: `${CANONICAL_ORIGIN}/auth/confirm?next=/dashboard`,
                 },
             });
 
@@ -168,7 +169,7 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
                 email,
                 password,
                 options: {
-                    emailRedirectTo: `${window.location.origin}/auth/confirm?next=/dashboard`,
+                    emailRedirectTo: `${CANONICAL_ORIGIN}/auth/confirm?next=/dashboard`,
                 }
             });
 

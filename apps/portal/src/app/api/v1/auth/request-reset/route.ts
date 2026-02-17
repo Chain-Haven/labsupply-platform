@@ -2,15 +2,17 @@
  * POST /api/v1/auth/request-reset
  *
  * Server-side password reset that BYPASSES PKCE entirely.
- * Uses Supabase admin.generateLink to get an email_otp code,
- * then sends a custom email with a link containing the email + otp.
- * The reset page verifies via supabase.auth.verifyOtp({ email, token, type })
- * which is a direct API call — no PKCE, no code exchange, no cookies.
+ * Uses Supabase admin.generateLink to get a hashed_token (preferred) or
+ * email_otp code, then sends a custom email with a link to the reset page.
+ *
+ * NOTE: admin.generateLink does NOT trigger Supabase's built-in reset email,
+ * so there is no risk of double-sending.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import nodemailer from 'nodemailer';
+import { CANONICAL_ORIGIN } from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,21 +57,24 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // Get the OTP code — this is what verifyOtp({ email, token, type }) needs
-        const otp = linkData.properties?.email_otp;
+        // Prefer hashed_token (more robust, no email needed in URL) over email_otp
         const hashedToken = linkData.properties?.hashed_token;
+        const otp = linkData.properties?.email_otp;
 
-        if (!otp) {
-            console.error('No email_otp in generateLink response. hashed_token:', !!hashedToken, 'Properties keys:', Object.keys(linkData.properties || {}));
+        if (!hashedToken && !otp) {
+            console.error('No hashed_token or email_otp in generateLink response. Properties keys:', Object.keys(linkData.properties || {}));
             return NextResponse.json({
                 success: true,
                 message: 'If this email is registered, a reset link will be sent.',
             });
         }
 
-        // Always use the production domain
-        const origin = 'https://whitelabel.peptidetech.co';
-        const resetUrl = `${origin}/auth/reset-password?email=${encodeURIComponent(normalizedEmail)}&token=${encodeURIComponent(otp)}`;
+        let resetUrl: string;
+        if (hashedToken) {
+            resetUrl = `${CANONICAL_ORIGIN}/auth/reset-password?token_hash=${encodeURIComponent(hashedToken)}&type=recovery`;
+        } else {
+            resetUrl = `${CANONICAL_ORIGIN}/auth/reset-password?email=${encodeURIComponent(normalizedEmail)}&token=${encodeURIComponent(otp!)}`
+        }
 
         // Send the email
         if (SMTP_USER && SMTP_PASS) {

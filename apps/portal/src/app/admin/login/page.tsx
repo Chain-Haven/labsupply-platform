@@ -54,6 +54,10 @@ function AdminLoginContent() {
             const errorMessages: Record<string, string> = {
                 auth_failed: 'Authentication failed. Please try again.',
                 not_admin: 'This account does not have admin access. Contact your administrator.',
+                flow_state: 'Please open the magic link in the same browser you used to request it. In-app email browsers (Gmail, Outlook) may not work.',
+                otp_expired: 'Your login link has expired. Please request a new one.',
+                invalid_code: 'Your login link is invalid. Please request a new one.',
+                redirect_mismatch: 'There was a redirect configuration error. Please try again.',
             };
             setError(errorMessages[errorParam] || 'An error occurred. Please try again.');
         }
