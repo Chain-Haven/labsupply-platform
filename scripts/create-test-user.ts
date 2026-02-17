@@ -91,8 +91,60 @@ const TEST_USERS = [
     },
 ];
 
+async function ensureMerchantProfile(userId: string, email: string, skipOnboarding: boolean) {
+    const supabase = getSupabase();
+    const { data: existing } = await supabase
+        .from('merchants')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+
+    if (existing) {
+        console.log(`  - Merchant profile already exists for ${email}`);
+        return;
+    }
+
+    const { error } = await supabase.from('merchants').insert({
+        user_id: userId,
+        email,
+        company_name: 'Test Company',
+        status: 'approved',
+        kyb_status: skipOnboarding ? 'approved' : 'not_started',
+        wallet_balance_cents: 100000,
+    });
+
+    if (error) throw error;
+    console.log(`  - Created merchant profile for ${email}`);
+}
+
+async function ensureAdminProfile(userId: string, email: string) {
+    const supabase = getSupabase();
+    const { data: existing } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+
+    if (existing) {
+        console.log(`  - Admin profile already exists for ${email}`);
+        return;
+    }
+
+    const { error } = await supabase.from('admin_users').insert({
+        user_id: userId,
+        email,
+        name: 'admin Test User',
+        role: 'admin',
+    });
+
+    if (error) throw error;
+    console.log(`  - Created admin profile for ${email}`);
+}
+
 async function main() {
     console.log('Creating test users...\n');
+
+    const supabase = getSupabase();
 
     for (const user of TEST_USERS) {
         try {
@@ -106,7 +158,17 @@ async function main() {
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             if (msg.includes('already been registered') || msg.includes('duplicate')) {
-                console.log(`- ${user.type} test user already exists: ${user.email}`);
+                console.log(`- ${user.type} auth user already exists: ${user.email}`);
+                // Look up the existing user and ensure profile exists
+                const { data } = await supabase.auth.admin.listUsers();
+                const existingUser = data?.users?.find(u => u.email === user.email);
+                if (existingUser) {
+                    if (user.type === 'merchant') {
+                        await ensureMerchantProfile(existingUser.id, user.email, user.skipOnboarding ?? true);
+                    } else if (user.type === 'admin') {
+                        await ensureAdminProfile(existingUser.id, user.email);
+                    }
+                }
             } else {
                 console.error(`✗ Failed to create ${user.email}:`, msg);
                 process.exit(1);
