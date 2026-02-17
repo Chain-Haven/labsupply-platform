@@ -55,7 +55,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
     const supabase = createBrowserClient();
 
-    // Check if user is an admin and fetch admin data
+    // Check if user is an admin via server API (avoids client-side RLS issues)
     const checkAndSetAdmin = async (authUser: User | null) => {
         if (!authUser) {
             setCurrentAdmin(null);
@@ -63,43 +63,18 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
             return false;
         }
 
-        const email = authUser.email?.toLowerCase() || '';
-
-        // Check if user is in admin_users table
-        const { data: adminData, error } = await supabase
-            .from('admin_users')
-            .select('*')
-            .eq('email', email)
-            .single();
-
-        if (error && error.code !== 'PGRST116') {
-            console.error('Error checking admin status:', error);
-        }
-
-        // If user is the super admin but not in table, create their record
-        if (!adminData && email === SUPER_ADMIN_EMAIL) {
-            const { data: newAdmin, error: insertError } = await supabase
-                .from('admin_users')
-                .insert({
-                    user_id: authUser.id,
-                    email: email,
-                    name: 'ChainHaven Admin',
-                    role: 'super_admin',
-                })
-                .select()
-                .single();
-
-            if (!insertError && newAdmin) {
-                setCurrentAdmin(newAdmin);
-                await refreshAdminUsers();
-                return true;
+        try {
+            const res = await fetch('/api/v1/admin/me', { credentials: 'include' });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.admin) {
+                    setCurrentAdmin(data.admin);
+                    await refreshAdminUsers();
+                    return true;
+                }
             }
-        }
-
-        if (adminData) {
-            setCurrentAdmin(adminData);
-            await refreshAdminUsers();
-            return true;
+        } catch (err) {
+            console.error('Error checking admin status:', err);
         }
 
         // User is authenticated but not an admin
@@ -148,32 +123,39 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         const initAuth = async () => {
             setIsLoading(true);
 
-            // First, check for Supabase session
-            const { data: { session: currentSession } } = await supabase.auth.getSession();
-            setSession(currentSession);
-            setUser(currentSession?.user || null);
+            try {
+                // First, check for Supabase session
+                const { data: { session: currentSession } } = await supabase.auth.getSession();
+                setSession(currentSession);
+                setUser(currentSession?.user || null);
 
-            if (currentSession?.user) {
-                await checkAndSetAdmin(currentSession.user);
-                setIsLoading(false);
-                return;
+                if (currentSession?.user) {
+                    await checkAndSetAdmin(currentSession.user);
+                    setIsLoading(false);
+                    return;
+                }
+            } catch (err) {
+                console.error('Error initializing admin auth session:', err);
             }
 
-            // If no Supabase session, check for backup session cookie
-            const backupSessionData = await checkBackupSession();
-            if (backupSessionData) {
-                setBackupSession(backupSessionData);
-                // Create a synthetic admin user for the backup session
-                const syntheticAdmin: AdminUser = {
-                    id: 'backup-session',
-                    user_id: 'backup-session',
-                    email: backupSessionData.email,
-                    name: backupSessionData.email.toLowerCase() === SUPER_ADMIN_EMAIL ? 'ChainHaven Admin' : 'Admin',
-                    role: backupSessionData.role,
-                    created_at: new Date().toISOString(),
-                };
-                setCurrentAdmin(syntheticAdmin);
-                await refreshAdminUsers();
+            try {
+                // If no Supabase session, check for backup session cookie
+                const backupSessionData = await checkBackupSession();
+                if (backupSessionData) {
+                    setBackupSession(backupSessionData);
+                    const syntheticAdmin: AdminUser = {
+                        id: 'backup-session',
+                        user_id: 'backup-session',
+                        email: backupSessionData.email,
+                        name: backupSessionData.email.toLowerCase() === SUPER_ADMIN_EMAIL ? 'ChainHaven Admin' : 'Admin',
+                        role: backupSessionData.role,
+                        created_at: new Date().toISOString(),
+                    };
+                    setCurrentAdmin(syntheticAdmin);
+                    await refreshAdminUsers();
+                }
+            } catch (err) {
+                console.error('Error checking backup session:', err);
             }
 
             setIsLoading(false);
