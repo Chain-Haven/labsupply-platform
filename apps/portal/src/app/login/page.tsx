@@ -118,7 +118,7 @@ function LoginContent() {
             const result = await loginWithMagicLink(email);
             if (result.success) {
                 setOtpSent(true);
-                setSuccess('An 8-digit code has been sent to your email.');
+                setSuccess('A verification code has been sent to your email.');
             } else {
                 setError(result.error || 'Failed to send code.');
             }
@@ -277,7 +277,8 @@ function LoginContent() {
                                                 />
                                             </div>
                                             <p className="text-xs text-white/40 text-center">
-                                                Code sent to <span className="text-white/70">{email}</span>
+                                                Code sent to <span className="text-white/70">{email}</span>.
+                                                You can also click the link in the email.
                                             </p>
                                         </div>
                                         <Button

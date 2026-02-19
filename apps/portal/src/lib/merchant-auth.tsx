@@ -155,36 +155,20 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    // Send OTP code via custom 8-digit system (calls /api/v1/auth/send-otp)
+    // Send OTP code via Supabase's built-in email system (reliable delivery)
     const loginWithMagicLink = async (email: string): Promise<{ success: boolean; error?: string }> => {
         try {
             const normalizedEmail = email.toLowerCase().trim();
 
-            const res = await fetch('/api/v1/auth/send-otp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: normalizedEmail }),
+            const { error } = await supabase.auth.signInWithOtp({
+                email: normalizedEmail,
+                options: {
+                    emailRedirectTo: `${CANONICAL_ORIGIN}/auth/confirm?next=/dashboard`,
+                },
             });
 
-            const data = await res.json();
-
-            if (!res.ok) {
-                return { success: false, error: data.error || 'Failed to send code.' };
-            }
-
-            // SMTP not configured on the server — surface to user
-            if (data.smtpNotConfigured) {
-                return {
-                    success: false,
-                    error: 'Email delivery is not currently available. Please use password login or contact support.',
-                };
-            }
-
-            if (data.emailError) {
-                return {
-                    success: false,
-                    error: 'Failed to deliver the code to your email. Please try again or use password login.',
-                };
+            if (error) {
+                return { success: false, error: error.message };
             }
 
             return { success: true };
@@ -193,31 +177,13 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    // Verify the 8-digit OTP code via custom server system, then establish Supabase session
+    // Verify OTP code for sign-in (Supabase-issued code from signInWithOtp email)
     const verifyOtp = async (email: string, token: string): Promise<{ success: boolean; error?: string }> => {
         try {
-            // Step 1: Verify the 8-digit code — server checks DB and returns a token_hash
-            const res = await fetch('/api/v1/auth/verify-otp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email.toLowerCase().trim(), code: token }),
-            });
-
-            const verifyData = await res.json();
-
-            if (!res.ok) {
-                return { success: false, error: verifyData.error || 'Invalid or expired code.' };
-            }
-
-            const tokenHash = verifyData.token_hash;
-            if (!tokenHash) {
-                return { success: false, error: 'Verification failed. Please try again.' };
-            }
-
-            // Step 2: Exchange token_hash for a live Supabase session
             const { data, error } = await supabase.auth.verifyOtp({
-                token_hash: tokenHash,
-                type: 'magiclink',
+                email: email.toLowerCase().trim(),
+                token,
+                type: 'email',
             });
 
             if (error) {
