@@ -14,7 +14,12 @@ import {
     X,
     Upload,
     LayoutDashboard,
-    Loader2
+    Loader2,
+    Clock,
+    CheckCircle,
+    AlertTriangle,
+    XCircle,
+    ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -29,6 +34,87 @@ const navigation = [
     { name: 'Uploads', href: '/dashboard/uploads', icon: Upload },
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
+
+function AccountStatusBanner({ status, kybStatus }: { status: string; kybStatus: string }) {
+    const config = (() => {
+        if (status === 'suspended') {
+            return {
+                icon: XCircle,
+                title: 'Account Suspended',
+                description: 'Your account has been suspended. Please contact support at whitelabel@peptidetech.co for assistance.',
+                bg: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
+                iconColor: 'text-red-600 dark:text-red-400',
+                titleColor: 'text-red-900 dark:text-red-100',
+                descColor: 'text-red-700 dark:text-red-300',
+            };
+        }
+        if (kybStatus === 'rejected') {
+            return {
+                icon: AlertTriangle,
+                title: 'Application Rejected',
+                description: 'Your merchant application was not approved. Please contact support at whitelabel@peptidetech.co to discuss next steps.',
+                bg: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
+                iconColor: 'text-red-600 dark:text-red-400',
+                titleColor: 'text-red-900 dark:text-red-100',
+                descColor: 'text-red-700 dark:text-red-300',
+            };
+        }
+        if (kybStatus === 'in_progress') {
+            return {
+                icon: Clock,
+                title: 'Application Under Review',
+                description: 'Your merchant application has been submitted and is being reviewed by our compliance team. This typically takes 1-2 business days. You will receive an email once approved.',
+                bg: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800',
+                iconColor: 'text-amber-600 dark:text-amber-400',
+                titleColor: 'text-amber-900 dark:text-amber-100',
+                descColor: 'text-amber-700 dark:text-amber-300',
+            };
+        }
+        return {
+            icon: ShieldCheck,
+            title: 'Account Pending Verification',
+            description: 'Your account is pending verification. Complete your onboarding application to get started, or wait for admin approval if already submitted.',
+            bg: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+            iconColor: 'text-blue-600 dark:text-blue-400',
+            titleColor: 'text-blue-900 dark:text-blue-100',
+            descColor: 'text-blue-700 dark:text-blue-300',
+        };
+    })();
+
+    const Icon = config.icon;
+
+    return (
+        <div className={cn('border-b px-4 lg:px-6 py-3', config.bg)}>
+            <div className="flex items-start gap-3">
+                <Icon className={cn('w-5 h-5 mt-0.5 shrink-0', config.iconColor)} />
+                <div className="flex-1 min-w-0">
+                    <p className={cn('font-semibold text-sm', config.titleColor)}>{config.title}</p>
+                    <p className={cn('text-sm mt-0.5', config.descColor)}>{config.description}</p>
+                </div>
+                <div className="shrink-0">
+                    <span className={cn(
+                        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium',
+                        status === 'suspended' ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' :
+                        kybStatus === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' :
+                        kybStatus === 'in_progress' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' :
+                        'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                    )}>
+                        <span className={cn(
+                            'w-1.5 h-1.5 rounded-full',
+                            status === 'suspended' || kybStatus === 'rejected' ? 'bg-red-500' :
+                            kybStatus === 'in_progress' ? 'bg-amber-500 animate-pulse' :
+                            'bg-blue-500'
+                        )} />
+                        {status === 'suspended' ? 'Suspended' :
+                         kybStatus === 'rejected' ? 'Rejected' :
+                         kybStatus === 'in_progress' ? 'Under Review' :
+                         'Pending'}
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export default function DashboardLayout({
     children,
@@ -170,6 +256,11 @@ export default function DashboardLayout({
                         </div>
                     </div>
                 </header>
+
+                {/* Account approval status banner */}
+                {merchant && merchant.status !== 'approved' && (
+                    <AccountStatusBanner status={merchant.status} kybStatus={merchant.kyb_status} />
+                )}
 
                 {/* Page content */}
                 <main className="p-4 lg:p-6">

@@ -32,6 +32,29 @@ export async function POST(request: NextRequest) {
         const orderData = parsed.data;
         const supabase = getServiceClient();
 
+        // Verify merchant is approved and can ship before accepting orders
+        const { data: merchantCheck } = await supabase
+            .from('merchants')
+            .select('status, can_ship, kyb_status')
+            .eq('id', store.merchantId)
+            .single();
+
+        if (!merchantCheck || merchantCheck.status !== 'approved') {
+            throw new ApiError(
+                'MERCHANT_NOT_APPROVED',
+                'Your merchant account has not been approved yet. Orders cannot be placed until admin approval is complete.',
+                403
+            );
+        }
+
+        if (!merchantCheck.can_ship) {
+            throw new ApiError(
+                'SHIPPING_NOT_ENABLED',
+                'Shipping is not enabled for your account. Please contact support.',
+                403
+            );
+        }
+
         // Generate idempotency key
         const idempotencyKey = generateOrderIdempotencyKey(
             store.storeId,

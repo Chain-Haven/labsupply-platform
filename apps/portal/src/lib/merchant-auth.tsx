@@ -15,6 +15,7 @@ export interface Merchant {
     phone: string | null;
     status: 'pending' | 'approved' | 'suspended';
     kyb_status: 'not_started' | 'in_progress' | 'approved' | 'rejected';
+    can_ship: boolean;
     wallet_balance_cents: number;
     billing_email: string | null;
     mercury_customer_id: string | null;
