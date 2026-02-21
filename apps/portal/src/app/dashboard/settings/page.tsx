@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,8 +25,25 @@ import { toast } from '@/hooks/use-toast';
 import { useMerchantAuth } from '@/lib/merchant-auth';
 
 export default function SettingsPage() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-violet-600" /></div>}>
+            <SettingsContent />
+        </Suspense>
+    );
+}
+
+function SettingsContent() {
     const { user, merchant, updateMerchant } = useMerchantAuth();
+    const searchParams = useSearchParams();
     const [activeTab, setActiveTab] = useState('profile');
+
+    // Allow deep-linking to a tab via ?tab= query param (e.g. from Wallet page)
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab && ['profile', 'orders', 'account', 'notifications', 'security', 'billing'].includes(tab)) {
+            setActiveTab(tab);
+        }
+    }, [searchParams]);
     const [isSaving, setIsSaving] = useState(false);
 
     // Profile form state - initialized from merchant data

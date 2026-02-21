@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -99,7 +100,6 @@ export default function WalletPage() {
     const [walletData, setWalletData] = useState(initialWalletData);
     const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
     const [invoices, setInvoices] = useState<MercuryInvoice[]>([]);
-    const [showSettings, setShowSettings] = useState(false);
     const [fundingMode, setFundingMode] = useState<FundingMode>('bank');
 
     // BTC state
@@ -117,11 +117,6 @@ export default function WalletPage() {
     const [withdrawConfirmed, setWithdrawConfirmed] = useState(false);
     const [submittingWithdraw, setSubmittingWithdraw] = useState(false);
 
-    // Billing settings form
-    const [billingEmail, setBillingEmail] = useState('');
-    const [lowBalanceThreshold, setLowBalanceThreshold] = useState('1000');
-    const [targetBalance, setTargetBalance] = useState('3000');
-    const [savingSettings, setSavingSettings] = useState(false);
 
     const availableBalance = walletData.balance_cents - walletData.reserved_cents - COMPLIANCE_RESERVE_CENTS;
     const usableBalance = Math.max(0, availableBalance);
@@ -133,21 +128,6 @@ export default function WalletPage() {
     const pendingBtcDeposits = btcDeposits.filter(d => d.status === 'PENDING' || d.status === 'CONFIRMED');
     const creditedBtcDeposits = btcDeposits.filter(d => d.status === 'CREDITED');
 
-    const loadBillingSettings = useCallback(() => {
-        if (merchant) {
-            setBillingEmail(merchant.billing_email || user?.email || '');
-            setLowBalanceThreshold(
-                String((merchant.low_balance_threshold_cents || 100000) / 100)
-            );
-            setTargetBalance(
-                String((merchant.target_balance_cents || 300000) / 100)
-            );
-        }
-    }, [merchant, user]);
-
-    useEffect(() => {
-        loadBillingSettings();
-    }, [loadBillingSettings]);
 
     // Load BTC data
     const loadBtcData = useCallback(async () => {
@@ -190,41 +170,6 @@ export default function WalletPage() {
         loadBtcData();
     }, [loadBtcData]);
 
-    const handleSaveSettings = async () => {
-        const threshold = parseInt(lowBalanceThreshold, 10);
-        const target = parseInt(targetBalance, 10);
-
-        if (!billingEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(billingEmail)) {
-            toast({ title: 'Invalid email', description: 'Please enter a valid billing email.', variant: 'destructive' });
-            return;
-        }
-        if (target < threshold) {
-            toast({ title: 'Invalid settings', description: 'Target balance must be >= threshold.', variant: 'destructive' });
-            return;
-        }
-
-        setSavingSettings(true);
-        try {
-            const response = await fetch('/api/v1/merchant/billing-settings', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    billing_email: billingEmail,
-                    low_balance_threshold_cents: threshold * 100,
-                    target_balance_cents: target * 100,
-                }),
-            });
-
-            if (!response.ok) throw new Error('Failed to save settings');
-
-            toast({ title: 'Settings saved', description: 'Your billing settings have been updated.' });
-            setShowSettings(false);
-        } catch {
-            toast({ title: 'Error', description: 'Failed to save billing settings.', variant: 'destructive' });
-        } finally {
-            setSavingSettings(false);
-        }
-    };
 
     const handleCopyAddress = () => {
         if (btcAddress) {
@@ -320,14 +265,12 @@ export default function WalletPage() {
                         <LogOut className="w-4 h-4" />
                         Request Withdrawal
                     </Button>
-                    <Button
-                        variant="outline"
-                        onClick={() => { loadBillingSettings(); setShowSettings(!showSettings); }}
-                        className="gap-2"
-                    >
-                        <Settings className="w-4 h-4" />
-                        Billing Settings
-                    </Button>
+                    <Link href="/dashboard/settings?tab=billing">
+                        <Button variant="outline" className="gap-2">
+                            <Settings className="w-4 h-4" />
+                            Billing Settings
+                        </Button>
+                    </Link>
                 </div>
             </div>
 
@@ -346,79 +289,6 @@ export default function WalletPage() {
                                 Amount needed: {formatCurrency(COMPLIANCE_RESERVE_CENTS - walletData.balance_cents)}
                             </p>
                         </div>
-                    </CardContent>
-                </Card>
-            )}
-
-            {/* Billing Settings Panel */}
-            {showSettings && (
-                <Card className="border-violet-200 dark:border-violet-800">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Mail className="w-5 h-5 text-violet-500" />
-                            Billing Settings
-                        </CardTitle>
-                        <CardDescription>
-                            Configure your Mercury invoicing preferences
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div>
-                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Invoice Email
-                            </label>
-                            <Input
-                                type="email"
-                                value={billingEmail}
-                                onChange={(e) => setBillingEmail(e.target.value)}
-                                placeholder="billing@yourcompany.com"
-                                className="mt-1"
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Auto-Invoice Threshold ($)
-                                </label>
-                                <div className="relative mt-1">
-                                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                    <Input
-                                        type="number"
-                                        value={lowBalanceThreshold}
-                                        onChange={(e) => setLowBalanceThreshold(e.target.value)}
-                                        className="pl-8"
-                                        min="100"
-                                    />
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">Invoice sent when balance drops below this</p>
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Target Balance ($)
-                                </label>
-                                <div className="relative mt-1">
-                                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                    <Input
-                                        type="number"
-                                        value={targetBalance}
-                                        onChange={(e) => setTargetBalance(e.target.value)}
-                                        className="pl-8"
-                                        min="100"
-                                    />
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">Invoice amount brings balance to this level</p>
-                            </div>
-                        </div>
-
-                        <Button
-                            onClick={handleSaveSettings}
-                            disabled={savingSettings}
-                            className="bg-violet-600 hover:bg-violet-700 gap-2"
-                        >
-                            <Save className="w-4 h-4" />
-                            {savingSettings ? 'Saving...' : 'Save Settings'}
-                        </Button>
                     </CardContent>
                 </Card>
             )}
