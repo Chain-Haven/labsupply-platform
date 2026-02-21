@@ -1074,6 +1074,185 @@ For California residents, you may also contact the California Attorney General's
 ];
 
 // ---------------------------------------------------------------------------
+// END USER LICENSE AGREEMENT (EULA)
+// ---------------------------------------------------------------------------
+export const EULA_SECTIONS: LegalSection[] = [
+  {
+    title: 'SECTION 1 — LICENSE GRANT',
+    content: `Subject to your compliance with this End User License Agreement ("EULA"), ${COMPANY.name} grants you a limited, non-exclusive, non-transferable, revocable license to access and use the WhiteLabel Peptides platform ("Platform") solely for the purpose of managing your merchant account, browsing the product catalog, placing orders, and managing your white-label business operations.
+
+This license does not include the right to:
+(a) Modify, adapt, translate, reverse engineer, decompile, or disassemble any portion of the Platform;
+(b) Create derivative works based on the Platform or its content;
+(c) Use the Platform for any purpose other than its intended business operations;
+(d) Sublicense, rent, lease, or lend your access to any third party;
+(e) Use automated tools, bots, scrapers, or similar technology to access the Platform.
+
+This license is effective until terminated by either party in accordance with the terms herein.`,
+  },
+  {
+    title: 'SECTION 2 — ACCOUNT RESPONSIBILITIES',
+    content: `You are responsible for maintaining the confidentiality of your account credentials, including your username, password, and any API keys associated with your merchant account. You agree to:
+
+(a) Provide accurate and complete information during registration and keep it updated;
+(b) Notify us immediately of any unauthorized access to or use of your account;
+(c) Accept responsibility for all activities that occur under your account;
+(d) Not share your account credentials with unauthorized individuals.
+
+${COMPANY.name} reserves the right to suspend or terminate accounts that violate these responsibilities or that we reasonably believe have been compromised.`,
+  },
+  {
+    title: 'SECTION 3 — INTELLECTUAL PROPERTY',
+    content: `All intellectual property rights in the Platform — including but not limited to software, design, text, graphics, logos, icons, images, audio clips, data compilations, and the arrangement thereof — are owned by or licensed to ${COMPANY.name} and are protected by United States and international copyright, trademark, patent, and trade secret laws.
+
+The WhiteLabel Peptides name, logo, and all related names, logos, product and service names, designs, and slogans are trademarks of ${COMPANY.name}. You may not use such marks without our prior written permission.
+
+Your use of the Platform does not grant you ownership of any intellectual property rights in the Platform or its content.`,
+  },
+  {
+    title: 'SECTION 4 — RESTRICTIONS ON USE',
+    content: `You agree not to use the Platform to:
+
+(a) Violate any applicable federal, state, local, or international law or regulation;
+(b) Distribute products for human consumption, veterinary use, or any purpose other than legitimate research;
+(c) Make health claims, medical claims, or therapeutic claims about any products available through the Platform;
+(d) Engage in fraudulent, deceptive, or misleading business practices;
+(e) Infringe upon or violate the intellectual property rights of ${COMPANY.name} or any third party;
+(f) Transmit any viruses, malware, or other malicious code;
+(g) Attempt to gain unauthorized access to any systems or networks connected to the Platform;
+(h) Interfere with or disrupt the integrity or performance of the Platform.
+
+Violation of these restrictions may result in immediate termination of your license and account.`,
+  },
+  {
+    title: 'SECTION 5 — TERMINATION',
+    content: `This EULA is effective until terminated. Your rights under this license will terminate automatically without notice if you fail to comply with any of its terms.
+
+${COMPANY.name} may terminate or suspend your access to the Platform at any time, with or without cause, with or without notice, effective immediately. Reasons for termination may include, but are not limited to:
+
+(a) Breach of this EULA or the Terms of Service;
+(b) Non-compliance with applicable laws or regulations;
+(c) Fraudulent or illegal activity;
+(d) Extended period of inactivity;
+(e) Request by law enforcement or government agencies.
+
+Upon termination, you must cease all use of the Platform. Sections relating to intellectual property, warranty disclaimers, limitation of liability, and governing law shall survive termination.`,
+  },
+  {
+    title: 'SECTION 6 — WARRANTY DISCLAIMER',
+    content: `THE PLATFORM IS PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS WITHOUT WARRANTIES OF ANY KIND, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE. ${COMPANY.name.toUpperCase()} SPECIFICALLY DISCLAIMS ALL IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+
+${COMPANY.name.toUpperCase()} DOES NOT WARRANT THAT THE PLATFORM WILL BE UNINTERRUPTED, TIMELY, SECURE, OR ERROR-FREE, OR THAT ANY DEFECTS WILL BE CORRECTED. NO ADVICE OR INFORMATION, WHETHER ORAL OR WRITTEN, OBTAINED FROM ${COMPANY.name.toUpperCase()} OR THROUGH THE PLATFORM SHALL CREATE ANY WARRANTY NOT EXPRESSLY STATED IN THIS EULA.`,
+  },
+  {
+    title: 'SECTION 7 — LIMITATION OF LIABILITY',
+    content: `TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL ${COMPANY.name.toUpperCase()}, ITS AFFILIATES, OFFICERS, DIRECTORS, EMPLOYEES, AGENTS, OR LICENSORS BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING WITHOUT LIMITATION LOSS OF PROFITS, DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES, RESULTING FROM:
+
+(a) YOUR ACCESS TO OR USE OF, OR INABILITY TO ACCESS OR USE, THE PLATFORM;
+(b) ANY CONDUCT OR CONTENT OF ANY THIRD PARTY ON THE PLATFORM;
+(c) ANY CONTENT OBTAINED FROM THE PLATFORM;
+(d) UNAUTHORIZED ACCESS, USE, OR ALTERATION OF YOUR TRANSMISSIONS OR CONTENT.
+
+IN NO EVENT SHALL ${COMPANY.name.toUpperCase()}'S TOTAL LIABILITY TO YOU FOR ALL CLAIMS ARISING FROM OR RELATED TO THIS EULA EXCEED THE AMOUNTS PAID BY YOU TO ${COMPANY.name.toUpperCase()} DURING THE TWELVE (12) MONTHS IMMEDIATELY PRECEDING THE EVENT GIVING RISE TO THE CLAIM.`,
+  },
+  {
+    title: 'SECTION 8 — GOVERNING LAW AND DISPUTE RESOLUTION',
+    content: `This EULA shall be governed by and construed in accordance with the laws of the State of ${COMPANY.state}, without regard to its conflict of law principles.
+
+Any dispute arising out of or relating to this EULA shall be resolved through binding arbitration administered by the American Arbitration Association (AAA) under its Commercial Arbitration Rules. The arbitration shall take place in ${COMPANY.state}, and the arbitrator's decision shall be final and binding.
+
+You agree that any dispute resolution proceedings will be conducted only on an individual basis and not in a class, consolidated, or representative action. If for any reason a claim proceeds in court rather than in arbitration, you waive any right to a jury trial.
+
+Contact for legal inquiries: ${COMPANY.email}`,
+  },
+];
+
+// ---------------------------------------------------------------------------
+// DISCLAIMER
+// ---------------------------------------------------------------------------
+export const DISCLAIMER_SECTIONS: LegalSection[] = [
+  {
+    title: 'RESEARCH USE ONLY',
+    content: `All products available through the WhiteLabel Peptides platform and ${COMPANY.name} are intended strictly for research and laboratory use only (RUO). These products are NOT intended for:
+
+• Human consumption or ingestion
+• Veterinary use or animal consumption
+• Use as drugs, dietary supplements, or food additives
+• Any therapeutic, diagnostic, or clinical application
+• Any use that would violate applicable federal, state, or local law
+
+Purchasers and end users are solely responsible for ensuring that their use of these products complies with all applicable laws and regulations in their jurisdiction. By purchasing or using products obtained through our platform, you confirm that you understand and will abide by these restrictions.`,
+  },
+  {
+    title: 'NOT MEDICAL ADVICE',
+    content: `Nothing on the WhiteLabel Peptides platform — including product descriptions, educational content, blog posts, documentation, or any other materials — should be construed as medical advice, diagnosis, treatment recommendations, or a substitute for professional medical consultation.
+
+The information provided is for educational and informational purposes only and is intended for qualified researchers, laboratory professionals, and business operators in the research supply industry.
+
+If you have questions about health conditions, medical treatments, or the clinical use of any compound, consult a licensed healthcare professional. ${COMPANY.name} is not a healthcare provider and does not provide medical services.`,
+  },
+  {
+    title: 'FDA COMPLIANCE NOTICE',
+    content: `The products available through the WhiteLabel Peptides platform have not been evaluated by the U.S. Food and Drug Administration (FDA). These products are not intended to diagnose, treat, cure, or prevent any disease or medical condition.
+
+${COMPANY.name} operates in compliance with applicable FDA regulations governing the sale and distribution of research chemicals and research-use-only compounds. All products are manufactured in cGMP-certified facilities and tested to cGLP standards.
+
+Merchants and resellers using the WhiteLabel Peptides platform are responsible for ensuring that their own marketing materials, product listings, and customer communications comply with FDA and FTC regulations. This includes, but is not limited to:
+
+• Using appropriate "For Research Use Only" labeling
+• Avoiding health claims, therapeutic claims, or medical claims
+• Including required disclaimers on all product pages
+• Not marketing products for human consumption`,
+  },
+  {
+    title: 'NO WARRANTY ON INFORMATION',
+    content: `While ${COMPANY.name} strives to provide accurate, current, and complete information on the Platform, we make no representations or warranties of any kind, express or implied, about the completeness, accuracy, reliability, suitability, or availability of any information, products, services, or related graphics contained on the Platform.
+
+Information on the Platform may contain technical inaccuracies or typographical errors. ${COMPANY.name} reserves the right to make changes and corrections at any time without notice. Any reliance you place on information from the Platform is strictly at your own risk.
+
+Product specifications, pricing, availability, and other details are subject to change without notice. Always refer to the Certificate of Analysis (COA) for the most accurate product specifications.`,
+  },
+  {
+    title: 'LIMITATION OF LIABILITY',
+    content: `TO THE FULLEST EXTENT PERMITTED BY LAW, ${COMPANY.name.toUpperCase()} SHALL NOT BE LIABLE FOR ANY LOSS OR DAMAGE — INCLUDING WITHOUT LIMITATION, INDIRECT OR CONSEQUENTIAL LOSS OR DAMAGE, OR ANY LOSS OR DAMAGE WHATSOEVER ARISING FROM LOSS OF DATA OR PROFITS — ARISING OUT OF, OR IN CONNECTION WITH, THE USE OF THE PLATFORM OR THE PRODUCTS OBTAINED THROUGH THE PLATFORM.
+
+${COMPANY.name.toUpperCase()} SHALL NOT BE LIABLE FOR ANY INJURY, ILLNESS, DAMAGE, OR LOSS RESULTING FROM THE MISUSE, IMPROPER HANDLING, IMPROPER STORAGE, OR UNAUTHORIZED USE OF ANY PRODUCT OBTAINED THROUGH THE PLATFORM.
+
+Users assume all risk associated with the handling, storage, and use of research chemicals and peptides. It is the user's responsibility to follow proper laboratory safety protocols and comply with all institutional safety requirements.`,
+  },
+  {
+    title: 'THIRD-PARTY LINKS AND CONTENT',
+    content: `The Platform may contain links to third-party websites, services, or content that are not owned or controlled by ${COMPANY.name}. We have no control over, and assume no responsibility for, the content, privacy policies, or practices of any third-party websites or services.
+
+The inclusion of any link does not imply endorsement, approval, or recommendation by ${COMPANY.name}. You acknowledge and agree that ${COMPANY.name} shall not be responsible or liable, directly or indirectly, for any damage or loss caused or alleged to be caused by or in connection with the use of or reliance on any third-party content, goods, or services.`,
+  },
+  {
+    title: 'REGULATORY COMPLIANCE',
+    content: `${COMPANY.name} is committed to operating in compliance with all applicable federal, state, and local laws and regulations. As a merchant or user of the Platform, you are equally responsible for ensuring your compliance with:
+
+• Federal laws governing the sale and distribution of research chemicals
+• State and local regulations regarding business licensing and operations
+• FTC regulations regarding advertising and marketing claims
+• FDA regulations regarding product labeling and claims
+• Any industry-specific regulations applicable to your business
+
+${COMPANY.name} provides compliance guidance and tools through the Platform, but this does not constitute legal advice. We recommend consulting with a qualified attorney to ensure your specific business operations comply with all applicable laws.
+
+For compliance questions, contact: ${COMPANY.supportEmail}`,
+  },
+  {
+    title: 'CHANGES TO THIS DISCLAIMER',
+    content: `${COMPANY.name} reserves the right to update or modify this Disclaimer at any time without prior notice. Changes will be effective immediately upon posting to the Platform. Your continued use of the Platform following the posting of changes constitutes your acceptance of such changes.
+
+We encourage you to review this Disclaimer periodically to stay informed of any updates.
+
+This Disclaimer was last updated on ${EFFECTIVE_DATE}.
+
+If you have questions about this Disclaimer, please contact us at ${COMPANY.email}.`,
+  },
+];
+
+// ---------------------------------------------------------------------------
 // Helper: Get all text content (for PDF generation)
 // ---------------------------------------------------------------------------
 export function getAllTermsText(): string {

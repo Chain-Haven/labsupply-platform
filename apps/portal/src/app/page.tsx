@@ -6,8 +6,12 @@ import {
     ArrowRight, Shield, Zap, Package, CreditCard, Truck, ChevronDown,
     Beaker, Tag, Palette, Box, BarChart3, Clock, Globe, CheckCircle,
     ShoppingCart, RefreshCw, DollarSign, PackageCheck, Send,
+    FlaskConical, ShieldCheck, Award, Building2, GraduationCap,
+    Microscope, Stethoscope, Factory, Landmark, BookOpen,
 } from 'lucide-react';
 import AuthErrorHandler from '@/components/AuthErrorHandler';
+import PublicNavbar from '@/components/public-navbar';
+import PublicFooter from '@/components/public-footer';
 
 function FAQItem({ question, answer }: { question: string; answer: string }) {
     const [open, setOpen] = useState(false);
@@ -33,43 +37,7 @@ export default function HomePage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
             <AuthErrorHandler />
-
-            {/* Navigation */}
-            <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-xl border-b border-white/15 shadow-lg shadow-black/10">
-                <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-md shadow-violet-500/20">
-                            <Package className="w-5 h-5 text-white" />
-                        </div>
-                        <span className="text-xl font-bold text-white tracking-tight">WhiteLabel Peptides</span>
-                    </div>
-                    <div className="hidden md:flex items-center gap-1">
-                        {[
-                            { href: '#products', label: 'Products' },
-                            { href: '#how-it-works', label: 'How It Works' },
-                            { href: '#fulfillment', label: 'Fulfillment' },
-                            { href: '#billing', label: 'Billing' },
-                            { href: '#faq', label: 'FAQ' },
-                        ].map((link) => (
-                            <a
-                                key={link.href}
-                                href={link.href}
-                                className="px-3 py-1.5 rounded-md text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 transition-all"
-                            >
-                                {link.label}
-                            </a>
-                        ))}
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <Link href="/login" className="px-4 py-2 rounded-lg text-sm font-medium text-white/90 hover:text-white hover:bg-white/10 transition-all">
-                            Sign In
-                        </Link>
-                        <Link href="/register" className="px-5 py-2 rounded-lg bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-sm font-semibold hover:from-violet-400 hover:to-indigo-500 transition-all shadow-md shadow-violet-500/25">
-                            Get Started
-                        </Link>
-                    </div>
-                </div>
-            </nav>
+            <PublicNavbar variant="landing" />
 
             {/* Hero Section */}
             <section className="pt-32 pb-20 px-6">
@@ -107,12 +75,67 @@ export default function HomePage() {
                         </Link>
                     </div>
 
+                    {/* Certification badges */}
+                    <div className="mt-10 flex flex-wrap justify-center gap-4">
+                        {[
+                            { icon: ShieldCheck, label: 'cGMP Certified Facility' },
+                            { icon: FlaskConical, label: 'cGLP Testing Standards' },
+                            { icon: Award, label: 'Third-Party Verified' },
+                        ].map((badge, i) => (
+                            <div key={i} className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium">
+                                <badge.icon className="w-4 h-4" />
+                                {badge.label}
+                            </div>
+                        ))}
+                    </div>
+
                     {/* Trust badges */}
-                    <div className="mt-12 flex flex-wrap justify-center gap-6 text-white/40 text-sm">
+                    <div className="mt-4 flex flex-wrap justify-center gap-6 text-white/40 text-sm">
                         <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400/60" /> 3rd-Party Tested</div>
                         <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400/60" /> COA on Every Product</div>
                         <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400/60" /> USA-Based Fulfillment</div>
                         <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400/60" /> Same-Day Shipping</div>
+                    </div>
+
+                    {/* Stats counters */}
+                    <div className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto">
+                        {[
+                            { value: '60+', label: 'Research Peptides' },
+                            { value: '≥98%', label: 'Verified Purity' },
+                            { value: '6-Panel', label: 'COA Testing' },
+                            { value: 'USA', label: 'Based Fulfillment' },
+                        ].map((stat, i) => (
+                            <div key={i} className="text-center">
+                                <div className="text-3xl md:text-4xl font-bold text-white">{stat.value}</div>
+                                <div className="text-white/40 text-sm mt-1">{stat.label}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* ─── Trusted By Section ─── */}
+            <section className="py-16 px-6 border-t border-white/5">
+                <div className="container mx-auto">
+                    <h2 className="text-center text-white/50 text-sm font-semibold uppercase tracking-wider mb-10">
+                        Trusted By Research Professionals
+                    </h2>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 max-w-5xl mx-auto">
+                        {[
+                            { icon: GraduationCap, label: 'Educational Institutions' },
+                            { icon: Microscope, label: 'Independent Researchers' },
+                            { icon: Stethoscope, label: 'Hospital & Medical' },
+                            { icon: Factory, label: 'Pharma & Biotech' },
+                            { icon: Landmark, label: 'Government Labs' },
+                            { icon: Building2, label: 'Private Research Orgs' },
+                        ].map((item, i) => (
+                            <div key={i} className="flex flex-col items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5">
+                                <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center">
+                                    <item.icon className="w-5 h-5 text-white/30" />
+                                </div>
+                                <span className="text-white/40 text-xs text-center font-medium">{item.label}</span>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </section>
@@ -629,21 +652,7 @@ export default function HomePage() {
                 </div>
             </section>
 
-            {/* Footer */}
-            <footer className="py-8 px-6 border-t border-white/10">
-                <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-2">
-                        <Package className="w-5 h-5 text-white/60" />
-                        <span className="text-white/60">&copy; 2025 WhiteLabel Peptides. All rights reserved.</span>
-                    </div>
-                    <div className="flex items-center gap-6 text-white/60 text-sm">
-                        <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
-                        <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
-                        <Link href="/docs" className="hover:text-white transition-colors">Docs</Link>
-                        <a href="mailto:whitelabel@peptidetech.co" className="hover:text-white transition-colors">Contact</a>
-                    </div>
-                </div>
-            </footer>
+            <PublicFooter />
         </div>
     );
 }

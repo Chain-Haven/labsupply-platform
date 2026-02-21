@@ -1,14 +1,14 @@
 import Link from 'next/link';
-import { PRIVACY_POLICY_SECTIONS, COMPANY, EFFECTIVE_DATE } from '@/lib/legal-documents';
+import { DISCLAIMER_SECTIONS, COMPANY, EFFECTIVE_DATE } from '@/lib/legal-documents';
 import PublicNavbar from '@/components/public-navbar';
 import PublicFooter from '@/components/public-footer';
 
 export const metadata = {
-  title: 'Privacy Policy — Peptide Tech LLC',
-  description: 'Privacy Policy for Peptide Tech LLC.',
+  title: 'Disclaimer — Peptide Tech LLC',
+  description: 'Legal disclaimer for Peptide Tech LLC and the WhiteLabel Peptides platform.',
 };
 
-export default function PrivacyPage() {
+export default function DisclaimerPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <PublicNavbar />
@@ -17,7 +17,7 @@ export default function PrivacyPage() {
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-white/10 shadow-2xl">
           <div className="px-8 py-10 border-b border-gray-200 dark:border-gray-700">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Privacy Policy
+              Disclaimer
             </h1>
             <p className="text-gray-500 dark:text-gray-400">
               {COMPANY.name} &mdash; Effective {EFFECTIVE_DATE}
@@ -28,7 +28,7 @@ export default function PrivacyPage() {
           </div>
 
           <div className="px-8 py-8 space-y-10">
-            {PRIVACY_POLICY_SECTIONS.map((section, idx) => (
+            {DISCLAIMER_SECTIONS.map((section, idx) => (
               <section key={idx}>
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wide">
                   {section.title}
@@ -44,9 +44,11 @@ export default function PrivacyPage() {
             <p className="text-xs text-gray-500 dark:text-gray-400">
               &copy; {new Date().getFullYear()} {COMPANY.name}. All rights reserved.
               {' '}
-              <Link href="/terms" className="text-violet-600 hover:underline">
-                Terms of Service
-              </Link>
+              <Link href="/terms" className="text-violet-600 hover:underline">Terms of Service</Link>
+              {' | '}
+              <Link href="/privacy" className="text-violet-600 hover:underline">Privacy Policy</Link>
+              {' | '}
+              <Link href="/eula" className="text-violet-600 hover:underline">EULA</Link>
             </p>
           </div>
         </div>
