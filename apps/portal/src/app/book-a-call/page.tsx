@@ -7,7 +7,7 @@ import PublicNavbar from '@/components/public-navbar';
 import PublicFooter from '@/components/public-footer';
 import type { Metadata } from 'next';
 
-const BOOKING_URL = 'https://calendly.com/your-link';
+const BOOKING_URL = 'https://calendly.com/peptidetech-info/30min';
 
 export const metadata: Metadata = {
     title: 'Book a Call — WhiteLabel Peptides',

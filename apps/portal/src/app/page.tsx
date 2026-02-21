@@ -642,10 +642,12 @@ export default function HomePage() {
                                 <ArrowRight className="w-5 h-5" />
                             </Link>
                             <a
-                                href="mailto:whitelabel@peptidetech.co"
+                                href="https://calendly.com/peptidetech-info/30min"
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-white/10 text-white font-semibold text-lg hover:bg-white/20 transition-colors"
                             >
-                                Contact Sales
+                                Book a Call
                             </a>
                         </div>
                     </div>
