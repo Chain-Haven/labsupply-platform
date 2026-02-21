@@ -109,6 +109,11 @@ export default function WalletPage() {
     const [btcDeposits, setBtcDeposits] = useState<BtcDeposit[]>([]);
     const [loadingBtc, setLoadingBtc] = useState(false);
 
+    // Manual topup modal
+    const [showTopupModal, setShowTopupModal] = useState(false);
+    const [topupAmount, setTopupAmount] = useState('');
+    const [submittingTopup, setSubmittingTopup] = useState(false);
+
     // Withdrawal modal
     const [showWithdrawModal, setShowWithdrawModal] = useState(false);
     const [withdrawCurrency, setWithdrawCurrency] = useState<'USD' | 'BTC'>('USD');
@@ -175,6 +180,46 @@ export default function WalletPage() {
         if (btcAddress) {
             navigator.clipboard.writeText(btcAddress);
             toast({ title: 'Copied', description: 'BTC address copied to clipboard.' });
+        }
+    };
+
+    const handleManualTopup = async () => {
+        const dollars = parseFloat(topupAmount);
+        if (!dollars || dollars < 50) {
+            toast({ title: 'Invalid amount', description: 'Minimum top-up is $50.00', variant: 'destructive' });
+            return;
+        }
+        setSubmittingTopup(true);
+        try {
+            const res = await fetch('/api/v1/merchant/invoices/manual-topup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount_cents: Math.round(dollars * 100) }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to create invoice');
+
+            toast({ title: 'Invoice created!', description: `A $${dollars.toFixed(2)} invoice has been sent to your email.` });
+            setShowTopupModal(false);
+            setTopupAmount('');
+
+            // Open payment link if available
+            if (data.invoice?.pay_url) {
+                window.open(data.invoice.pay_url, '_blank');
+            }
+
+            // Refresh invoices list
+            try {
+                const invRes = await fetch('/api/v1/merchant/invoices');
+                if (invRes.ok) {
+                    const invData = await invRes.json();
+                    setInvoices(invData.data || []);
+                }
+            } catch { /* ignore refresh failure */ }
+        } catch (err) {
+            toast({ title: 'Error', description: (err as Error).message, variant: 'destructive' });
+        } finally {
+            setSubmittingTopup(false);
         }
     };
 
@@ -257,6 +302,13 @@ export default function WalletPage() {
                     <p className="text-gray-500 dark:text-gray-400">Manage your USD and BTC wallets</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Button
+                        onClick={() => setShowTopupModal(true)}
+                        className="gap-2 bg-violet-600 hover:bg-violet-700"
+                    >
+                        <ArrowUpRight className="w-4 h-4" />
+                        Manual Top Up
+                    </Button>
                     <Button
                         variant="outline"
                         onClick={() => setShowWithdrawModal(true)}
@@ -397,8 +449,17 @@ export default function WalletPage() {
                                     <FileText className="w-12 h-12 mx-auto mb-3 opacity-20" />
                                     <p>No pending invoices</p>
                                     <p className="text-sm mt-1">
-                                        Invoices are generated automatically when your balance drops below your threshold.
+                                        Invoices are generated automatically when your balance drops below your threshold,
+                                        or you can create one now.
                                     </p>
+                                    <Button
+                                        onClick={() => setShowTopupModal(true)}
+                                        className="mt-4 gap-2 bg-violet-600 hover:bg-violet-700"
+                                        size="sm"
+                                    >
+                                        <ArrowUpRight className="w-4 h-4" />
+                                        Manual Top Up
+                                    </Button>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
@@ -702,6 +763,82 @@ export default function WalletPage() {
             </Card>
 
             {/* Withdrawal Modal */}
+            {/* Manual Top Up Modal */}
+            {showTopupModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-md w-full p-6 space-y-6">
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Top Up Wallet</h2>
+                            <p className="text-sm text-gray-500 mt-1">
+                                Select an amount or enter a custom value. A Mercury invoice will be created and emailed to you.
+                            </p>
+                        </div>
+
+                        {/* Preset amounts */}
+                        <div className="grid grid-cols-3 gap-2">
+                            {[100, 250, 500, 1000, 2500, 5000].map((dollars) => (
+                                <button
+                                    key={dollars}
+                                    onClick={() => setTopupAmount(String(dollars))}
+                                    className={cn(
+                                        'p-3 rounded-lg border text-center font-semibold text-sm transition-colors',
+                                        topupAmount === String(dollars)
+                                            ? 'border-violet-500 bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-600'
+                                            : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-violet-300 hover:bg-violet-50/50 dark:hover:bg-violet-900/10'
+                                    )}
+                                >
+                                    ${dollars.toLocaleString()}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Custom amount */}
+                        <div>
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Custom Amount ($)</label>
+                            <div className="relative mt-1">
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <Input
+                                    type="number"
+                                    min="50"
+                                    step="1"
+                                    placeholder="Enter amount (min $50)"
+                                    value={topupAmount}
+                                    onChange={(e) => setTopupAmount(e.target.value)}
+                                    className="pl-8"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                            <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                            <p className="text-xs text-blue-700 dark:text-blue-300">
+                                An invoice will be sent to your billing email. Once you pay via ACH, your wallet balance
+                                updates automatically (typically within a few minutes of payment settlement).
+                            </p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-3">
+                            <Button
+                                variant="outline"
+                                onClick={() => { setShowTopupModal(false); setTopupAmount(''); }}
+                                className="flex-1"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handleManualTopup}
+                                disabled={submittingTopup || !topupAmount || parseFloat(topupAmount) < 50}
+                                className="flex-1 bg-violet-600 hover:bg-violet-700"
+                            >
+                                {submittingTopup ? 'Creating Invoice...' : `Top Up $${parseFloat(topupAmount || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {showWithdrawModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                     <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-6">
