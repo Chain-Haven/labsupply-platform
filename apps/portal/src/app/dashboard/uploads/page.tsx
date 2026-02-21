@@ -28,11 +28,6 @@ const uploads: {
     category: string;
 }[] = [];
 
-const requiredDocuments = [
-    { name: 'Business License', description: 'Valid business registration', uploaded: false },
-    { name: 'Tax Exemption Certificate', description: 'If applicable', uploaded: false },
-    { name: 'Research Institution Verification', description: 'Letter or credentials', uploaded: false },
-];
 
 export default function UploadsPage() {
     const [isDragging, setIsDragging] = useState(false);
@@ -93,36 +88,6 @@ export default function UploadsPage() {
                         <p className="text-sm text-gray-400">
                             PDF, JPG, PNG up to 10MB
                         </p>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Required documents */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Required Documents</CardTitle>
-                    <CardDescription>Documents needed for account verification</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
-                        {requiredDocuments.map((doc, index) => (
-                            <div key={index} className="flex items-center justify-between py-3 border-b last:border-0">
-                                <div className="flex items-center gap-3">
-                                    {doc.uploaded ? (
-                                        <CheckCircle className="w-5 h-5 text-green-500" />
-                                    ) : (
-                                        <div className="w-5 h-5 rounded-full border-2 border-gray-300" />
-                                    )}
-                                    <div>
-                                        <p className="font-medium text-gray-900 dark:text-white">{doc.name}</p>
-                                        <p className="text-sm text-gray-500">{doc.description}</p>
-                                    </div>
-                                </div>
-                                {!doc.uploaded && (
-                                    <Button size="sm" variant="outline">Upload</Button>
-                                )}
-                            </div>
-                        ))}
                     </div>
                 </CardContent>
             </Card>
