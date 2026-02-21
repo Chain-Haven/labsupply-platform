@@ -424,39 +424,41 @@ export default function WalletPage() {
             )}
 
             {/* Balance Cards -- USD + BTC side by side */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
                 {/* USD Available */}
-                <Card className="bg-gradient-to-br from-violet-600 to-indigo-600 text-white border-0">
-                    <CardContent className="p-6">
+                <Card className="bg-gradient-to-br from-violet-600 to-indigo-600 text-white border-0 overflow-hidden">
+                    <CardContent className="p-6 min-w-0">
                         <div className="flex items-center justify-between mb-4">
                             <Wallet className="w-8 h-8 opacity-80" />
                             <span className="text-sm opacity-80">USD Available</span>
                         </div>
-                        <p className="text-3xl font-bold">{formatCurrency(usableBalance)}</p>
+                        <p className="text-2xl lg:text-xl xl:text-2xl font-bold truncate">{formatCurrency(usableBalance)}</p>
                         <p className="text-sm opacity-80 mt-1">Ready for orders</p>
                     </CardContent>
                 </Card>
 
                 {/* BTC Balance */}
-                <Card className="bg-gradient-to-br from-orange-500 to-amber-600 text-white border-0">
-                    <CardContent className="p-6">
+                <Card className="bg-gradient-to-br from-orange-500 to-amber-600 text-white border-0 overflow-hidden">
+                    <CardContent className="p-6 min-w-0">
                         <div className="flex items-center justify-between mb-4">
                             <Bitcoin className="w-8 h-8 opacity-80" />
                             <span className="text-sm opacity-80">BTC Balance</span>
                         </div>
-                        <p className="text-3xl font-bold">{formatBtc(btcWallet.balance_sats)}</p>
-                        <p className="text-sm opacity-80 mt-1">{formatSats(btcWallet.balance_sats)} sats</p>
+                        <p className="text-xl sm:text-2xl lg:text-xl xl:text-2xl font-bold truncate" title={formatBtc(btcWallet.balance_sats) + ' BTC'}>
+                            {formatBtc(btcWallet.balance_sats)}
+                        </p>
+                        <p className="text-sm opacity-80 mt-1 truncate">{formatSats(btcWallet.balance_sats)} sats</p>
                     </CardContent>
                 </Card>
 
                 {/* Compliance Reserve */}
-                <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
-                    <CardContent className="p-6">
+                <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10 overflow-hidden">
+                    <CardContent className="p-6 min-w-0">
                         <div className="flex items-center justify-between mb-4">
                             <Shield className="w-8 h-8 text-amber-600" />
                             <span className="text-sm text-amber-700 dark:text-amber-400">Compliance</span>
                         </div>
-                        <p className="text-3xl font-bold text-amber-900 dark:text-amber-100">
+                        <p className="text-2xl lg:text-xl xl:text-2xl font-bold text-amber-900 dark:text-amber-100 truncate">
                             {formatCurrency(COMPLIANCE_RESERVE_CENTS)}
                         </p>
                         <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">Mandatory reserve</p>
@@ -464,13 +466,13 @@ export default function WalletPage() {
                 </Card>
 
                 {/* Reserved */}
-                <Card>
-                    <CardContent className="p-6">
+                <Card className="overflow-hidden">
+                    <CardContent className="p-6 min-w-0">
                         <div className="flex items-center justify-between mb-4">
                             <Clock className="w-8 h-8 text-yellow-500" />
                             <span className="text-sm text-gray-500">Reserved</span>
                         </div>
-                        <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                        <p className="text-2xl lg:text-xl xl:text-2xl font-bold text-gray-900 dark:text-white truncate">
                             {formatCurrency(walletData.reserved_cents)}
                         </p>
                         <p className="text-sm text-gray-500 mt-1">Held for orders</p>
@@ -478,13 +480,13 @@ export default function WalletPage() {
                 </Card>
 
                 {/* Total USD */}
-                <Card>
-                    <CardContent className="p-6">
+                <Card className="overflow-hidden">
+                    <CardContent className="p-6 min-w-0">
                         <div className="flex items-center justify-between mb-4">
                             <Wallet className="w-8 h-8 text-gray-400" />
                             <span className="text-sm text-gray-500">Total USD</span>
                         </div>
-                        <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                        <p className="text-2xl lg:text-xl xl:text-2xl font-bold text-gray-900 dark:text-white truncate">
                             {formatCurrency(walletData.balance_cents)}
                         </p>
                         <p className="text-sm text-gray-500 mt-1">{walletData.currency}</p>
