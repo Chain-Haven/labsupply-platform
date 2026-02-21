@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { createBrowserClient } from '@/lib/supabase';
 
 // Onboarding data interface
 export interface OnboardingData {
@@ -140,42 +141,63 @@ interface OnboardingContextType {
 
 const OnboardingContext = createContext<OnboardingContextType | null>(null);
 
-const STORAGE_KEY = 'wlp_onboarding';
+const STORAGE_PREFIX = 'wlp_onboarding_';
+const LEGACY_KEY = 'wlp_onboarding';
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
     const [data, setData] = useState<OnboardingData>(initialData);
     const [currentStep, setCurrentStep] = useState(1);
+    const [userId, setUserId] = useState<string | null>(null);
+    const readyRef = useRef(false);
     const totalSteps = 7;
 
-    // Load from localStorage on mount
+    // Resolve the current user ID, then load their scoped data
     useEffect(() => {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                // Don't restore file objects from localStorage
-                setData({
-                    ...parsed.data,
-                    documents: initialData.documents,
-                });
-                setCurrentStep(parsed.currentStep || 1);
-            } catch (e) {
-                console.error('Failed to parse onboarding data:', e);
+        const supabase = createBrowserClient();
+
+        supabase.auth.getUser().then(({ data: { user } }) => {
+            const uid = user?.id ?? null;
+            setUserId(uid);
+
+            // Remove legacy unscoped key so stale data never leaks across accounts
+            try { localStorage.removeItem(LEGACY_KEY); } catch { /* noop */ }
+
+            if (!uid) {
+                readyRef.current = true;
+                return;
             }
-        }
+
+            const key = STORAGE_PREFIX + uid;
+            const saved = localStorage.getItem(key);
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    setData({
+                        ...parsed.data,
+                        documents: initialData.documents,
+                    });
+                    setCurrentStep(parsed.currentStep || 1);
+                } catch (e) {
+                    console.error('Failed to parse onboarding data:', e);
+                }
+            }
+            readyRef.current = true;
+        });
     }, []);
 
-    // Save to localStorage on change
+    // Save to user-scoped localStorage on change
     useEffect(() => {
+        if (!readyRef.current || !userId) return;
+
         const toSave = {
             data: {
                 ...data,
-                documents: {}, // Don't save file objects
+                documents: {},
             },
             currentStep,
         };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-    }, [data, currentStep]);
+        localStorage.setItem(STORAGE_PREFIX + userId, JSON.stringify(toSave));
+    }, [data, currentStep, userId]);
 
     const updateData = (updates: Partial<OnboardingData>) => {
         setData((prev) => ({ ...prev, ...updates }));
@@ -244,7 +266,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     const resetOnboarding = () => {
         setData(initialData);
         setCurrentStep(1);
-        localStorage.removeItem(STORAGE_KEY);
+        if (userId) {
+            localStorage.removeItem(STORAGE_PREFIX + userId);
+        }
     };
 
     return (
