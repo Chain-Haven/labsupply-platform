@@ -78,7 +78,7 @@ export default function HomePage() {
                     {/* Certification badges */}
                     <div className="mt-10 flex flex-wrap justify-center gap-4">
                         {[
-                            { icon: ShieldCheck, label: 'cGMP Certified Facility' },
+                            { icon: ShieldCheck, label: 'cGMP Aligned Facility' },
                             { icon: FlaskConical, label: 'cGLP Testing Standards' },
                             { icon: Award, label: 'Third-Party Verified' },
                         ].map((badge, i) => (

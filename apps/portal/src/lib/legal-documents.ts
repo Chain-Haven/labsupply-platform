@@ -1195,7 +1195,7 @@ If you have questions about health conditions, medical treatments, or the clinic
     title: 'FDA COMPLIANCE NOTICE',
     content: `The products available through the WhiteLabel Peptides platform have not been evaluated by the U.S. Food and Drug Administration (FDA). These products are not intended to diagnose, treat, cure, or prevent any disease or medical condition.
 
-${COMPANY.name} operates in compliance with applicable FDA regulations governing the sale and distribution of research chemicals and research-use-only compounds. All products are manufactured in cGMP-certified facilities and tested to cGLP standards.
+${COMPANY.name} operates in compliance with applicable FDA regulations governing the sale and distribution of research chemicals and research-use-only compounds. All products are manufactured in cGMP-aligned facilities and tested to cGLP standards.
 
 Merchants and resellers using the WhiteLabel Peptides platform are responsible for ensuring that their own marketing materials, product listings, and customer communications comply with FDA and FTC regulations. This includes, but is not limited to:
 

@@ -1,0 +1,22 @@
+{
+  "plugins": {
+    "supabase": {
+      "enabled": true
+    },
+    "continual-learning": {
+      "enabled": true
+    },
+    "sentry": {
+      "enabled": true
+    },
+    "superpowers": {
+      "enabled": true
+    },
+    "context7-plugin": {
+      "enabled": true
+    },
+    "browserstack": {
+      "enabled": true
+    }
+  }
+}
