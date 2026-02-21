@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
           name,
           description,
           short_description,
+          cost_cents,
           attributes,
           dimensions,
           weight_grams,
@@ -64,6 +65,15 @@ export async function GET(request: NextRequest) {
             console.error('Catalog fetch error:', error);
             throw new Error('Failed to fetch catalog');
         }
+
+        // Fetch merchant's global price adjustment for products without explicit overrides
+        const { data: merchantRecord } = await supabase
+            .from('merchants')
+            .select('price_adjustment_percent')
+            .eq('id', store.merchantId)
+            .single();
+
+        const globalAdjustmentPct = Number(merchantRecord?.price_adjustment_percent) || 0;
 
         // Get inventory for products
         const productIds = merchantProducts?.map((mp: any) => mp.products.id) || [];
@@ -102,7 +112,8 @@ export async function GET(request: NextRequest) {
                     id: img.id,
                     url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-images/${img.storage_path}`,
                 })),
-                wholesale_price_cents: mp.wholesale_price_cents,
+                wholesale_price_cents: mp.wholesale_price_cents ??
+                    Math.round((product.cost_cents || 0) * (1 + globalAdjustmentPct / 100)),
                 map_price_cents: mp.map_price_cents,
                 dimensions: product.dimensions,
                 weight_grams: product.weight_grams,

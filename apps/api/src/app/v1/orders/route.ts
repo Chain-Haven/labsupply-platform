@@ -79,6 +79,15 @@ export async function POST(request: NextRequest) {
 
         const productMap = new Map(products.map((p) => [p.sku, p]));
 
+        // Fetch merchant's global price adjustment
+        const { data: merchantRecord } = await supabase
+            .from('merchants')
+            .select('price_adjustment_percent')
+            .eq('id', store.merchantId)
+            .single();
+
+        const globalAdjustmentPct = Number(merchantRecord?.price_adjustment_percent) || 0;
+
         // Verify all SKUs are whitelisted for this merchant
         const { data: merchantProducts } = await supabase
             .from('merchant_products')
@@ -119,7 +128,10 @@ export async function POST(request: NextRequest) {
                 );
             }
 
-            const unitPrice = priceMap.get(product.id) || product.cost_cents;
+            const skuOverride = priceMap.get(product.id);
+            const unitPrice = skuOverride != null
+                ? skuOverride
+                : Math.round(product.cost_cents * (1 + globalAdjustmentPct / 100));
             const lineTotal = unitPrice * item.qty;
             subtotalCents += lineTotal;
 

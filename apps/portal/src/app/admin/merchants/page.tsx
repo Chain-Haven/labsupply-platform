@@ -27,7 +27,8 @@ import {
     FileText,
     Truck,
     ExternalLink,
-    CreditCard
+    CreditCard,
+    DollarSign
 } from 'lucide-react';
 import { cn, formatRelativeTime } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -409,6 +410,11 @@ export default function MerchantsPage() {
                                                 >
                                                     <Edit className="w-4 h-4" />
                                                 </Button>
+                                                <Link href={`/admin/merchants/${merchant.id}/pricing`}>
+                                                    <Button size="sm" variant="ghost" title="Manage pricing">
+                                                        <DollarSign className="w-4 h-4" />
+                                                    </Button>
+                                                </Link>
                                                 <Link href={`/admin/merchants/${merchant.id}`}>
                                                     <Button size="sm" variant="ghost" title="View details">
                                                         <Eye className="w-4 h-4" />

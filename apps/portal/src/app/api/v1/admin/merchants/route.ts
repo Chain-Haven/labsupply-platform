@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
                 status, kyb_status, can_ship,
                 wallet_balance_cents, subscription_status,
                 legal_opinion_letter_url,
-                billing_name,
+                billing_name, price_adjustment_percent,
                 created_at, updated_at
             `, { count: 'exact' })
             .order('created_at', { ascending: false })
@@ -81,7 +81,7 @@ export async function PATCH(request: NextRequest) {
 
         const allowedFields = [
             'status', 'can_ship', 'kyb_status', 'company_name', 'email', 'phone',
-            'website_url', 'billing_name', 'billing_email', 'tier',
+            'website_url', 'billing_name', 'billing_email', 'tier', 'price_adjustment_percent',
         ];
         const safeUpdates: Record<string, unknown> = {};
         for (const key of allowedFields) {
