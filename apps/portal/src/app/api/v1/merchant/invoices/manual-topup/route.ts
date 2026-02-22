@@ -16,7 +16,7 @@ const MIN_AMOUNT_CENTS = 5000;   // $50 minimum
 const MAX_AMOUNT_CENTS = 5000000; // $50,000 maximum
 
 const MERCURY_API_BASE = process.env.MERCURY_API_BASE_URL || 'https://api.mercury.com/api/v1';
-const MERCURY_API_KEY = process.env.MERCURY_API_KEY || '';
+const MERCURY_API_TOKEN = process.env.MERCURY_API_TOKEN || '';
 const MERCURY_ACCOUNT_ID = process.env.MERCURY_ACCOUNT_ID || '';
 
 function getServiceClient() {
@@ -54,6 +54,13 @@ export async function POST(request: NextRequest) {
 
         if (merchantError || !merchant) {
             return NextResponse.json({ error: 'Merchant profile not found' }, { status: 404 });
+        }
+
+        if (!MERCURY_API_TOKEN) {
+            return NextResponse.json(
+                { error: 'Mercury API is not configured. Please contact support.' },
+                { status: 503 }
+            );
         }
 
         if (!merchant.mercury_customer_id) {
@@ -130,7 +137,7 @@ export async function POST(request: NextRequest) {
         const mercuryRes = await fetch(`${MERCURY_API_BASE}/ar/invoices`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${MERCURY_API_KEY}`,
+                'Authorization': `Bearer ${MERCURY_API_TOKEN}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(mercuryPayload),
