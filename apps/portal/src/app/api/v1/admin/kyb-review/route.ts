@@ -26,6 +26,8 @@ export async function GET() {
                 legal_opinion_letter_url,
                 billing_name, billing_address_street, billing_address_city,
                 billing_address_state, billing_address_zip,
+                selected_package_id,
+                service_packages(slug, name, price_cents),
                 created_at, updated_at
             `)
             .in('kyb_status', ['in_progress', 'not_started'])
@@ -69,10 +71,9 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'action must be approve or reject' }, { status: 400 });
         }
 
-        // Get merchant (only columns that exist in production)
         const { data: merchant, error: fetchError } = await supabase
             .from('merchants')
-            .select('id, company_name, email')
+            .select('id, company_name, email, selected_package_id')
             .eq('id', merchantId)
             .single();
 
@@ -143,7 +144,85 @@ export async function POST(request: NextRequest) {
                 metadata: { mercury_customer_created: !!updates.mercury_customer_id },
             }).then(() => {}, () => {});
 
-            return NextResponse.json({ success: true, action: 'approved', mercury_customer_id: updates.mercury_customer_id || null });
+            // Auto-invoice for paid package if merchant selected one
+            let packageInvoiceCreated = false;
+            if (merchant.selected_package_id && updates.mercury_customer_id && mercuryToken) {
+                try {
+                    const { data: pkg } = await supabase
+                        .from('service_packages')
+                        .select('id, name, price_cents, slug')
+                        .eq('id', merchant.selected_package_id)
+                        .single();
+
+                    if (pkg && pkg.price_cents > 0) {
+                        const mercuryAccountId = process.env.MERCURY_ACCOUNT_ID || '';
+                        const dueDate = new Date();
+                        dueDate.setDate(dueDate.getDate() + 14);
+                        const dueDateStr = dueDate.toISOString().split('T')[0];
+                        const invoiceDateStr = new Date().toISOString().split('T')[0];
+                        const amountDollars = (pkg.price_cents / 100).toFixed(2);
+
+                        const invoiceRes = await fetch('https://api.mercury.com/api/v1/ar/invoices', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${mercuryToken}`,
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                customerId: updates.mercury_customer_id,
+                                dueDate: dueDateStr,
+                                invoiceDate: invoiceDateStr,
+                                lineItems: [{
+                                    name: `${pkg.name} Package — ${merchant.company_name || merchant.email}`,
+                                    unitPrice: amountDollars,
+                                    quantity: 1,
+                                }],
+                                ccEmails: [],
+                                payerMemo: `Service package: ${pkg.name}. Pay via ACH to activate your package.`,
+                                sendEmailOption: 'SendNow',
+                                creditCardEnabled: false,
+                                achDebitEnabled: true,
+                                useRealAccountNumber: false,
+                                destinationAccountId: mercuryAccountId,
+                            }),
+                        });
+
+                        if (invoiceRes.ok) {
+                            const invoice = await invoiceRes.json();
+                            await supabase.from('merchant_packages').upsert({
+                                merchant_id: merchantId,
+                                package_id: pkg.id,
+                                status: 'invoiced',
+                                mercury_invoice_id: invoice.id,
+                                amount_cents: pkg.price_cents,
+                            }, { onConflict: 'merchant_id,package_id' }).then(() => {}, () => {});
+
+                            await supabase.from('mercury_invoices').insert({
+                                merchant_id: merchantId,
+                                mercury_invoice_id: invoice.id,
+                                mercury_invoice_number: invoice.invoiceNumber,
+                                mercury_slug: invoice.slug,
+                                amount_cents: pkg.price_cents,
+                                status: 'Unpaid',
+                                due_date: dueDateStr,
+                            }).then(() => {}, () => {});
+
+                            packageInvoiceCreated = true;
+                        } else {
+                            console.error('Package invoice creation failed:', await invoiceRes.text());
+                        }
+                    }
+                } catch (err) {
+                    console.error('Package invoice error:', err);
+                }
+            }
+
+            return NextResponse.json({
+                success: true,
+                action: 'approved',
+                mercury_customer_id: updates.mercury_customer_id || null,
+                package_invoice_created: packageInvoiceCreated,
+            });
         } else {
             // Reject
             const { error: updateError } = await supabase

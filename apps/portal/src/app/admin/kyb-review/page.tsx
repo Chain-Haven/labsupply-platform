@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { cn, formatRelativeTime } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { SERVICE_PACKAGES, formatPrice } from '@/lib/packages';
 
 type KybReviewItem = {
     id: string;
@@ -35,6 +36,8 @@ type KybReviewItem = {
     billing_address_city: string | null;
     billing_address_state: string | null;
     billing_address_zip: string | null;
+    selected_package_id: string | null;
+    service_packages: { slug: string; name: string; price_cents: number } | null;
     created_at: string;
 };
 
@@ -280,16 +283,23 @@ export default function KybReviewPage() {
                                                 Merchant • {formatRelativeTime(review.created_at)}
                                             </p>
                                         </div>
-                                        <span
-                                            className={cn(
-                                                'px-2 py-1 rounded-full text-xs font-medium',
-                                                review.kyb_status === 'not_started'
-                                                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                                            {review.service_packages && review.service_packages.slug !== 'self-service' && (
+                                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+                                                    {review.service_packages.name}
+                                                </span>
                                             )}
-                                        >
-                                            {review.kyb_status === 'not_started' ? 'Pending' : 'In Review'}
-                                        </span>
+                                            <span
+                                                className={cn(
+                                                    'px-2 py-1 rounded-full text-xs font-medium',
+                                                    review.kyb_status === 'not_started'
+                                                        ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                                )}
+                                            >
+                                                {review.kyb_status === 'not_started' ? 'Pending' : 'In Review'}
+                                            </span>
+                                        </div>
                                         <ChevronRight className="w-4 h-4 text-gray-400" />
                                     </button>
                                 ))}
@@ -311,6 +321,24 @@ export default function KybReviewPage() {
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-6">
+                                {/* Selected Package */}
+                                {selectedMerchant.service_packages && (
+                                    <div className="p-3 rounded-lg bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-xs text-violet-600 dark:text-violet-400 font-medium uppercase tracking-wider">Selected Package</p>
+                                                <p className="font-semibold text-gray-900 dark:text-white">{selectedMerchant.service_packages.name}</p>
+                                            </div>
+                                            <span className="text-lg font-bold text-gray-900 dark:text-white">
+                                                {selectedMerchant.service_packages.price_cents === 0 ? 'Free' : formatPrice(selectedMerchant.service_packages.price_cents)}
+                                            </span>
+                                        </div>
+                                        {selectedMerchant.service_packages.price_cents > 0 && (
+                                            <p className="text-xs text-violet-500 mt-1">Mercury invoice will be created automatically on approval</p>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Contact Info */}
                                 <div className="space-y-3">
                                     <h4 className="font-medium text-gray-900 dark:text-white flex items-center gap-2">

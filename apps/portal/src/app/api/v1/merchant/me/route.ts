@@ -114,6 +114,19 @@ export async function PATCH(request: NextRequest) {
         const body = await request.json();
         const serviceClient = getServiceClient();
 
+        // Resolve package slug to UUID if provided
+        if (body.selected_package_slug) {
+            const { data: pkg } = await serviceClient
+                .from('service_packages')
+                .select('id')
+                .eq('slug', body.selected_package_slug)
+                .single();
+            if (pkg) {
+                body.selected_package_id = pkg.id;
+            }
+            delete body.selected_package_slug;
+        }
+
         const { error: updateError } = await serviceClient
             .from('merchants')
             .update(body)

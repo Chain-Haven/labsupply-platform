@@ -10,9 +10,11 @@ import {
     FileText,
     Check,
     AlertCircle,
-    Edit2
+    Edit2,
+    PackageIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getPackageBySlug, formatPrice } from '@/lib/packages';
 
 interface StepProps {
     onNext: () => void;
@@ -40,7 +42,7 @@ export default function Step6Review({ onNext, onPrev }: StepProps) {
                     company_name: data.legalBusinessName || undefined,
                     website_url: data.website || undefined,
                     phone: data.businessPhone || undefined,
-                    // Store onboarding metadata as JSON in a notes field if available
+                    selected_package_slug: data.selectedPackage || 'self-service',
                 }),
             });
 
@@ -119,7 +121,25 @@ export default function Step6Review({ onNext, onPrev }: StepProps) {
 
             {/* Summary Sections */}
             <div className="space-y-4">
-                <Section title="Business Information" icon={Building} onEdit={() => goToStep(2)}>
+                <Section title="Selected Package" icon={PackageIcon} onEdit={() => goToStep(2)}>
+                    {(() => {
+                        const pkg = getPackageBySlug(data.selectedPackage);
+                        return pkg ? (
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="font-semibold text-gray-900 dark:text-white">{pkg.name}</p>
+                                    <p className="text-sm text-gray-500">{pkg.tagline}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="font-bold text-gray-900 dark:text-white">{formatPrice(pkg.priceCents)}</p>
+                                    {pkg.priceCents > 0 && <p className="text-xs text-gray-400">one-time, invoiced after approval</p>}
+                                </div>
+                            </div>
+                        ) : null;
+                    })()}
+                </Section>
+
+                <Section title="Business Information" icon={Building} onEdit={() => goToStep(3)}>
                     <dl className="grid gap-4 md:grid-cols-2">
                         <Field label="Account Type" value={accountTypeLabels[data.accountType] || ''} />
                         <Field label="Legal Name" value={data.legalBusinessName} />
@@ -130,7 +150,7 @@ export default function Step6Review({ onNext, onPrev }: StepProps) {
                     </dl>
                 </Section>
 
-                <Section title="Business Address" icon={MapPin} onEdit={() => goToStep(3)}>
+                <Section title="Business Address" icon={MapPin} onEdit={() => goToStep(4)}>
                     <p className="text-gray-900 dark:text-white">
                         {data.businessAddress.street1}
                         {data.businessAddress.street2 && `, ${data.businessAddress.street2}`}
@@ -150,7 +170,7 @@ export default function Step6Review({ onNext, onPrev }: StepProps) {
                     )}
                 </Section>
 
-                <Section title="Primary Contact" icon={User} onEdit={() => goToStep(4)}>
+                <Section title="Primary Contact" icon={User} onEdit={() => goToStep(5)}>
                     <dl className="grid gap-4 md:grid-cols-2">
                         <Field label="Name" value={`${data.contactFirstName} ${data.contactLastName}`} />
                         <Field label="Title" value={data.contactTitle} />
@@ -159,7 +179,7 @@ export default function Step6Review({ onNext, onPrev }: StepProps) {
                     </dl>
                 </Section>
 
-                <Section title="Documents" icon={FileText} onEdit={() => goToStep(5)}>
+                <Section title="Documents" icon={FileText} onEdit={() => goToStep(6)}>
                     <div className="space-y-2">
                         {Object.entries(data.documentStatus).map(([key, status]) => {
                             if (status === 'pending') return null;
@@ -254,7 +274,7 @@ export default function Step6Review({ onNext, onPrev }: StepProps) {
                 totalSteps={totalSteps}
                 onNext={handleSubmit}
                 onPrev={onPrev}
-                canProceed={isStepValid(7)}
+                canProceed={isStepValid(8)}
                 isSubmitting={isSubmitting}
             />
         </div>

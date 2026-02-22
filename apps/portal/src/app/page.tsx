@@ -530,6 +530,130 @@ export default function HomePage() {
                 </div>
             </section>
 
+            {/* ─── Launch Packages / Pricing ─── */}
+            <section id="packages" className="py-20 px-6 border-t border-white/5">
+                <div className="container mx-auto">
+                    <div className="text-center mb-14">
+                        <span className="text-violet-400 text-sm font-semibold uppercase tracking-wider">Launch Packages</span>
+                        <h2 className="text-3xl md:text-4xl font-bold text-white mt-2">
+                            Choose Your Path
+                        </h2>
+                        <p className="text-white/60 mt-4 max-w-2xl mx-auto">
+                            From self-service fulfillment to a fully done-for-you compliant store &mdash;
+                            pick the package that matches your goals.
+                        </p>
+                    </div>
+
+                    <div className="grid lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                        {[
+                            {
+                                name: 'Self-Service',
+                                tagline: 'Everything you need to start selling',
+                                price: 'Free',
+                                originalPrice: null,
+                                popular: false,
+                                features: [
+                                    'WooCommerce plugin access',
+                                    'Full product catalog',
+                                    'Prepaid wallet billing',
+                                    'Standard unbranded packaging',
+                                    'COA access for all products',
+                                    'Real-time order tracking',
+                                    'Multi-carrier shipping',
+                                ],
+                            },
+                            {
+                                name: 'Brand Starter',
+                                tagline: 'Launch your brand with custom labels and compliant copy',
+                                price: '$997',
+                                originalPrice: '$1,997',
+                                popular: true,
+                                features: [
+                                    'Everything in Self-Service',
+                                    'Custom label design (up to 10 SKUs)',
+                                    'Compliant branding guide',
+                                    'RUO product description templates',
+                                    'Branded packing slips',
+                                    'Email support',
+                                ],
+                            },
+                            {
+                                name: 'Business in a Box',
+                                tagline: 'Done-for-you compliant store — live in 30 days',
+                                price: '$4,497',
+                                originalPrice: '$8,997',
+                                popular: false,
+                                features: [
+                                    'Everything in Brand Starter',
+                                    'Done-for-you compliant WooCommerce store',
+                                    '11 custom-built pages',
+                                    '60+ compliant product pages with COAs',
+                                    'Mobile-responsive design',
+                                    'Age verification (21+)',
+                                    'Full compliance copy review',
+                                    '30-day launch guarantee',
+                                    'Priority support',
+                                ],
+                            },
+                        ].map((pkg, i) => (
+                            <div
+                                key={i}
+                                className={`relative rounded-2xl p-6 ${
+                                    pkg.popular
+                                        ? 'bg-gradient-to-b from-violet-500/10 to-indigo-600/10 border-2 border-violet-500/40'
+                                        : 'bg-white/5 border border-white/10'
+                                }`}
+                            >
+                                {pkg.popular && (
+                                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                                        <span className="px-4 py-1 rounded-full bg-violet-600 text-white text-xs font-semibold">
+                                            Most Popular
+                                        </span>
+                                    </div>
+                                )}
+                                <h3 className="text-xl font-bold text-white">{pkg.name}</h3>
+                                <p className="text-white/50 text-sm mt-1 mb-4">{pkg.tagline}</p>
+                                <div className="flex items-baseline gap-2 mb-1">
+                                    <span className="text-3xl font-bold text-white">{pkg.price}</span>
+                                    {pkg.originalPrice && (
+                                        <span className="text-sm text-white/30 line-through">{pkg.originalPrice}</span>
+                                    )}
+                                </div>
+                                {pkg.price !== 'Free' && (
+                                    <p className="text-white/30 text-xs mb-5">One-time investment</p>
+                                )}
+                                {pkg.price === 'Free' && (
+                                    <p className="text-white/30 text-xs mb-5">Included with every account</p>
+                                )}
+                                <ul className="space-y-2.5 mb-6">
+                                    {pkg.features.map((feat, j) => (
+                                        <li key={j} className="flex items-start gap-2 text-sm text-white/60">
+                                            <CheckCircle className="w-4 h-4 text-emerald-400/70 mt-0.5 flex-shrink-0" />
+                                            {feat}
+                                        </li>
+                                    ))}
+                                </ul>
+                                <Link
+                                    href="/register"
+                                    className={`block w-full py-3 rounded-lg text-center text-sm font-semibold transition-colors ${
+                                        pkg.popular
+                                            ? 'bg-violet-600 text-white hover:bg-violet-500'
+                                            : 'bg-white/10 text-white hover:bg-white/20'
+                                    }`}
+                                >
+                                    Get Started
+                                </Link>
+                            </div>
+                        ))}
+                    </div>
+
+                    <p className="text-center text-white/30 text-sm mt-8 max-w-xl mx-auto">
+                        All packages include access to our core fulfillment platform.
+                        Paid packages are invoiced via ACH after your account is approved &mdash; no payment required upfront.
+                    </p>
+                </div>
+            </section>
+
             {/* ─── Features Grid (expanded) ─── */}
             <section className="py-20 px-6 border-t border-white/5">
                 <div className="container mx-auto">

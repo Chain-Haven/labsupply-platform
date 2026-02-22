@@ -70,6 +70,10 @@ export interface OnboardingData {
     acknowledgeResearchOnly: boolean;
     acknowledgeNoHumanConsumption: boolean;
     acknowledgeCompliance: boolean;
+
+    // Step 2: Package Selection
+    selectedPackage: 'self-service' | 'brand-starter' | 'business-in-a-box';
+    selectedAddons: string[];
 }
 
 const initialData: OnboardingData = {
@@ -125,6 +129,8 @@ const initialData: OnboardingData = {
     acknowledgeResearchOnly: false,
     acknowledgeNoHumanConsumption: false,
     acknowledgeCompliance: false,
+    selectedPackage: 'self-service',
+    selectedAddons: [],
 };
 
 interface OnboardingContextType {
@@ -149,7 +155,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     const [currentStep, setCurrentStep] = useState(1);
     const [userId, setUserId] = useState<string | null>(null);
     const readyRef = useRef(false);
-    const totalSteps = 7;
+    const totalSteps = 8;
 
     // Resolve the current user ID, then load their scoped data
     useEffect(() => {
@@ -226,33 +232,33 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
             case 1:
                 return data.accountType !== '' && data.agreedToTerms && data.agreedToResearchUse;
             case 2:
+                return !!data.selectedPackage;
+            case 3:
                 return (
                     data.legalBusinessName.trim() !== '' &&
                     data.businessType !== '' &&
                     data.ein.trim() !== '' &&
                     data.businessPhone.trim() !== ''
                 );
-            case 3:
+            case 4:
                 return (
                     data.businessAddress.street1.trim() !== '' &&
                     data.businessAddress.city.trim() !== '' &&
                     data.businessAddress.state.trim() !== '' &&
                     data.businessAddress.zip.trim() !== ''
                 );
-            case 4:
+            case 5:
                 return (
                     data.contactFirstName.trim() !== '' &&
                     data.contactLastName.trim() !== '' &&
                     data.contactTitle.trim() !== '' &&
                     data.contactPhone.trim() !== ''
                 );
-            case 5:
-                // At minimum, business license is required
-                return data.documentStatus.businessLicense === 'uploaded';
             case 6:
-                // Agreement must be signed
-                return data.agreementSignature !== '';
+                return data.documentStatus.businessLicense === 'uploaded';
             case 7:
+                return data.agreementSignature !== '';
+            case 8:
                 return (
                     data.acknowledgeResearchOnly &&
                     data.acknowledgeNoHumanConsumption &&

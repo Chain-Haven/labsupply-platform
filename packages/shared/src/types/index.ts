@@ -937,3 +937,34 @@ export interface AdminCryptoSettings {
     btc_confirmation_threshold: number;
     btc_esplora_base_url: string;
 }
+
+// ---------------------------------------------------------------------------
+// Service Packages
+// ---------------------------------------------------------------------------
+export interface ServicePackage {
+    id: string;
+    slug: string;
+    name: string;
+    tagline: string;
+    description: string;
+    price_cents: number;
+    original_price_cents: number | null;
+    package_type: 'tier' | 'addon';
+    features: string[];
+    sort_order: number;
+    is_active: boolean;
+    is_popular: boolean;
+}
+
+export type MerchantPackageStatus = 'selected' | 'invoiced' | 'paid' | 'active' | 'cancelled';
+
+export interface MerchantPackage {
+    id: string;
+    merchant_id: string;
+    package_id: string;
+    status: MerchantPackageStatus;
+    mercury_invoice_id: string | null;
+    amount_cents: number;
+    selected_at: string;
+    paid_at: string | null;
+}

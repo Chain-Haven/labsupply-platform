@@ -7,15 +7,17 @@ import { Card, CardContent } from '@/components/ui/card';
 
 // Step components
 import Step1Welcome from './steps/step-1';
-import Step2Business from './steps/step-2';
-import Step3Address from './steps/step-3';
-import Step4Contact from './steps/step-4';
-import Step5Documents from './steps/step-5';
-import Step6Agreement from './steps/step-6-agreement';
-import Step7Review from './steps/step-7';
+import Step2Packages from './steps/step-2-packages';
+import Step3Business from './steps/step-2';
+import Step4Address from './steps/step-3';
+import Step5Contact from './steps/step-4';
+import Step6Documents from './steps/step-5';
+import Step7Agreement from './steps/step-6-agreement';
+import Step8Review from './steps/step-7';
 
 const steps = [
     { title: 'Welcome', description: 'Account type' },
+    { title: 'Package', description: 'Choose plan' },
     { title: 'Business', description: 'Company info' },
     { title: 'Address', description: 'Locations' },
     { title: 'Contact', description: 'Representative' },
@@ -30,7 +32,6 @@ export default function OnboardingPage() {
 
     const handleNext = () => {
         if (currentStep === totalSteps) {
-            // Submit the application
             router.push('/onboarding/complete');
         } else {
             nextStep();
@@ -42,17 +43,19 @@ export default function OnboardingPage() {
             case 1:
                 return <Step1Welcome onNext={handleNext} onPrev={prevStep} />;
             case 2:
-                return <Step2Business onNext={handleNext} onPrev={prevStep} />;
+                return <Step2Packages onNext={handleNext} onPrev={prevStep} />;
             case 3:
-                return <Step3Address onNext={handleNext} onPrev={prevStep} />;
+                return <Step3Business onNext={handleNext} onPrev={prevStep} />;
             case 4:
-                return <Step4Contact onNext={handleNext} onPrev={prevStep} />;
+                return <Step4Address onNext={handleNext} onPrev={prevStep} />;
             case 5:
-                return <Step5Documents onNext={handleNext} onPrev={prevStep} />;
+                return <Step5Contact onNext={handleNext} onPrev={prevStep} />;
             case 6:
-                return <Step6Agreement onNext={handleNext} onPrev={prevStep} />;
+                return <Step6Documents onNext={handleNext} onPrev={prevStep} />;
             case 7:
-                return <Step7Review onNext={handleNext} onPrev={prevStep} />;
+                return <Step7Agreement onNext={handleNext} onPrev={prevStep} />;
+            case 8:
+                return <Step8Review onNext={handleNext} onPrev={prevStep} />;
             default:
                 return <Step1Welcome onNext={handleNext} onPrev={prevStep} />;
         }
@@ -61,14 +64,12 @@ export default function OnboardingPage() {
     return (
         <div className="px-4 pb-12">
             <div className="max-w-5xl mx-auto flex gap-8">
-                {/* Progress sidebar */}
                 <OnboardingProgress
                     currentStep={currentStep}
                     totalSteps={totalSteps}
                     steps={steps}
                 />
 
-                {/* Step content */}
                 <div className="flex-1 min-w-0">
                     <Card className="bg-white dark:bg-gray-900 border-white/10">
                         <CardContent className="p-6 md:p-8">
