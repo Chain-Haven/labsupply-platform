@@ -155,8 +155,10 @@ export default function AdminCryptoPage() {
             });
 
             if (!response.ok) {
-                const { error } = await response.json();
-                throw new Error(error || 'Failed to save');
+                const text = await response.text();
+                let errorMsg = 'Failed to save';
+                try { errorMsg = JSON.parse(text).error || errorMsg; } catch { /* non-JSON response */ }
+                throw new Error(errorMsg);
             }
 
             toast({ title: 'Settings saved', description: 'Crypto settings have been updated.' });

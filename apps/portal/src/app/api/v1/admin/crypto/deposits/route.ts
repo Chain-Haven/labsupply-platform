@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createRouteHandlerClient } from '@/lib/supabase-server';
+import { requireAdmin } from '@/lib/admin-api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,22 +17,6 @@ function getServiceClient() {
     );
 }
 
-async function verifyAdmin(): Promise<boolean> {
-    const supabase = createRouteHandlerClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) return false;
-
-    const sc = getServiceClient();
-    const { data: admin } = await sc
-        .from('supplier_users')
-        .select('user_id')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .single();
-
-    return !!admin;
-}
-
 function getExplorerUrl(txid: string): string {
     const base = process.env.ESPLORA_BASE_URL || 'https://blockstream.info/api';
     if (base.includes('mempool.space')) return `https://mempool.space/tx/${txid}`;
@@ -41,9 +25,8 @@ function getExplorerUrl(txid: string): string {
 
 export async function GET(request: NextRequest) {
     try {
-        if (!(await verifyAdmin())) {
-            return NextResponse.json({ error: 'Admin access required to view crypto deposits.' }, { status: 403 });
-        }
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
 
         const { searchParams } = new URL(request.url);
         const status = searchParams.get('status');

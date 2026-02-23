@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createRouteHandlerClient } from '@/lib/supabase-server';
+import { requireAdmin } from '@/lib/admin-api-auth';
 import { encryptValue, decryptValue } from '@/lib/crypto-encrypt';
 import { validateXpub } from '@/lib/btc-hd';
 
@@ -19,29 +19,11 @@ function getServiceClient() {
     );
 }
 
-async function verifyAdmin(): Promise<string | null> {
-    const supabase = createRouteHandlerClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) return null;
-
-    const sc = getServiceClient();
-    const { data: admin } = await sc
-        .from('supplier_users')
-        .select('user_id, role, is_active')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .single();
-
-    if (!admin) return null;
-    return user.id;
-}
-
 export async function GET() {
     try {
-        const adminId = await verifyAdmin();
-        if (!adminId) {
-            return NextResponse.json({ error: 'Super admin access required to manage crypto settings.' }, { status: 403 });
-        }
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+        const adminId = authResult.admin.id;
 
         const sc = getServiceClient();
         const { data: settings } = await sc
@@ -94,10 +76,9 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
     try {
-        const adminId = await verifyAdmin();
-        if (!adminId) {
-            return NextResponse.json({ error: 'Super admin access required to manage crypto settings.' }, { status: 403 });
-        }
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+        const adminId = authResult.admin.id;
 
         const body = await request.json();
         const sc = getServiceClient();

@@ -6,7 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createRouteHandlerClient } from '@/lib/supabase-server';
+import { requireAdmin } from '@/lib/admin-api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,27 +17,10 @@ function getServiceClient() {
     );
 }
 
-async function verifyAdmin(): Promise<boolean> {
-    const supabase = createRouteHandlerClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) return false;
-
-    const sc = getServiceClient();
-    const { data: admin } = await sc
-        .from('supplier_users')
-        .select('user_id')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .single();
-
-    return !!admin;
-}
-
 export async function GET() {
     try {
-        if (!(await verifyAdmin())) {
-            return NextResponse.json({ error: 'Admin access required to run crypto reconciliation.' }, { status: 403 });
-        }
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
 
         const sc = getServiceClient();
 
