@@ -213,7 +213,7 @@ export default function CatalogPage() {
     const fetchTestingLabs = async () => {
         if (labsLoaded) return;
         try {
-            const res = await fetch('/api/v1/admin/testing-labs');
+            const res = await fetch('/api/v1/merchant/testing-labs');
             if (res.ok) {
                 const json = await res.json();
                 const labs = (json.data || []).filter((l: { active: boolean }) => l.active);
