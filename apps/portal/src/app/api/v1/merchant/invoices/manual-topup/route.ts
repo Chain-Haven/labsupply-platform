@@ -34,14 +34,45 @@ function centsToDollarString(cents: number): string {
     return (cents / 100).toFixed(2);
 }
 
+function extractMercuryError(body: string, status: number): string {
+    try {
+        const parsed = JSON.parse(body);
+
+        if (parsed.errors) {
+            if (typeof parsed.errors === 'string') return parsed.errors;
+            if (parsed.errors.message) return parsed.errors.message;
+            if (parsed.errors.errorCode) return `${parsed.errors.errorCode}: ${parsed.errors.message || parsed.errors.ip || ''}`;
+
+            const allErrors: string[] = [];
+            for (const [key, val] of Object.entries(parsed.errors)) {
+                if (Array.isArray(val)) allErrors.push(`${key}: ${val.join('; ')}`);
+                else if (typeof val === 'object' && val !== null) allErrors.push(`${key}: ${(val as Record<string, unknown>).message || JSON.stringify(val)}`);
+                else allErrors.push(`${key}: ${val}`);
+            }
+            if (allErrors.length > 0) return allErrors.join(' | ');
+        }
+
+        if (parsed.debugInfo) {
+            const debug = typeof parsed.debugInfo === 'string' ? parsed.debugInfo : JSON.stringify(parsed.debugInfo);
+            return debug;
+        }
+
+        if (parsed.message) return parsed.message;
+        if (parsed.error) return parsed.error;
+    } catch {
+        if (body.length > 0 && body.length < 500) return body;
+    }
+
+    return `Mercury API returned HTTP ${status}`;
+}
+
 export async function POST(request: NextRequest) {
     try {
-        // Authenticate the merchant
         const supabaseAuth = createRouteHandlerClient();
         const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
 
         if (authError || !user) {
-            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+            return NextResponse.json({ error: 'Not authenticated. Please log in again.' }, { status: 401 });
         }
 
         const supabase = getServiceClient();
@@ -53,46 +84,51 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (merchantError || !merchant) {
-            return NextResponse.json({ error: 'Merchant profile not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Merchant profile not found.' }, { status: 404 });
         }
 
         if (!MERCURY_API_TOKEN) {
             return NextResponse.json(
-                { error: 'Mercury API is not configured. Please contact support.' },
+                { error: 'Mercury API is not configured on this platform. Please contact support. [ERR:NO_TOKEN]' },
+                { status: 503 }
+            );
+        }
+
+        if (!MERCURY_ACCOUNT_ID) {
+            return NextResponse.json(
+                { error: 'Mercury deposit account is not configured. Please contact support. [ERR:NO_ACCOUNT]' },
                 { status: 503 }
             );
         }
 
         if (!merchant.mercury_customer_id) {
             return NextResponse.json(
-                { error: 'Mercury billing is not configured for your account. Please contact support.' },
+                { error: 'Your Mercury billing profile has not been set up yet. Please contact support to enable invoicing. [ERR:NO_CUSTOMER]' },
                 { status: 400 }
             );
         }
 
-        // Parse and validate amount
         const body = await request.json();
         const amountCents = Math.round(Number(body.amount_cents));
 
         if (!amountCents || isNaN(amountCents)) {
-            return NextResponse.json({ error: 'amount_cents is required' }, { status: 400 });
+            return NextResponse.json({ error: 'Please enter a valid dollar amount.' }, { status: 400 });
         }
 
         if (amountCents < MIN_AMOUNT_CENTS) {
             return NextResponse.json(
-                { error: `Minimum top-up amount is $${(MIN_AMOUNT_CENTS / 100).toFixed(2)}` },
+                { error: `Minimum top-up amount is $${(MIN_AMOUNT_CENTS / 100).toFixed(2)}.` },
                 { status: 400 }
             );
         }
 
         if (amountCents > MAX_AMOUNT_CENTS) {
             return NextResponse.json(
-                { error: `Maximum top-up amount is $${(MAX_AMOUNT_CENTS / 100).toFixed(2)}` },
+                { error: `Maximum top-up amount is $${(MAX_AMOUNT_CENTS / 100).toFixed(2)}.` },
                 { status: 400 }
             );
         }
 
-        // Rate limit: max 3 unpaid invoices at a time
         const { count: openCount } = await supabase
             .from('mercury_invoices')
             .select('id', { count: 'exact', head: true })
@@ -106,19 +142,8 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Use explicitly configured Mercury account — no auto-discovery fallback
-        const accountId = MERCURY_ACCOUNT_ID;
-        if (!accountId) {
-            return NextResponse.json(
-                { error: 'Mercury deposit account not configured. An admin must set MERCURY_ACCOUNT_ID.' },
-                { status: 503 }
-            );
-        }
-
-        // Create Mercury invoice
         const dueDate = new Date();
         dueDate.setDate(dueDate.getDate() + 7);
-
         const merchantName = merchant.company_name || merchant.email;
 
         const mercuryPayload = {
@@ -140,8 +165,10 @@ export async function POST(request: NextRequest) {
             creditCardEnabled: false,
             achDebitEnabled: true,
             useRealAccountNumber: false,
-            destinationAccountId: accountId,
+            destinationAccountId: MERCURY_ACCOUNT_ID,
         };
+
+        console.log('[Mercury] Creating invoice for merchant', merchant.id, 'customer', merchant.mercury_customer_id, 'amount', amountCents, 'dest', MERCURY_ACCOUNT_ID);
 
         const mercuryRes = await fetch(`${MERCURY_API_BASE}/ar/invoices`, {
             method: 'POST',
@@ -150,25 +177,22 @@ export async function POST(request: NextRequest) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(mercuryPayload),
+            signal: AbortSignal.timeout(15000),
         });
 
         if (!mercuryRes.ok) {
             const errBody = await mercuryRes.text();
-            console.error('Mercury invoice creation failed:', mercuryRes.status, errBody);
-            let detail = '';
-            try {
-                const parsed = JSON.parse(errBody);
-                detail = parsed.errors?.message || parsed.message || parsed.error || '';
-            } catch { /* non-JSON response */ }
+            console.error('[Mercury] Invoice creation failed:', mercuryRes.status, errBody);
+            const detail = extractMercuryError(errBody, mercuryRes.status);
             return NextResponse.json(
-                { error: `Failed to create invoice in Mercury${detail ? ': ' + detail : '. The payment provider may be temporarily unavailable — please try again later or contact support.'}` },
+                { error: `Mercury invoice failed (HTTP ${mercuryRes.status}): ${detail}` },
                 { status: 502 }
             );
         }
 
         const mercuryInvoice = await mercuryRes.json();
+        console.log('[Mercury] Invoice created:', mercuryInvoice.id, 'slug:', mercuryInvoice.slug);
 
-        // Record in our database
         const { data: invoiceRow, error: insertError } = await supabase
             .from('mercury_invoices')
             .insert({
@@ -184,7 +208,7 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (insertError) {
-            console.error('Error recording invoice:', insertError);
+            console.error('[Mercury] Error recording invoice in DB:', insertError);
         }
 
         return NextResponse.json({
@@ -199,7 +223,11 @@ export async function POST(request: NextRequest) {
             },
         });
     } catch (error) {
-        console.error('Manual topup error:', error);
-        return NextResponse.json({ error: 'Invoice creation failed due to an unexpected error. No charges were applied — please try again.' }, { status: 500 });
+        console.error('[Mercury] Manual topup unexpected error:', error);
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json(
+            { error: `Invoice creation failed: ${msg}. No charges were applied.` },
+            { status: 500 }
+        );
     }
 }
