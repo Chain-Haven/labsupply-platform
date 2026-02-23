@@ -190,21 +190,7 @@ export async function POST(request: NextRequest) {
                         .single();
 
                     if (pkg && pkg.price_cents > 0) {
-                        let mercuryAccountId = process.env.MERCURY_ACCOUNT_ID || '';
-                        if (!mercuryAccountId) {
-                            try {
-                                const acctRes = await fetch('https://api.mercury.com/api/v1/accounts', {
-                                    headers: { 'Authorization': `Bearer ${mercuryToken}`, 'Accept': 'application/json' },
-                                });
-                                if (acctRes.ok) {
-                                    const acctData = await acctRes.json();
-                                    const checking = (acctData.accounts || []).find(
-                                        (a: Record<string, string>) => a.type === 'checking' && a.status === 'active'
-                                    ) || (acctData.accounts || [])[0];
-                                    if (checking) mercuryAccountId = checking.id;
-                                }
-                            } catch { /* auto-discover failed, proceed without */ }
-                        }
+                        const mercuryAccountId = process.env.MERCURY_ACCOUNT_ID || '';
                         const dueDate = new Date();
                         dueDate.setDate(dueDate.getDate() + 14);
                         const dueDateStr = dueDate.toISOString().split('T')[0];

@@ -106,28 +106,11 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Resolve Mercury destination account ID
-        let accountId = MERCURY_ACCOUNT_ID;
-        if (!accountId) {
-            try {
-                const acctRes = await fetch(`${MERCURY_API_BASE}/accounts`, {
-                    headers: { 'Authorization': `Bearer ${MERCURY_API_TOKEN}`, 'Accept': 'application/json' },
-                });
-                if (acctRes.ok) {
-                    const acctData = await acctRes.json();
-                    const checking = (acctData.accounts || []).find(
-                        (a: Record<string, string>) => a.type === 'checking' && a.status === 'active'
-                    ) || (acctData.accounts || [])[0];
-                    if (checking) accountId = checking.id;
-                }
-            } catch (e) {
-                console.error('Mercury account auto-discover failed:', e);
-            }
-        }
-
+        // Use explicitly configured Mercury account — no auto-discovery fallback
+        const accountId = MERCURY_ACCOUNT_ID;
         if (!accountId) {
             return NextResponse.json(
-                { error: 'Mercury deposit account not configured. An admin must set up the Mercury account in Settings.' },
+                { error: 'Mercury deposit account not configured. An admin must set MERCURY_ACCOUNT_ID.' },
                 { status: 503 }
             );
         }
