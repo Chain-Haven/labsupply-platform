@@ -160,15 +160,29 @@ export async function PATCH(request: NextRequest) {
 
         const supabase = getServiceClient();
         const body = await request.json();
-        const { product_id, on_hand, reorder_point, active, reason } = body;
+        const { product_id, name, category, cost_cents, on_hand, reorder_point, active, reason } = body;
 
         if (!product_id) {
             return NextResponse.json({ error: 'product_id required' }, { status: 400 });
         }
 
-        // Update product active status
-        if (active !== undefined) {
-            await supabase.from('products').update({ active }).eq('id', product_id);
+        // Update product fields (name, category, price, active)
+        const productUpdates: Record<string, unknown> = {};
+        if (name !== undefined) productUpdates.name = name;
+        if (category !== undefined) productUpdates.category = category;
+        if (cost_cents !== undefined) productUpdates.cost_cents = cost_cents;
+        if (active !== undefined) productUpdates.active = active;
+
+        if (Object.keys(productUpdates).length > 0) {
+            const { error: productError } = await supabase
+                .from('products')
+                .update(productUpdates)
+                .eq('id', product_id);
+
+            if (productError) {
+                console.error('Product update error:', productError);
+                return NextResponse.json({ error: 'Failed to update product details.' }, { status: 500 });
+            }
         }
 
         // Update inventory
@@ -183,7 +197,6 @@ export async function PATCH(request: NextRequest) {
                 .eq('product_id', product_id);
 
             if (error) {
-                // May not exist yet - try upsert
                 await supabase.from('inventory').upsert({
                     product_id,
                     ...invUpdates,
@@ -195,7 +208,7 @@ export async function PATCH(request: NextRequest) {
             action: 'inventory.adjusted',
             entity_type: 'product',
             entity_id: product_id,
-            metadata: { on_hand, reorder_point, active, reason: reason || 'Admin adjustment' },
+            metadata: { ...productUpdates, on_hand, reorder_point, reason: reason || 'Admin adjustment' },
         }).then(() => {}, () => {});
 
         return NextResponse.json({ success: true });

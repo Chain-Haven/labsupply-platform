@@ -278,8 +278,20 @@ export default function InventoryPage() {
         try {
             const onHand = parseInt(editForm.available_qty, 10);
             const reorderPoint = parseInt(editForm.low_stock_threshold, 10);
+            const priceCents = Math.round(parseFloat(editForm.wholesale_price) * 100);
+
+            if (!editForm.name.trim()) {
+                toast({ title: 'Name required', description: 'Product name cannot be empty', variant: 'destructive' });
+                setIsEditingSaving(false);
+                return;
+            }
             if (isNaN(onHand) || onHand < 0) {
                 toast({ title: 'Invalid quantity', description: 'Please enter a valid stock quantity', variant: 'destructive' });
+                setIsEditingSaving(false);
+                return;
+            }
+            if (isNaN(priceCents) || priceCents < 0) {
+                toast({ title: 'Invalid price', description: 'Please enter a valid price', variant: 'destructive' });
                 setIsEditingSaving(false);
                 return;
             }
@@ -289,6 +301,9 @@ export default function InventoryPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     product_id: editingProduct.id,
+                    name: editForm.name.trim(),
+                    category: editForm.category,
+                    cost_cents: priceCents,
                     on_hand: onHand,
                     reorder_point: isNaN(reorderPoint) ? undefined : reorderPoint,
                     active: editForm.is_active,
@@ -303,6 +318,9 @@ export default function InventoryPage() {
                 p.id === editingProduct.id
                     ? {
                         ...p,
+                        name: editForm.name.trim(),
+                        category: editForm.category,
+                        wholesale_price_cents: priceCents,
                         on_hand: onHand,
                         available_qty: onHand - p.reserved,
                         low_stock_threshold: isNaN(reorderPoint) ? p.low_stock_threshold : reorderPoint,
@@ -812,7 +830,6 @@ export default function InventoryPage() {
                                     value={editForm.name}
                                     onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                                     className="mt-1"
-                                    disabled
                                 />
                             </div>
                             <div>
@@ -823,12 +840,13 @@ export default function InventoryPage() {
                                     value={editForm.category}
                                     onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                                     className="w-full h-10 mt-1 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 text-sm"
-                                    disabled
                                 >
                                     <option value="Peptides">Peptides</option>
                                     <option value="Compounds">Compounds</option>
                                     <option value="SARMs">SARMs</option>
                                     <option value="Nootropics">Nootropics</option>
+                                    <option value="Accessories">Accessories</option>
+                                    <option value="Uncategorized">Uncategorized</option>
                                 </select>
                             </div>
                             <div className="grid gap-4 md:grid-cols-3">
@@ -842,7 +860,6 @@ export default function InventoryPage() {
                                         value={editForm.wholesale_price}
                                         onChange={(e) => setEditForm({ ...editForm, wholesale_price: e.target.value })}
                                         className="mt-1"
-                                        disabled
                                     />
                                 </div>
                                 <div>
