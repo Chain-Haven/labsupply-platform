@@ -106,6 +106,32 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Resolve Mercury destination account ID
+        let accountId = MERCURY_ACCOUNT_ID;
+        if (!accountId) {
+            try {
+                const acctRes = await fetch(`${MERCURY_API_BASE}/accounts`, {
+                    headers: { 'Authorization': `Bearer ${MERCURY_API_TOKEN}`, 'Accept': 'application/json' },
+                });
+                if (acctRes.ok) {
+                    const acctData = await acctRes.json();
+                    const checking = (acctData.accounts || []).find(
+                        (a: Record<string, string>) => a.type === 'checking' && a.status === 'active'
+                    ) || (acctData.accounts || [])[0];
+                    if (checking) accountId = checking.id;
+                }
+            } catch (e) {
+                console.error('Mercury account auto-discover failed:', e);
+            }
+        }
+
+        if (!accountId) {
+            return NextResponse.json(
+                { error: 'Mercury deposit account not configured. An admin must set up the Mercury account in Settings.' },
+                { status: 503 }
+            );
+        }
+
         // Create Mercury invoice
         const dueDate = new Date();
         dueDate.setDate(dueDate.getDate() + 7);
@@ -131,7 +157,7 @@ export async function POST(request: NextRequest) {
             creditCardEnabled: false,
             achDebitEnabled: true,
             useRealAccountNumber: false,
-            destinationAccountId: MERCURY_ACCOUNT_ID,
+            destinationAccountId: accountId,
         };
 
         const mercuryRes = await fetch(`${MERCURY_API_BASE}/ar/invoices`, {
@@ -146,8 +172,13 @@ export async function POST(request: NextRequest) {
         if (!mercuryRes.ok) {
             const errBody = await mercuryRes.text();
             console.error('Mercury invoice creation failed:', mercuryRes.status, errBody);
+            let detail = '';
+            try {
+                const parsed = JSON.parse(errBody);
+                detail = parsed.errors?.message || parsed.message || parsed.error || '';
+            } catch { /* non-JSON response */ }
             return NextResponse.json(
-                { error: 'Failed to create invoice in Mercury. The payment provider may be temporarily unavailable — please try again later or contact support.' },
+                { error: `Failed to create invoice in Mercury${detail ? ': ' + detail : '. The payment provider may be temporarily unavailable — please try again later or contact support.'}` },
                 { status: 502 }
             );
         }
