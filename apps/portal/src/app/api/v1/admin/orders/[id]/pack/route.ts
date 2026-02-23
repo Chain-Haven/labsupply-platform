@@ -58,7 +58,7 @@ export async function POST(
         for (const item of items) {
             const { data: orderItem, error: itemErr } = await supabase
                 .from('order_items')
-                .select('id, product_id')
+                .select('id, product_id, qty')
                 .eq('id', item.order_item_id)
                 .eq('order_id', orderId)
                 .single();
@@ -72,7 +72,7 @@ export async function POST(
 
             const { data: lot, error: lotErr } = await supabase
                 .from('lots')
-                .select('id')
+                .select('id, quantity')
                 .eq('lot_code', item.lot_code)
                 .eq('product_id', orderItem.product_id)
                 .single();
@@ -95,6 +95,30 @@ export async function POST(
                     { error: `Failed to assign lot to order item ${item.order_item_id}` },
                     { status: 500 },
                 );
+            }
+
+            // Deplete the lot quantity and reduce inventory on_hand
+            const depleteQty = orderItem.qty || 1;
+            if (lot.quantity !== null) {
+                const newLotQty = Math.max(0, (lot.quantity || 0) - depleteQty);
+                await supabase.from('lots')
+                    .update({ quantity: newLotQty })
+                    .eq('id', lot.id);
+            }
+
+            if (orderItem.product_id) {
+                const { data: inv } = await supabase
+                    .from('inventory')
+                    .select('id, on_hand')
+                    .eq('product_id', orderItem.product_id)
+                    .single();
+
+                if (inv) {
+                    const newOnHand = Math.max(0, inv.on_hand - depleteQty);
+                    await supabase.from('inventory')
+                        .update({ on_hand: newOnHand })
+                        .eq('id', inv.id);
+                }
             }
         }
 

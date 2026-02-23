@@ -428,10 +428,13 @@ export default function InventoryPage() {
 
             const res = await fetch('/api/v1/admin/lots', { method: 'POST', body: formData });
             if (res.ok) {
-                toast({ title: 'Lot created', description: `Lot ${newLot.lot_code} added successfully.` });
+                const qty = newLot.quantity ? parseInt(newLot.quantity, 10) : 0;
+                toast({ title: 'Lot created', description: `Lot ${newLot.lot_code} added${qty > 0 ? ` (+${qty} units to inventory)` : ''}.` });
                 setNewLot({ lot_code: '', manufactured_at: '', expires_at: '', quantity: '', notes: '' });
                 setCoaFile(null);
                 await fetchLots(lotsProduct.id);
+                // Refresh inventory to reflect updated on_hand count
+                fetchInventory();
             } else {
                 const err = await res.json();
                 toast({ title: 'Error', description: err.error || 'Failed to create lot', variant: 'destructive' });
@@ -449,6 +452,7 @@ export default function InventoryPage() {
             if (res.ok) {
                 toast({ title: 'Lot deleted' });
                 if (lotsProduct) await fetchLots(lotsProduct.id);
+                fetchInventory();
             }
         } catch {
             toast({ title: 'Error', description: 'Failed to delete lot', variant: 'destructive' });

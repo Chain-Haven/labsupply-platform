@@ -114,6 +114,8 @@ export async function POST(request: NextRequest) {
             coaStoragePath = storagePath;
         }
 
+        const lotQuantity = quantityRaw ? Number(quantityRaw) : 0;
+
         const { data: lot, error: insertErr } = await supabase
             .from('lots')
             .insert({
@@ -122,7 +124,7 @@ export async function POST(request: NextRequest) {
                 coa_storage_path: coaStoragePath,
                 manufactured_at: manufacturedAt || null,
                 expires_at: expiresAt || null,
-                quantity: quantityRaw ? Number(quantityRaw) : null,
+                quantity: lotQuantity || null,
                 notes: notes || null,
             })
             .select()
@@ -134,6 +136,36 @@ export async function POST(request: NextRequest) {
                 { error: 'Failed to create lot. Check for duplicate lot codes.' },
                 { status: 500 },
             );
+        }
+
+        // Add the lot quantity to the product's inventory on_hand
+        if (lotQuantity > 0) {
+            const { data: inv } = await supabase
+                .from('inventory')
+                .select('id, on_hand')
+                .eq('product_id', productId)
+                .single();
+
+            if (inv) {
+                await supabase.from('inventory')
+                    .update({ on_hand: inv.on_hand + lotQuantity })
+                    .eq('id', inv.id);
+            } else {
+                await supabase.from('inventory').insert({
+                    product_id: productId,
+                    on_hand: lotQuantity,
+                    reserved: 0,
+                    incoming: 0,
+                    reorder_point: 10,
+                });
+            }
+
+            await supabase.from('audit_events').insert({
+                action: 'inventory.lot_added',
+                entity_type: 'lot',
+                entity_id: lot.id,
+                metadata: { product_id: productId, lot_code: lotCode, quantity: lotQuantity },
+            }).then(() => {}, () => {});
         }
 
         return NextResponse.json({ data: lot }, { status: 201 });
@@ -158,7 +190,7 @@ export async function DELETE(request: NextRequest) {
 
         const { data: lot, error: fetchErr } = await supabase
             .from('lots')
-            .select('id, coa_storage_path')
+            .select('id, product_id, quantity, coa_storage_path')
             .eq('id', id)
             .single();
 
@@ -173,6 +205,22 @@ export async function DELETE(request: NextRequest) {
 
             if (removeErr) {
                 console.error('COA storage removal error:', removeErr);
+            }
+        }
+
+        // Subtract remaining lot quantity from inventory before deleting
+        if (lot.quantity && lot.quantity > 0 && lot.product_id) {
+            const { data: inv } = await supabase
+                .from('inventory')
+                .select('id, on_hand')
+                .eq('product_id', lot.product_id)
+                .single();
+
+            if (inv) {
+                const newOnHand = Math.max(0, inv.on_hand - lot.quantity);
+                await supabase.from('inventory')
+                    .update({ on_hand: newOnHand })
+                    .eq('id', inv.id);
             }
         }
 
