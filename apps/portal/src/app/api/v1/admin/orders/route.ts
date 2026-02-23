@@ -1,7 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/admin-api-auth';
-import { isValidStatusTransition, ORDER_STATUS_TRANSITIONS } from '@whitelabel-peptides/shared';
+
+const ORDER_STATUS_TRANSITIONS: Record<string, string[]> = {
+    RECEIVED: ['AWAITING_FUNDS', 'FUNDED', 'ON_HOLD_COMPLIANCE', 'CANCELLED'],
+    AWAITING_FUNDS: ['FUNDED', 'ON_HOLD_PAYMENT', 'CANCELLED'],
+    ON_HOLD_PAYMENT: ['AWAITING_FUNDS', 'FUNDED', 'CANCELLED'],
+    ON_HOLD_COMPLIANCE: ['RECEIVED', 'CANCELLED'],
+    FUNDED: ['RELEASED_TO_FULFILLMENT', 'ON_HOLD_COMPLIANCE', 'CANCELLED', 'REFUNDED'],
+    RELEASED_TO_FULFILLMENT: ['PICKING', 'CANCELLED'],
+    PICKING: ['PACKED', 'RELEASED_TO_FULFILLMENT'],
+    PACKED: ['SHIPPED'],
+    SHIPPED: ['COMPLETE', 'DELIVERED'],
+    DELIVERED: ['COMPLETE'],
+    COMPLETE: [],
+    CANCELLED: [],
+    REFUNDED: [],
+};
+
+function isValidStatusTransition(from: string, to: string): boolean {
+    return ORDER_STATUS_TRANSITIONS[from]?.includes(to) ?? false;
+}
 
 export const dynamic = 'force-dynamic';
 

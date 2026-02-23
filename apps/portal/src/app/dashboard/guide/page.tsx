@@ -117,7 +117,7 @@ const WORKFLOW_STEPS = [
             'The supplier ships directly to your customer (blind/white-label)',
             'Tracking numbers are generated via ShipStation',
             'Tracking info is automatically pushed to your WooCommerce store',
-            'Your customer sees your brand — not the supplier's',
+            'Your customer sees your brand — not the supplier\u2019s',
         ],
     },
 ];
