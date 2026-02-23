@@ -18,7 +18,8 @@ export async function GET(request: NextRequest) {
             .from('orders')
             .select(`
                 id, woo_order_id, woo_order_number, status, shipped_at,
-                shipments(tracking_number, tracking_url, carrier, shipped_at)
+                shipments(tracking_number, tracking_url, carrier, shipped_at),
+                order_items(sku, name, lot_code)
             `)
             .eq('store_id', store.storeId)
             .eq('status', 'SHIPPED')
@@ -46,6 +47,13 @@ export async function GET(request: NextRequest) {
                     tracking_url: shipment?.tracking_url || '',
                     carrier: shipment?.carrier || '',
                     shipped_at: shipment?.shipped_at || o.shipped_at,
+                    items: ((o.order_items || []) as Array<Record<string, unknown>>)
+                        .filter(i => i.lot_code)
+                        .map(i => ({
+                            sku: i.sku,
+                            lot_code: i.lot_code,
+                            coa_url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/coa/${i.lot_code}`,
+                        })),
                 };
             });
 

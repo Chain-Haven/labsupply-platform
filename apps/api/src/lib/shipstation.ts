@@ -23,25 +23,48 @@ export class ShipStationShippingProvider implements ShippingProvider {
         this.authHeader = `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString('base64')}`;
     }
 
-    private async request<T = unknown>(method: string, endpoint: string, body?: unknown): Promise<T> {
+    private async request<T = unknown>(method: string, endpoint: string, body?: unknown, retries = 2): Promise<T> {
         const url = `${SHIPSTATION_BASE_URL}${endpoint}`;
+        let lastError: Error | null = null;
 
-        const response = await fetch(url, {
-            method,
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: this.authHeader,
-            },
-            body: body ? JSON.stringify(body) : undefined,
-        });
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            if (attempt > 0) {
+                await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+            }
 
-        if (!response.ok) {
-            const text = await response.text().catch(() => '');
-            throw new Error(`ShipStation API error (${response.status}): ${text}`);
+            try {
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: this.authHeader,
+                    },
+                    body: body ? JSON.stringify(body) : undefined,
+                    signal: AbortSignal.timeout(15000),
+                });
+
+                if (response.status === 429 || response.status >= 500) {
+                    lastError = new Error(`ShipStation API error (${response.status})`);
+                    continue;
+                }
+
+                if (!response.ok) {
+                    const text = await response.text().catch(() => '');
+                    throw new Error(`ShipStation API error (${response.status}): ${text}`);
+                }
+
+                if (response.status === 204) return {} as T;
+                return response.json() as Promise<T>;
+            } catch (err) {
+                if ((err as Error).name === 'TimeoutError' || (err as Error).name === 'AbortError') {
+                    lastError = new Error(`ShipStation API timeout on ${method} ${endpoint}`);
+                    continue;
+                }
+                throw err;
+            }
         }
 
-        if (response.status === 204) return {} as T;
-        return response.json() as Promise<T>;
+        throw lastError || new Error('ShipStation API request failed after retries');
     }
 
     async validateAddress(address: ShippingAddress): Promise<AddressValidationResult> {

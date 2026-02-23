@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/admin-api-auth';
+import { sendKybApprovedEmail, sendKybRejectedEmail, sendKybRequestInfoEmail } from '@/lib/email-templates';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,8 +102,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'merchantId and action required' }, { status: 400 });
         }
 
-        if (action !== 'approve' && action !== 'reject') {
-            return NextResponse.json({ error: 'action must be approve or reject' }, { status: 400 });
+        if (action !== 'approve' && action !== 'reject' && action !== 'request_info') {
+            return NextResponse.json({ error: 'action must be approve, reject, or request_info' }, { status: 400 });
         }
 
         const { data: merchant, error: fetchError } = await supabase
@@ -251,14 +252,21 @@ export async function POST(request: NextRequest) {
                 }
             }
 
+            try {
+                if (merchant.email) {
+                    await sendKybApprovedEmail(merchant.email, merchant.company_name || 'Merchant');
+                }
+            } catch (emailErr) {
+                console.error('Failed to send KYB approval email:', emailErr);
+            }
+
             return NextResponse.json({
                 success: true,
                 action: 'approved',
                 mercury_customer_id: updates.mercury_customer_id || null,
                 package_invoice_created: packageInvoiceCreated,
             });
-        } else {
-            // Reject
+        } else if (action === 'reject') {
             const { error: updateError } = await supabase
                 .from('merchants')
                 .update({
@@ -280,7 +288,36 @@ export async function POST(request: NextRequest) {
                 metadata: { reason: reason || 'Not specified' },
             }).then(() => {}, () => {});
 
+            try {
+                if (merchant.email) {
+                    await sendKybRejectedEmail(merchant.email, merchant.company_name || 'Merchant', reason || 'Your application did not meet our requirements.');
+                }
+            } catch (emailErr) {
+                console.error('Failed to send KYB rejection email:', emailErr);
+            }
+
             return NextResponse.json({ success: true, action: 'rejected' });
+        } else if (action === 'request_info') {
+            const message = body.message || 'Please provide additional documentation for your application.';
+
+            const { error: updateError } = await supabase
+                .from('merchants')
+                .update({ kyb_status: 'info_requested' })
+                .eq('id', merchantId);
+
+            if (updateError) {
+                return NextResponse.json({ error: 'Failed to update merchant status' }, { status: 500 });
+            }
+
+            try {
+                if (merchant.email) {
+                    await sendKybRequestInfoEmail(merchant.email, merchant.company_name || 'Merchant', message);
+                }
+            } catch (emailErr) {
+                console.error('Failed to send KYB request info email:', emailErr);
+            }
+
+            return NextResponse.json({ success: true, action: 'request_info' });
         }
     } catch (error) {
         console.error('KYB review POST error:', error);

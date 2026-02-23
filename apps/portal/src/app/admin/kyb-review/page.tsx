@@ -73,9 +73,11 @@ export default function KybReviewPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedMerchant, setSelectedMerchant] = useState<KybReviewItem | null>(null);
-    const [actionLoading, setActionLoading] = useState<'approve' | 'reject' | null>(null);
+    const [actionLoading, setActionLoading] = useState<'approve' | 'reject' | 'request_info' | null>(null);
     const [showRejectForm, setShowRejectForm] = useState(false);
     const [rejectReason, setRejectReason] = useState('');
+    const [showRequestInfoForm, setShowRequestInfoForm] = useState(false);
+    const [requestInfoMessage, setRequestInfoMessage] = useState('');
 
     const fetchReviews = useCallback(async () => {
         setLoading(true);
@@ -176,11 +178,35 @@ export default function KybReviewPage() {
         setRejectReason('');
     };
 
-    const handleRequestInfo = () => {
-        toast({
-            title: 'Request Info',
-            description: `Request for more info from ${selectedMerchant?.company_name} - feature coming soon.`,
-        });
+    const handleRequestInfo = async () => {
+        if (!selectedMerchant || !requestInfoMessage.trim()) {
+            toast({ title: 'Please enter a message', variant: 'destructive' });
+            return;
+        }
+        setActionLoading('request_info');
+        try {
+            const res = await fetch('/api/v1/admin/kyb-review', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'request_info',
+                    merchant_id: selectedMerchant.id,
+                    message: requestInfoMessage.trim(),
+                }),
+            });
+            if (res.ok) {
+                toast({ title: 'Information requested', description: `Email sent to ${selectedMerchant.company_name || selectedMerchant.email}.` });
+                setShowRequestInfoForm(false);
+                setRequestInfoMessage('');
+                fetchReviews();
+            } else {
+                const err = await res.json();
+                toast({ title: 'Error', description: err.error || 'Failed to send request.', variant: 'destructive' });
+            }
+        } catch {
+            toast({ title: 'Error', description: 'Failed to send request.', variant: 'destructive' });
+        }
+        setActionLoading(null);
     };
 
     const documents = selectedMerchant
@@ -291,6 +317,8 @@ export default function KybReviewPage() {
                                             setSelectedMerchant(review);
                                             setShowRejectForm(false);
                                             setRejectReason('');
+                                            setShowRequestInfoForm(false);
+                                            setRequestInfoMessage('');
                                         }}
                                         className={cn(
                                             'w-full p-4 text-left flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors',
@@ -325,10 +353,12 @@ export default function KybReviewPage() {
                                                     'px-2 py-1 rounded-full text-xs font-medium',
                                                     review.kyb_status === 'not_started'
                                                         ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                                        : review.kyb_status === 'info_requested'
+                                                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                                                         : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                                                 )}
                                             >
-                                                {review.kyb_status === 'not_started' ? 'Pending' : 'In Review'}
+                                                {review.kyb_status === 'not_started' ? 'Pending' : review.kyb_status === 'info_requested' ? 'Info Requested' : 'In Review'}
                                             </span>
                                         </div>
                                         <ChevronRight className="w-4 h-4 text-gray-400" />
@@ -565,13 +595,42 @@ export default function KybReviewPage() {
                                         )}
                                         Approve
                                     </Button>
-                                    <Button
-                                        variant="outline"
-                                        onClick={handleRequestInfo}
-                                        disabled={actionLoading !== null}
-                                    >
-                                        Request Info
-                                    </Button>
+                                    {showRequestInfoForm ? (
+                                        <div className="flex flex-col gap-2 flex-1">
+                                            <textarea
+                                                placeholder="What additional information do you need?"
+                                                value={requestInfoMessage}
+                                                onChange={(e) => setRequestInfoMessage(e.target.value)}
+                                                className="w-full rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm min-h-[60px]"
+                                                rows={2}
+                                            />
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={handleRequestInfo}
+                                                    disabled={actionLoading !== null || !requestInfoMessage.trim()}
+                                                >
+                                                    {actionLoading === 'request_info' ? 'Sending...' : 'Send Request'}
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => { setShowRequestInfoForm(false); setRequestInfoMessage(''); }}
+                                                >
+                                                    Cancel
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => setShowRequestInfoForm(true)}
+                                            disabled={actionLoading !== null}
+                                        >
+                                            Request Info
+                                        </Button>
+                                    )}
                                     {!showRejectForm ? (
                                         <Button
                                             variant="destructive"

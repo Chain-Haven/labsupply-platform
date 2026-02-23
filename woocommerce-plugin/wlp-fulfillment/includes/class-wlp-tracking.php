@@ -30,6 +30,9 @@ class WLP_Tracking
 
         // WooCommerce emails — attach tracking info to completed order email
         add_action('woocommerce_email_order_details', array(__CLASS__, 'display_email_tracking'), 25, 4);
+
+        // COA links on order items (frontend + emails)
+        add_action('woocommerce_order_item_meta_end', array(__CLASS__, 'display_item_coa_link'), 10, 3);
     }
 
     /**
@@ -96,6 +99,31 @@ class WLP_Tracking
         $order->update_meta_data('_wlp_carrier', sanitize_text_field($update['carrier'] ?? ''));
         $order->update_meta_data('_wlp_shipped_at', sanitize_text_field($update['shipped_at'] ?? ''));
         $order->update_meta_data('_wlp_status', sanitize_text_field($update['status'] ?? 'shipped'));
+
+        // Save lot codes and COA URLs on individual order items
+        if (!empty($update['items']) && is_array($update['items'])) {
+            foreach ($order->get_items() as $item_id => $item) {
+                $product = $item->get_product();
+                if (!$product) {
+                    continue;
+                }
+                $sku = $product->get_meta('_wlp_sku');
+                if (!$sku) {
+                    $sku = $product->get_sku();
+                }
+                foreach ($update['items'] as $lot_item) {
+                    if (isset($lot_item['sku']) && $lot_item['sku'] === $sku) {
+                        if (!empty($lot_item['lot_code'])) {
+                            wc_update_order_item_meta($item_id, '_wlp_lot_code', sanitize_text_field($lot_item['lot_code']));
+                        }
+                        if (!empty($lot_item['coa_url'])) {
+                            wc_update_order_item_meta($item_id, '_wlp_coa_url', esc_url_raw($lot_item['coa_url']));
+                        }
+                        break;
+                    }
+                }
+            }
+        }
 
         // Customer-visible order note with tracking link
         $note = sprintf(
@@ -338,5 +366,30 @@ class WLP_Tracking
 
             echo '</div>';
         }
+    }
+
+    /**
+     * Display COA link next to order items on frontend and in emails
+     */
+    public static function display_item_coa_link($item_id, $item, $order)
+    {
+        $lot_code = wc_get_order_item_meta($item_id, '_wlp_lot_code', true);
+        $coa_url = wc_get_order_item_meta($item_id, '_wlp_coa_url', true);
+
+        if (empty($lot_code) || empty($coa_url)) {
+            return;
+        }
+
+        echo '<div class="wlp-coa-link" style="margin-top:6px;">';
+        echo '<a href="' . esc_url($coa_url) . '" target="_blank" rel="noopener" '
+            . 'style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;'
+            . 'background:#f5f3ff;border:1px solid #ddd6fe;border-radius:4px;'
+            . 'font-size:12px;color:#7c3aed;text-decoration:none;">'
+            . '&#128300; ' . sprintf(
+                esc_html__('View Batch COA (Lot: %s)', 'wlp-fulfillment'),
+                esc_html($lot_code)
+            )
+            . '</a>';
+        echo '</div>';
     }
 }

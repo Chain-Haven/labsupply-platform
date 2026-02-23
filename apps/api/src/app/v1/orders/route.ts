@@ -115,13 +115,21 @@ export async function POST(request: NextRequest) {
         // Verify all SKUs are whitelisted for this merchant
         const { data: merchantProducts } = await supabase
             .from('merchant_products')
-            .select('product_id, wholesale_price_cents')
+            .select('product_id, wholesale_price_cents, region_restrictions, min_qty, max_qty, daily_cap')
             .eq('merchant_id', store.merchantId)
             .eq('allowed', true)
             .in('product_id', products.map((p) => p.id));
 
         const whitelistedIds = new Set(merchantProducts?.map((mp) => mp.product_id) || []);
         const priceMap = new Map(merchantProducts?.map((mp) => [mp.product_id, mp.wholesale_price_cents]) || []);
+        const restrictionsMap = new Map(
+            merchantProducts?.map((mp) => [mp.product_id, {
+                region_restrictions: mp.region_restrictions as string[] | null,
+                min_qty: mp.min_qty as number | null,
+                max_qty: mp.max_qty as number | null,
+                daily_cap: mp.daily_cap as number | null,
+            }]) || []
+        );
 
         // Build order items and calculate totals
         const orderItems: Array<{
@@ -152,6 +160,58 @@ export async function POST(request: NextRequest) {
                 );
             }
 
+            const restrictions = restrictionsMap.get(product.id);
+            if (restrictions) {
+                if (restrictions.region_restrictions?.length) {
+                    const shipCountry = orderData.shipping_address.country;
+                    const shipState = orderData.shipping_address.state;
+                    const isRestricted = restrictions.region_restrictions.some(
+                        (r: string) => r === shipCountry || r === `${shipCountry}-${shipState}`
+                    );
+                    if (isRestricted) {
+                        throw new ApiError(
+                            'REGION_RESTRICTED',
+                            `Product ${item.supplier_sku} cannot be shipped to ${shipCountry} ${shipState}`,
+                            400
+                        );
+                    }
+                }
+
+                if (restrictions.min_qty != null && item.qty < restrictions.min_qty) {
+                    throw new ApiError(
+                        'MIN_QTY_NOT_MET',
+                        `Product ${item.supplier_sku} requires minimum quantity of ${restrictions.min_qty}`,
+                        400
+                    );
+                }
+
+                if (restrictions.max_qty != null && item.qty > restrictions.max_qty) {
+                    throw new ApiError(
+                        'MAX_QTY_EXCEEDED',
+                        `Product ${item.supplier_sku} allows maximum quantity of ${restrictions.max_qty}`,
+                        400
+                    );
+                }
+
+                if (restrictions.daily_cap != null) {
+                    const todayStart = new Date();
+                    todayStart.setHours(0, 0, 0, 0);
+                    const { count: todayCount } = await supabase
+                        .from('order_items')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('product_id', product.id)
+                        .gte('created_at', todayStart.toISOString());
+
+                    if ((todayCount || 0) >= restrictions.daily_cap) {
+                        throw new ApiError(
+                            'DAILY_CAP_EXCEEDED',
+                            `Daily order cap (${restrictions.daily_cap}) reached for product ${item.supplier_sku}`,
+                            429
+                        );
+                    }
+                }
+            }
+
             const skuOverride = priceMap.get(product.id);
             const unitPrice = skuOverride != null
                 ? skuOverride
@@ -169,7 +229,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Calculate estimates using admin-configured shipping costs
-        const shippingMethod = orderData.shipping_method || 'STANDARD';
+        const shippingMethod = (orderData as Record<string, unknown>).shipping_method as string || 'STANDARD';
         let shippingEstimateCents = 895; // fallback $8.95
 
         const { data: adminSettings } = await supabase

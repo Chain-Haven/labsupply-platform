@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdminAuth, logAdminAction, AdminAuthResult } from '@/lib/admin-auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { z } from 'zod';
+import { sendKybApprovedEmail, sendKybRejectedEmail } from '@/lib/email-templates';
 
 const kybDecisionSchema = z.object({
     decision: z.enum(['approved', 'rejected', 'more_info_requested']),
@@ -99,7 +100,23 @@ async function handlePost(
         request
     );
 
-    // TODO: Send email notification to merchant
+    try {
+        const { data: merchantData } = await getSupabaseAdmin()
+            .from('merchants')
+            .select('email, company_name')
+            .eq('id', merchantId)
+            .single();
+
+        if (merchantData?.email) {
+            if (newStatus === 'approved') {
+                await sendKybApprovedEmail(merchantData.email, merchantData.company_name || 'Merchant');
+            } else if (newStatus === 'rejected') {
+                await sendKybRejectedEmail(merchantData.email, merchantData.company_name || 'Merchant', validated.reason || 'Your application did not meet our requirements.');
+            }
+        }
+    } catch (emailErr) {
+        console.error('Failed to send KYB email:', emailErr);
+    }
 
     return NextResponse.json({
         message: `KYB ${validated.decision}`,

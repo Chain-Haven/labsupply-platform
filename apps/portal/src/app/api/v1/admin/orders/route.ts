@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
                 shipping_address, customer_email, supplier_notes,
                 created_at, shipped_at,
                 merchants!inner(company_name, email),
-                order_items(id, sku, name, qty, unit_price_cents)
+                order_items(id, sku, name, qty, unit_price_cents, lot_id, lot_code)
             `, { count: 'exact' })
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);

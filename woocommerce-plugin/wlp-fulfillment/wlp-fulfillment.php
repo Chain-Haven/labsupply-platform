@@ -136,7 +136,7 @@ function wlp_activate() {
     }
 
     if (!wp_next_scheduled('wlp_check_tracking')) {
-        wp_schedule_event(time(), 'hourly', 'wlp_check_tracking');
+        wp_schedule_event(time(), 'every_five_minutes', 'wlp_check_tracking');
     }
 
     // Flag to show the post-activation firewall notice

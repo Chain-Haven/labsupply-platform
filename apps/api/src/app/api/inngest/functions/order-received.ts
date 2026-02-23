@@ -14,6 +14,7 @@ import { inngest } from '@/lib/inngest';
 import { getServiceClient } from '@/lib/supabase';
 import { OrderStatus } from '@whitelabel-peptides/shared';
 import { recordStatusChange } from '@/lib/order-helpers';
+import { sendOrderReceivedEmail } from '@/lib/email-templates';
 
 export const orderReceivedFunction = inngest.createFunction(
     {
@@ -200,6 +201,41 @@ export const orderReceivedFunction = inngest.createFunction(
                 });
 
                 return { status: OrderStatus.AWAITING_FUNDS };
+            }
+        });
+
+        await step.run('send-order-email', async () => {
+            try {
+                const { data: merchantData } = await supabase
+                    .from('merchants')
+                    .select('email, company_name')
+                    .eq('id', merchantId)
+                    .single();
+
+                if (!merchantData?.email) return;
+
+                const { data: items } = await supabase
+                    .from('order_items')
+                    .select('name, qty, unit_price_cents')
+                    .eq('order_id', orderId);
+
+                const { data: orderData } = await supabase
+                    .from('orders')
+                    .select('woo_order_id')
+                    .eq('id', orderId)
+                    .single();
+
+                await sendOrderReceivedEmail(
+                    merchantData.email,
+                    merchantData.company_name || 'Merchant',
+                    orderId,
+                    orderData?.woo_order_id || orderId,
+                    items || [],
+                    totalEstimateCents,
+                    reservationResult.success
+                );
+            } catch (err) {
+                console.error('Failed to send order received email:', err);
             }
         });
 

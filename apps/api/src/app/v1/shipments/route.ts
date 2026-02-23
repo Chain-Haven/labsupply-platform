@@ -38,6 +38,17 @@ export async function POST(request: NextRequest) {
             throw new ApiError('ORDER_NOT_SHIPPABLE', `Order is in ${order.status} status and cannot be shipped`, 400);
         }
 
+        const { data: existingShipments } = await supabase
+            .from('shipments')
+            .select('id, status')
+            .eq('order_id', order_id)
+            .not('status', 'in', '("FAILED","RETURNED")')
+            .limit(1);
+
+        if (existingShipments && existingShipments.length > 0) {
+            throw new ApiError('SHIPMENT_EXISTS', `Order already has an active shipment (${existingShipments[0].id}). Void the existing shipment before creating a new one.`, 409);
+        }
+
         // Create shipment record
         const { data: shipment, error: shipError } = await supabase
             .from('shipments')

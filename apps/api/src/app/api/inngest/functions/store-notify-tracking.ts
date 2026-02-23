@@ -8,6 +8,7 @@
 import { inngest } from '@/lib/inngest';
 import { getServiceClient } from '@/lib/supabase';
 import { generateSignature, generateNonce, nowMs } from '@whitelabel-peptides/shared';
+import { decryptSecret } from '@/lib/auth';
 
 export const storeNotifyTrackingFunction = inngest.createFunction(
     {
@@ -23,7 +24,7 @@ export const storeNotifyTrackingFunction = inngest.createFunction(
         const store = await step.run('get-store', async () => {
             const { data, error } = await supabase
                 .from('stores')
-                .select('id, url, status, store_secrets!inner(secret_hash)')
+                .select('id, url, status, store_secrets!inner(secret_plaintext)')
                 .eq('id', storeId)
                 .single();
 
@@ -41,7 +42,7 @@ export const storeNotifyTrackingFunction = inngest.createFunction(
         const order = await step.run('get-order', async () => {
             const { data, error } = await supabase
                 .from('orders')
-                .select('woo_order_id, woo_order_number')
+                .select('woo_order_id, woo_order_number, order_items(sku, name, lot_code)')
                 .eq('id', orderId)
                 .single();
 
@@ -59,10 +60,14 @@ export const storeNotifyTrackingFunction = inngest.createFunction(
                 return { pushed: false, reason: 'No store URL' };
             }
 
-            const secrets = (store as Record<string, unknown>).store_secrets as Array<{ secret_hash: string }> | undefined;
-            const secret = secrets?.[0]?.secret_hash;
-            if (!secret) {
+            const secrets = (store as Record<string, unknown>).store_secrets as Array<{ secret_plaintext: string }> | undefined;
+            const encryptedSecret = secrets?.[0]?.secret_plaintext;
+            if (!encryptedSecret) {
                 return { pushed: false, reason: 'No store secret available' };
+            }
+            const secret = decryptSecret(encryptedSecret);
+            if (!secret) {
+                return { pushed: false, reason: 'Failed to decrypt store secret' };
             }
 
             const payload = {
@@ -74,6 +79,13 @@ export const storeNotifyTrackingFunction = inngest.createFunction(
                     tracking_url: trackingUrl || '',
                     carrier,
                     shipped_at: new Date().toISOString(),
+                    items: ((order as any).order_items || [])
+                        .filter((i: any) => i.lot_code)
+                        .map((i: any) => ({
+                            sku: i.sku,
+                            lot_code: i.lot_code,
+                            coa_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://portal.peptidetech.co'}/coa/${i.lot_code}`,
+                        })),
                 }],
             };
 

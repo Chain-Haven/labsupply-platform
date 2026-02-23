@@ -20,6 +20,7 @@ import {
     FileText,
     CheckCircle,
     XCircle,
+    FlaskConical,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -37,6 +38,18 @@ interface Product {
     incoming: number;
     low_stock_threshold: number;
     is_active: boolean;
+}
+
+interface Lot {
+    id: string;
+    product_id: string;
+    lot_code: string;
+    coa_storage_path: string | null;
+    manufactured_at: string | null;
+    expires_at: string | null;
+    quantity: number | null;
+    notes: string | null;
+    created_at: string;
 }
 
 interface Pagination {
@@ -92,6 +105,14 @@ export default function InventoryPage() {
         summary: { total: number; created: number; failed: number };
         results: Array<{ row: number; sku: string; success: boolean; error?: string }>;
     } | null>(null);
+
+    // Lot management state
+    const [lotsProduct, setLotsProduct] = useState<Product | null>(null);
+    const [lots, setLots] = useState<Lot[]>([]);
+    const [lotsLoading, setLotsLoading] = useState(false);
+    const [newLot, setNewLot] = useState({ lot_code: '', manufactured_at: '', expires_at: '', quantity: '', notes: '' });
+    const [coaFile, setCoaFile] = useState<File | null>(null);
+    const [isAddingLot, setIsAddingLot] = useState(false);
 
     // Debounce search
     useEffect(() => {
@@ -362,6 +383,60 @@ export default function InventoryPage() {
         setBulkResults(null);
     };
 
+    const fetchLots = async (productId: string) => {
+        setLotsLoading(true);
+        try {
+            const res = await fetch(`/api/v1/admin/lots?product_id=${productId}`);
+            if (res.ok) {
+                const json = await res.json();
+                setLots(json.data || []);
+            }
+        } catch { /* ignore */ }
+        setLotsLoading(false);
+    };
+
+    const handleAddLot = async () => {
+        if (!lotsProduct || !newLot.lot_code.trim()) return;
+        setIsAddingLot(true);
+        try {
+            const formData = new FormData();
+            formData.append('product_id', lotsProduct.id);
+            formData.append('lot_code', newLot.lot_code.trim());
+            if (newLot.manufactured_at) formData.append('manufactured_at', new Date(newLot.manufactured_at).toISOString());
+            if (newLot.expires_at) formData.append('expires_at', new Date(newLot.expires_at).toISOString());
+            if (newLot.quantity) formData.append('quantity', newLot.quantity);
+            if (newLot.notes) formData.append('notes', newLot.notes);
+            if (coaFile) formData.append('coa', coaFile);
+
+            const res = await fetch('/api/v1/admin/lots', { method: 'POST', body: formData });
+            if (res.ok) {
+                toast({ title: 'Lot created', description: `Lot ${newLot.lot_code} added successfully.` });
+                setNewLot({ lot_code: '', manufactured_at: '', expires_at: '', quantity: '', notes: '' });
+                setCoaFile(null);
+                await fetchLots(lotsProduct.id);
+            } else {
+                const err = await res.json();
+                toast({ title: 'Error', description: err.error || 'Failed to create lot', variant: 'destructive' });
+            }
+        } catch {
+            toast({ title: 'Error', description: 'Failed to create lot', variant: 'destructive' });
+        }
+        setIsAddingLot(false);
+    };
+
+    const handleDeleteLot = async (lotId: string) => {
+        if (!confirm('Delete this lot? This cannot be undone.')) return;
+        try {
+            const res = await fetch(`/api/v1/admin/lots?id=${lotId}`, { method: 'DELETE' });
+            if (res.ok) {
+                toast({ title: 'Lot deleted' });
+                if (lotsProduct) await fetchLots(lotsProduct.id);
+            }
+        } catch {
+            toast({ title: 'Error', description: 'Failed to delete lot', variant: 'destructive' });
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -566,9 +641,15 @@ export default function InventoryPage() {
                                                 )}
                                             </td>
                                             <td className="p-4 text-right">
-                                                <Button size="sm" variant="ghost" onClick={() => openEditModal(product)}>
-                                                    <Edit className="w-4 h-4" />
-                                                </Button>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <Button size="sm" variant="ghost" title="Manage lots"
+                                                        onClick={() => { setLotsProduct(product); fetchLots(product.id); }}>
+                                                        <FlaskConical className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button size="sm" variant="ghost" onClick={() => openEditModal(product)}>
+                                                        <Edit className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
                                             </td>
                                         </tr>
                                     );
@@ -1026,6 +1107,131 @@ export default function InventoryPage() {
                                     <span><strong>tags</strong> — Optional, semicolon-separated</span>
                                 </div>
                             </details>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Lots Management Panel */}
+            {lotsProduct && (
+                <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-4">
+                    <Card className="w-full max-w-2xl max-h-[85vh] flex flex-col">
+                        <CardHeader className="flex-shrink-0">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <FlaskConical className="w-5 h-5 text-violet-600" />
+                                        Lot Management
+                                    </CardTitle>
+                                    <CardDescription>
+                                        {lotsProduct.name} ({lotsProduct.sku})
+                                    </CardDescription>
+                                </div>
+                                <Button variant="ghost" size="icon" onClick={() => { setLotsProduct(null); setLots([]); }}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="flex-1 overflow-y-auto space-y-6">
+                            {/* Add Lot Form */}
+                            <div className="border rounded-lg p-4 space-y-3 bg-gray-50 dark:bg-gray-800/50">
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Add New Lot</p>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <Input
+                                        placeholder="Lot code (e.g., BPC-2024-001)"
+                                        value={newLot.lot_code}
+                                        onChange={(e) => setNewLot({ ...newLot, lot_code: e.target.value })}
+                                    />
+                                    <Input
+                                        type="number"
+                                        placeholder="Quantity"
+                                        value={newLot.quantity}
+                                        onChange={(e) => setNewLot({ ...newLot, quantity: e.target.value })}
+                                    />
+                                    <div>
+                                        <label className="text-xs text-gray-500">Manufactured</label>
+                                        <Input
+                                            type="date"
+                                            value={newLot.manufactured_at}
+                                            onChange={(e) => setNewLot({ ...newLot, manufactured_at: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-500">Expires</label>
+                                        <Input
+                                            type="date"
+                                            value={newLot.expires_at}
+                                            onChange={(e) => setNewLot({ ...newLot, expires_at: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                                <Input
+                                    placeholder="Notes (optional)"
+                                    value={newLot.notes}
+                                    onChange={(e) => setNewLot({ ...newLot, notes: e.target.value })}
+                                />
+                                <div>
+                                    <label className="text-xs text-gray-500 block mb-1">COA Document (PDF)</label>
+                                    <input
+                                        type="file"
+                                        accept="application/pdf"
+                                        onChange={(e) => setCoaFile(e.target.files?.[0] || null)}
+                                        className="text-sm text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
+                                    />
+                                </div>
+                                <Button onClick={handleAddLot} disabled={isAddingLot || !newLot.lot_code.trim()} size="sm">
+                                    {isAddingLot ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+                                    Add Lot
+                                </Button>
+                            </div>
+
+                            {/* Lots List */}
+                            {lotsLoading ? (
+                                <div className="flex justify-center py-8">
+                                    <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                                </div>
+                            ) : lots.length === 0 ? (
+                                <div className="text-center py-8">
+                                    <FlaskConical className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                                    <p className="text-sm text-gray-500">No lots created yet</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {lots.map((lot) => (
+                                        <div key={lot.id} className="flex items-center justify-between p-3 rounded-lg border bg-white dark:bg-gray-900">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-mono text-sm font-medium text-gray-900 dark:text-white">{lot.lot_code}</span>
+                                                    {lot.coa_storage_path ? (
+                                                        <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded">COA</span>
+                                                    ) : (
+                                                        <span className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">No COA</span>
+                                                    )}
+                                                    {lot.quantity != null && (
+                                                        <span className="text-xs text-gray-500">Qty: {lot.quantity}</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex gap-3 mt-1 text-xs text-gray-400">
+                                                    {lot.manufactured_at && <span>Mfg: {new Date(lot.manufactured_at).toLocaleDateString()}</span>}
+                                                    {lot.expires_at && <span>Exp: {new Date(lot.expires_at).toLocaleDateString()}</span>}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-1 ml-2">
+                                                {lot.coa_storage_path && (
+                                                    <Button size="sm" variant="ghost" title="View COA"
+                                                        onClick={() => window.open(`/coa/${lot.lot_code}`, '_blank')}>
+                                                        <FileText className="w-4 h-4" />
+                                                    </Button>
+                                                )}
+                                                <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-600"
+                                                    onClick={() => handleDeleteLot(lot.id)}>
+                                                    <X className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </div>

@@ -34,7 +34,8 @@ function isPublicRoute(pathname: string): boolean {
     if (
         pathname.startsWith('/_next') ||
         pathname.startsWith('/api') ||
-        pathname.startsWith('/auth')
+        pathname.startsWith('/auth') ||
+        pathname.startsWith('/coa')
     ) {
         return true;
     }

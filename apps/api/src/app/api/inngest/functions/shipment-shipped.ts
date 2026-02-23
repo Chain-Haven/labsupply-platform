@@ -12,6 +12,7 @@ import { inngest } from '@/lib/inngest';
 import { getServiceClient } from '@/lib/supabase';
 import { OrderStatus } from '@whitelabel-peptides/shared';
 import { recordStatusChange } from '@/lib/order-helpers';
+import { sendOrderShippedEmail, sendLowBalanceEmail } from '@/lib/email-templates';
 
 export const shipmentShippedFunction = inngest.createFunction(
     {
@@ -191,6 +192,63 @@ export const shipmentShippedFunction = inngest.createFunction(
             });
 
             return { notified: true };
+        });
+
+        await step.run('send-shipped-email', async () => {
+            try {
+                const { data: merchantData } = await supabase
+                    .from('merchants')
+                    .select('email, company_name')
+                    .eq('id', merchantId)
+                    .single();
+
+                if (!merchantData?.email) return;
+
+                await sendOrderShippedEmail(
+                    merchantData.email,
+                    merchantData.company_name || 'Merchant',
+                    orderId,
+                    orderDetails.woo_order_id || orderId,
+                    trackingNumber,
+                    carrier,
+                    shipment.tracking_url
+                );
+            } catch (err) {
+                console.error('Failed to send shipped email:', err);
+            }
+        });
+
+        await step.run('check-low-balance', async () => {
+            try {
+                const { data: wallet } = await supabase
+                    .from('wallet_accounts')
+                    .select('balance_cents, reserved_cents')
+                    .eq('merchant_id', merchantId)
+                    .eq('currency', 'USD')
+                    .single();
+
+                const { data: merchantData } = await supabase
+                    .from('merchants')
+                    .select('email, company_name, low_balance_threshold_cents')
+                    .eq('id', merchantId)
+                    .single();
+
+                if (!wallet || !merchantData?.email) return;
+
+                const available = wallet.balance_cents - wallet.reserved_cents;
+                const threshold = merchantData.low_balance_threshold_cents || 100000;
+
+                if (available < threshold) {
+                    await sendLowBalanceEmail(
+                        merchantData.email,
+                        merchantData.company_name || 'Merchant',
+                        available,
+                        threshold
+                    );
+                }
+            } catch (err) {
+                console.error('Failed to check/send low balance email:', err);
+            }
         });
 
         return {

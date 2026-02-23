@@ -28,7 +28,8 @@ import {
     Mail,
     Building,
     ArrowRight,
-    Loader2
+    Loader2,
+    ClipboardList
 } from 'lucide-react';
 import { cn, formatCurrency, formatRelativeTime } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -39,6 +40,8 @@ interface OrderItem {
     name: string;
     qty: number;
     unit_price_cents: number;
+    lot_code?: string;
+    lot_id?: string;
 }
 
 interface Order {
@@ -103,6 +106,12 @@ export default function OrdersPage() {
     const [page, setPage] = useState(1);
     const [totalOrders, setTotalOrders] = useState(0);
     const PAGE_SIZE = 50;
+    const [showPackModal, setShowPackModal] = useState<Order | null>(null);
+    const [packLotCodes, setPackLotCodes] = useState<Record<string, string>>({});
+    const [isPacking, setIsPacking] = useState(false);
+    const [showRefundModal, setShowRefundModal] = useState<Order | null>(null);
+    const [refundReason, setRefundReason] = useState('');
+    const [isRefunding, setIsRefunding] = useState(false);
 
     const fetchOrders = useCallback(async () => {
         setOrdersLoading(true);
@@ -154,6 +163,70 @@ export default function OrdersPage() {
     useEffect(() => {
         fetchOrders();
     }, [fetchOrders]);
+
+    const handlePackOrder = async () => {
+        if (!showPackModal) return;
+        const items = showPackModal.order_items
+            .map(item => ({
+                order_item_id: item.id,
+                lot_code: packLotCodes[item.id] || '',
+            }))
+            .filter(i => i.lot_code.trim());
+
+        if (items.length === 0) {
+            toast({ title: 'No lot codes entered', description: 'Please enter at least one lot code.', variant: 'destructive' });
+            return;
+        }
+
+        setIsPacking(true);
+        try {
+            const res = await fetch(`/api/v1/admin/orders/${showPackModal.id}/pack`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items }),
+            });
+            if (res.ok) {
+                toast({ title: 'Order packed', description: 'Lot codes assigned and order moved to PACKED.' });
+                setShowPackModal(null);
+                setPackLotCodes({});
+                fetchOrders();
+            } else {
+                const err = await res.json();
+                toast({ title: 'Pack failed', description: err.error || 'Failed to pack order.', variant: 'destructive' });
+            }
+        } catch {
+            toast({ title: 'Error', description: 'Failed to pack order.', variant: 'destructive' });
+        }
+        setIsPacking(false);
+    };
+
+    const handleRefundOrder = async () => {
+        if (!showRefundModal) return;
+        setIsRefunding(true);
+        try {
+            const res = await fetch(`/api/v1/admin/orders/${showRefundModal.id}/refund`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: refundReason || 'Admin refund' }),
+            });
+            if (res.ok) {
+                const json = await res.json();
+                toast({
+                    title: 'Order refunded',
+                    description: `Refunded ${formatCurrency(json.data.refundAmountCents)} to merchant wallet.`,
+                });
+                setShowRefundModal(null);
+                setRefundReason('');
+                fetchOrders();
+            } else {
+                const err = await res.json();
+                toast({ title: 'Refund failed', description: err.error || 'Failed to process refund.', variant: 'destructive' });
+            }
+        } catch {
+            toast({ title: 'Error', description: 'Failed to process refund.', variant: 'destructive' });
+        }
+        setIsRefunding(false);
+    };
 
     // Testing orders state
     interface TestingOrderView {
@@ -847,6 +920,23 @@ export default function OrdersPage() {
                                             <Button
                                                 size="sm"
                                                 variant="ghost"
+                                                title="Packing slip"
+                                                onClick={async () => {
+                                                    try {
+                                                        const res = await fetch(`/api/v1/admin/orders/${order.id}/packing-slip`);
+                                                        if (!res.ok) throw new Error('Failed to generate');
+                                                        const blob = await res.blob();
+                                                        window.open(URL.createObjectURL(blob), '_blank');
+                                                    } catch {
+                                                        toast({ title: 'Error', description: 'Failed to generate packing slip.', variant: 'destructive' });
+                                                    }
+                                                }}
+                                            >
+                                                <ClipboardList className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
                                                 onClick={() => setShowOrderDetails(order)}
                                             >
                                                 <Eye className="w-4 h-4" />
@@ -1175,6 +1265,11 @@ export default function OrdersPage() {
                                                     <div>
                                                         <span className="font-mono text-xs text-violet-600 dark:text-violet-400">{item.sku}</span>
                                                         <p className="text-gray-900 dark:text-white">{item.name}</p>
+                                                        {item.lot_code && (
+                                                            <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded font-mono">
+                                                                Lot: {item.lot_code}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <div className="text-right">
                                                         <p className="text-gray-500">x{item.qty}</p>
@@ -1217,6 +1312,23 @@ export default function OrdersPage() {
                                 )}
                             </div>
                             <div className="flex gap-2 pt-4 border-t">
+                                {(showOrderDetails.status === 'RELEASED_TO_FULFILLMENT' || showOrderDetails.status === 'PICKING') && (
+                                    <Button
+                                        size="sm"
+                                        onClick={() => {
+                                            const codes: Record<string, string> = {};
+                                            showOrderDetails.order_items.forEach(item => {
+                                                codes[item.id] = item.lot_code || '';
+                                            });
+                                            setPackLotCodes(codes);
+                                            setShowPackModal(showOrderDetails);
+                                            setShowOrderDetails(null);
+                                        }}
+                                    >
+                                        <FlaskConical className="w-4 h-4 mr-2" />
+                                        Pack Order
+                                    </Button>
+                                )}
                                 {!showOrderDetails.shipstation_synced && showOrderDetails.status !== 'AWAITING_FUNDS' && (
                                     <Button
                                         size="sm"
@@ -1252,6 +1364,138 @@ export default function OrdersPage() {
                                         Mark as Printed
                                     </Button>
                                 )}
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={async () => {
+                                        try {
+                                            const res = await fetch(`/api/v1/admin/orders/${showOrderDetails.id}/packing-slip`);
+                                            if (!res.ok) throw new Error('Failed to generate');
+                                            const blob = await res.blob();
+                                            window.open(URL.createObjectURL(blob), '_blank');
+                                        } catch {
+                                            toast({ title: 'Error', description: 'Failed to generate packing slip.', variant: 'destructive' });
+                                        }
+                                    }}
+                                >
+                                    <ClipboardList className="w-4 h-4 mr-2" />
+                                    Packing Slip
+                                </Button>
+                                {['SHIPPED', 'COMPLETE', 'FUNDED', 'PACKED'].includes(showOrderDetails.status) && (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-red-600 border-red-200 hover:bg-red-50"
+                                        onClick={() => {
+                                            setShowRefundModal(showOrderDetails);
+                                            setShowOrderDetails(null);
+                                        }}
+                                    >
+                                        Refund
+                                    </Button>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Pack Order Modal */}
+            {showPackModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <Card className="w-full max-w-lg">
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <FlaskConical className="w-5 h-5 text-violet-600" />
+                                        Pack Order
+                                    </CardTitle>
+                                    <CardDescription>Assign lot codes to each item</CardDescription>
+                                </div>
+                                <Button variant="ghost" size="icon" onClick={() => { setShowPackModal(null); setPackLotCodes({}); }}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {showPackModal.order_items.map((item) => (
+                                <div key={item.id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-mono text-xs text-violet-600">{item.sku}</p>
+                                        <p className="text-sm text-gray-900 dark:text-white truncate">{item.name}</p>
+                                        <p className="text-xs text-gray-500">x{item.qty}</p>
+                                    </div>
+                                    <Input
+                                        placeholder="Lot code"
+                                        value={packLotCodes[item.id] || ''}
+                                        onChange={(e) => setPackLotCodes(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                        className="w-40 font-mono text-sm"
+                                    />
+                                </div>
+                            ))}
+                            <div className="flex gap-2 pt-4 border-t">
+                                <Button onClick={handlePackOrder} disabled={isPacking} className="flex-1">
+                                    {isPacking ? (
+                                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Packing...</>
+                                    ) : (
+                                        <>Pack & Mark as PACKED</>
+                                    )}
+                                </Button>
+                                <Button variant="outline" onClick={() => { setShowPackModal(null); setPackLotCodes({}); }}>
+                                    Cancel
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Refund Modal */}
+            {showRefundModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <Card className="w-full max-w-md">
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-red-600">Refund Order</CardTitle>
+                                <Button variant="ghost" size="icon" onClick={() => { setShowRefundModal(null); setRefundReason(''); }}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                            <CardDescription>
+                                Refund order {showRefundModal.id.slice(0, 8)}... and credit the merchant&apos;s wallet.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                                <p className="text-sm text-red-800 dark:text-red-200">
+                                    This will credit <strong>{formatCurrency(showRefundModal.total_cents)}</strong> back to the merchant&apos;s wallet and mark the order as refunded.
+                                </p>
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Reason</label>
+                                <Input
+                                    placeholder="Reason for refund..."
+                                    value={refundReason}
+                                    onChange={(e) => setRefundReason(e.target.value)}
+                                    className="mt-1"
+                                />
+                            </div>
+                            <div className="flex gap-2 pt-2">
+                                <Button
+                                    onClick={handleRefundOrder}
+                                    disabled={isRefunding}
+                                    className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                                >
+                                    {isRefunding ? (
+                                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</>
+                                    ) : (
+                                        'Confirm Refund'
+                                    )}
+                                </Button>
+                                <Button variant="outline" onClick={() => { setShowRefundModal(null); setRefundReason(''); }}>
+                                    Cancel
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>

@@ -20,7 +20,7 @@ export interface AuthenticatedStore {
  * Decrypt a store secret that was encrypted with AES-256-GCM.
  * Falls back to using the value directly if not encrypted (migration period).
  */
-function decryptSecret(encryptedValue: string): string {
+export function decryptSecret(encryptedValue: string): string {
     const encryptionKey = process.env.STORE_SECRET_ENCRYPTION_KEY;
     if (!encryptionKey) {
         // No encryption key configured -- assume plaintext storage (migration period)
