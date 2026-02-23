@@ -174,3 +174,82 @@
     vertical-align: middle;
     margin-right: 5px;
 }
+
+/* BTC Toggle Switch */
+.wlp-btc-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 16px 0;
+}
+.wlp-toggle {
+    position: relative;
+    display: inline-block;
+    width: 52px;
+    height: 28px;
+    flex-shrink: 0;
+}
+.wlp-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.wlp-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: #cbd5e1;
+    border-radius: 28px;
+    transition: background 0.25s;
+}
+.wlp-toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    left: 3px;
+    bottom: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.25s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.wlp-toggle input:checked + .wlp-toggle-slider {
+    background: #f7931a;
+}
+.wlp-toggle input:checked + .wlp-toggle-slider::before {
+    transform: translateX(24px);
+}
+.wlp-toggle input:disabled + .wlp-toggle-slider {
+    opacity: 0.5;
+    cursor: wait;
+}
+.wlp-btc-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+.wlp-btc-badge-on {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+.wlp-btc-badge-off {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+.wlp-btc-active-info {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+}
+.wlp-btc-active-info .description {
+    margin: 0;
+    font-size: 13px;
+}

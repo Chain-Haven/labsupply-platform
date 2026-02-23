@@ -100,7 +100,7 @@ export async function verifyStoreRequest(
         .single();
 
     if (secretError || !secretRecord) {
-        throw new ApiError('SECRET_LOOKUP_FAILED', 'Failed to verify credentials', 500);
+        throw new ApiError('SECRET_LOOKUP_FAILED', 'Failed to verify store credentials. The credential lookup failed — ensure the store is properly connected.', 500);
     }
 
     // Get the actual secret for HMAC computation
@@ -229,7 +229,7 @@ export function errorResponse(error: ApiError | Error): Response {
             success: false,
             error: {
                 code: 'INTERNAL_ERROR',
-                message: 'An unexpected error occurred',
+                message: 'An unexpected server error occurred. Please retry the request or contact support if this persists.',
             },
         },
         { status: 500 }

@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
             const errBody = await mercuryRes.text();
             console.error('Mercury invoice creation failed:', mercuryRes.status, errBody);
             return NextResponse.json(
-                { error: 'Failed to create invoice. Please try again or contact support.' },
+                { error: 'Failed to create invoice in Mercury. The payment provider may be temporarily unavailable — please try again later or contact support.' },
                 { status: 502 }
             );
         }
@@ -186,6 +186,6 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         console.error('Manual topup error:', error);
-        return NextResponse.json({ error: 'An error occurred. Please try again.' }, { status: 500 });
+        return NextResponse.json({ error: 'Invoice creation failed due to an unexpected error. No charges were applied — please try again.' }, { status: 500 });
     }
 }

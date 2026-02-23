@@ -61,6 +61,7 @@ export interface OnboardingData {
         researchCredentials: 'pending' | 'uploaded' | 'approved' | 'rejected';
         governmentId: 'pending' | 'uploaded' | 'approved' | 'rejected';
     };
+    documentFileNames?: Record<string, string | undefined>;
 
     // Step 6: Agreement & Signature
     agreementSignature: string;  // base64 data URL of drawn signature
@@ -254,8 +255,16 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                     data.contactTitle.trim() !== '' &&
                     data.contactPhone.trim() !== ''
                 );
-            case 6:
-                return data.documentStatus.businessLicense === 'uploaded';
+            case 6: {
+                const docUploaded = (s: string) => s === 'uploaded' || s === 'approved';
+                const hasLicense = docUploaded(data.documentStatus.businessLicense);
+                const hasGovId = docUploaded(data.documentStatus.governmentId);
+                const needsArticles = data.businessType === 'llc' || data.businessType === 'corporation';
+                const hasArticles = !needsArticles || docUploaded(data.documentStatus.articlesOfIncorporation);
+                const needsResearch = data.accountType === 'researcher' || data.accountType === 'institution';
+                const hasResearch = !needsResearch || docUploaded(data.documentStatus.researchCredentials);
+                return hasLicense && hasGovId && hasArticles && hasResearch;
+            }
             case 7:
                 return data.agreementSignature !== '';
             case 8:

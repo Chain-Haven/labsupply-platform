@@ -14,6 +14,7 @@ import {
     X,
     Upload,
     LayoutDashboard,
+    BookOpen,
     Loader2,
     Clock,
     CheckCircle,
@@ -27,6 +28,7 @@ import { useMerchantAuth } from '@/lib/merchant-auth';
 
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Guide', href: '/dashboard/guide', icon: BookOpen },
     { name: 'Catalog', href: '/dashboard/catalog', icon: Package },
     { name: 'Orders', href: '/dashboard/orders', icon: ShoppingCart },
     { name: 'Wallet', href: '/dashboard/wallet', icon: Wallet },

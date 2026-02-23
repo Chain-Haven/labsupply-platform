@@ -78,6 +78,6 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         console.error('Compliance scan trigger error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Compliance scan failed to start. Please try again.' }, { status: 500 });
     }
 }

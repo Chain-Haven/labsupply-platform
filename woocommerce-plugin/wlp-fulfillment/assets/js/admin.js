@@ -13,6 +13,7 @@
             $('#wlp-import-products').on('click', this.handleImportProducts);
             $('#wlp-resync-orders').on('click', this.handleResyncOrders);
             $('#wlp-debug-mode').on('change', this.handleDebugToggle);
+            $('#wlp-btc-toggle').on('change', this.handleBtcToggle);
         },
 
         handleConnect: function (e) {
@@ -169,6 +170,44 @@
                 error: function () {
                     WLPAdmin.showMessage($message, wlpAdmin.strings.error + ' Sync failed', 'error');
                     $button.prop('disabled', false);
+                }
+            });
+        },
+
+        handleBtcToggle: function () {
+            var enabled = $(this).is(':checked') ? 'yes' : 'no';
+            var $status = $('#wlp-btc-toggle-status');
+            var $message = $('#wlp-btc-toggle-message');
+            var $toggle = $(this);
+
+            $toggle.prop('disabled', true);
+
+            $.ajax({
+                url: wlpAdmin.ajaxUrl,
+                method: 'POST',
+                data: {
+                    action: 'wlp_toggle_btc',
+                    nonce: wlpAdmin.nonce,
+                    enabled: enabled
+                },
+                success: function (response) {
+                    if (response.success) {
+                        if (response.data.enabled) {
+                            $status.html('<span class="wlp-btc-badge wlp-btc-badge-on">Enabled</span>');
+                        } else {
+                            $status.html('<span class="wlp-btc-badge wlp-btc-badge-off">Disabled</span>');
+                        }
+                        WLPAdmin.showMessage($message, response.data.message, 'success');
+                    } else {
+                        WLPAdmin.showMessage($message, 'Failed to update setting', 'error');
+                        $toggle.prop('checked', !$toggle.is(':checked'));
+                    }
+                    $toggle.prop('disabled', false);
+                },
+                error: function () {
+                    WLPAdmin.showMessage($message, 'Failed to update setting', 'error');
+                    $toggle.prop('checked', !$toggle.is(':checked'));
+                    $toggle.prop('disabled', false);
                 }
             });
         },

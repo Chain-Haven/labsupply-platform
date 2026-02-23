@@ -33,7 +33,14 @@ import {
 import { cn, formatCurrency, formatRelativeTime } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 
-// Order interface with extended fields
+interface OrderItem {
+    id: string;
+    sku: string;
+    name: string;
+    qty: number;
+    unit_price_cents: number;
+}
+
 interface Order {
     id: string;
     merchant: string;
@@ -41,6 +48,7 @@ interface Order {
     order_type?: 'REGULAR' | 'TESTING';
     shipping_method?: 'STANDARD' | 'EXPEDITED';
     items_count: number;
+    order_items: OrderItem[];
     total_cents: number;
     created_at: string;
     shipping_address: string;
@@ -52,9 +60,6 @@ interface Order {
     label_printed_at?: string;
     selected?: boolean;
 }
-
-// Orders data - empty by default (fetched from API in production)
-const initialOrders: Order[] = [];
 
 const getStatusColor = (status: string) => {
     switch (status) {
@@ -87,13 +92,68 @@ const getStatusIcon = (status: string) => {
 };
 
 export default function OrdersPage() {
-    const [orders, setOrders] = useState<Order[]>(initialOrders);
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [ordersLoading, setOrdersLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
     const [isPushingToShipStation, setIsPushingToShipStation] = useState(false);
     const [isExportingLabels, setIsExportingLabels] = useState(false);
     const [showOrderDetails, setShowOrderDetails] = useState<Order | null>(null);
+    const [page, setPage] = useState(1);
+    const [totalOrders, setTotalOrders] = useState(0);
+    const PAGE_SIZE = 50;
+
+    const fetchOrders = useCallback(async () => {
+        setOrdersLoading(true);
+        try {
+            const params = new URLSearchParams();
+            params.set('page', page.toString());
+            params.set('limit', PAGE_SIZE.toString());
+            if (statusFilter !== 'all' && statusFilter !== 'TESTING') {
+                params.set('status', statusFilter);
+            }
+            if (searchQuery) {
+                params.set('search', searchQuery);
+            }
+
+            const res = await fetch(`/api/v1/admin/orders?${params.toString()}`);
+            if (res.ok) {
+                const json = await res.json();
+                const mapped = (json.data || []).map((o: Record<string, unknown>) => {
+                    const addr = o.shipping_address as Record<string, string> | undefined;
+                    const items = (o.order_items || []) as OrderItem[];
+                    return {
+                        id: o.woo_order_number || o.woo_order_id || o.id,
+                        merchant: (o as Record<string, unknown>).merchant_name || 'Unknown',
+                        status: o.status as string,
+                        order_type: o.order_type || 'REGULAR',
+                        shipping_method: o.shipping_method || 'STANDARD',
+                        items_count: items.length,
+                        order_items: items,
+                        total_cents: (o.total_estimate_cents || 0) as number,
+                        created_at: o.created_at as string,
+                        shipping_address: addr
+                            ? [addr.city, addr.state].filter(Boolean).join(', ')
+                            : '',
+                        tracking_number: undefined,
+                        shipstation_synced: false,
+                        label_url: undefined,
+                        label_printed: false,
+                    } as Order;
+                });
+                setOrders(mapped);
+                setTotalOrders(json.pagination?.total || mapped.length);
+            }
+        } catch {
+            /* silently fail, orders stay empty */
+        }
+        setOrdersLoading(false);
+    }, [page, statusFilter, searchQuery]);
+
+    useEffect(() => {
+        fetchOrders();
+    }, [fetchOrders]);
 
     // Testing orders state
     interface TestingOrderView {
@@ -248,16 +308,18 @@ export default function OrdersPage() {
             return;
         }
 
-        const headers = ['Order ID', 'Merchant', 'Status', 'Shipping Method', 'Items', 'Total', 'Ship To', 'Created', 'Tracking', 'ShipStation Synced'];
+        const headers = ['Order ID', 'Merchant', 'Status', 'Shipping Method', 'Items', 'SKUs', 'Total', 'Ship To', 'Created', 'Tracking', 'ShipStation Synced'];
         const csvRows = [headers.join(',')];
 
         ordersToExport.forEach(order => {
+            const skus = order.order_items.map(i => `${i.sku} x${i.qty}`).join('; ');
             const row = [
                 order.id,
                 `"${order.merchant}"`,
                 order.status,
                 order.shipping_method || 'STANDARD',
                 order.items_count,
+                `"${skus}"`,
                 (order.total_cents / 100).toFixed(2),
                 `"${order.shipping_address}"`,
                 new Date(order.created_at).toLocaleDateString(),
@@ -282,7 +344,6 @@ export default function OrdersPage() {
         });
     };
 
-    // Push selected orders to ShipStation
     const handlePushToShipStation = async () => {
         if (selectedOrders.size === 0) {
             toast({
@@ -295,38 +356,43 @@ export default function OrdersPage() {
 
         setIsPushingToShipStation(true);
 
-        // Simulate API call to ShipStation
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        let succeeded = 0;
+        let failed = 0;
 
-        // Update orders with ShipStation sync status
-        setOrders(prev => prev.map(order => {
-            if (selectedOrders.has(order.id)) {
-                return {
-                    ...order,
-                    shipstation_synced: true,
-                    shipstation_order_id: `SS-${Date.now()}-${order.id}`,
-                };
+        for (const orderId of selectedOrders) {
+            try {
+                const res = await fetch('/api/v1/admin/orders/create-shipments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_ids: [orderId] }),
+                });
+                if (res.ok) {
+                    succeeded++;
+                } else {
+                    failed++;
+                }
+            } catch {
+                failed++;
             }
-            return order;
-        }));
+        }
 
         setIsPushingToShipStation(false);
         setSelectedOrders(new Set());
+        fetchOrders();
 
         toast({
-            title: 'Orders pushed to ShipStation',
-            description: `${selectedOrders.size} order(s) have been synced with ShipStation.`,
+            title: 'Shipments created',
+            description: `${succeeded} succeeded, ${failed} failed.`,
         });
     };
 
-    // Export labels as PDF (one label per page)
     const handleExportLabels = async () => {
         const ordersWithLabels = filteredOrders.filter(o => selectedOrders.has(o.id) && o.label_url);
 
         if (ordersWithLabels.length === 0) {
             toast({
                 title: 'No labels available',
-                description: 'Selected orders must have labels generated first. Push to ShipStation to generate labels.',
+                description: 'Selected orders must have labels generated first. Create shipments to generate labels.',
                 variant: 'destructive'
             });
             return;
@@ -334,46 +400,48 @@ export default function OrdersPage() {
 
         setIsExportingLabels(true);
 
-        // Simulate PDF generation
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        try {
+            const labelUrls = ordersWithLabels.map(o => o.label_url).filter(Boolean);
+            toast({
+                title: 'Labels exported',
+                description: `${labelUrls.length} label(s) ready for download.`,
+            });
+
+            for (const url of labelUrls) {
+                if (url) {
+                    window.open(url, '_blank');
+                }
+            }
+        } catch {
+            toast({ title: 'Export failed', variant: 'destructive' });
+        }
 
         setIsExportingLabels(false);
-
-        // In production, this would trigger a PDF download
-        toast({
-            title: 'Labels exported',
-            description: `${ordersWithLabels.length} label(s) exported as PDF. Each label is on a separate page.`,
-        });
-
-        // Simulate download
-        const blob = new Blob(['PDF Content - Labels'], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `shipping-labels-${new Date().toISOString().split('T')[0]}.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
     };
 
-    // Mark labels as printed
-    const handleMarkAsPrinted = () => {
-        setOrders(prev => prev.map(order => {
-            if (selectedOrders.has(order.id) && order.label_url) {
-                return {
-                    ...order,
-                    label_printed: true,
-                    label_printed_at: new Date().toISOString(),
-                };
+    const handleMarkAsPrinted = async () => {
+        let printed = 0;
+        for (const orderId of selectedOrders) {
+            const match = filteredOrders.find(o => o.id === orderId && o.label_url);
+            if (match) {
+                await fetch('/api/v1/admin/orders', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: orderId,
+                        supplier_notes: `Label printed at ${new Date().toISOString()}`,
+                    }),
+                }).catch(() => {});
+                printed++;
             }
-            return order;
-        }));
+        }
 
-        const printedCount = filteredOrders.filter(o => selectedOrders.has(o.id) && o.label_url).length;
         setSelectedOrders(new Set());
+        fetchOrders();
 
         toast({
             title: 'Labels marked as printed',
-            description: `${printedCount} label(s) marked as printed.`,
+            description: `${printed} label(s) marked as printed.`,
         });
     };
 
@@ -599,6 +667,12 @@ export default function OrdersPage() {
             </Card>
 
             {/* Orders Table */}
+            {ordersLoading && (
+                <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-violet-600" />
+                    <span className="ml-2 text-gray-500">Loading orders...</span>
+                </div>
+            )}
             <Card>
                 <CardContent className="p-0">
                     <table className="w-full">
@@ -622,6 +696,7 @@ export default function OrdersPage() {
                                 <th className="text-center p-4 text-sm font-medium text-gray-500">ShipStation</th>
                                 <th className="text-center p-4 text-sm font-medium text-gray-500">Label</th>
                                 <th className="text-left p-4 text-sm font-medium text-gray-500">Shipping</th>
+                                <th className="text-left p-4 text-sm font-medium text-gray-500">Items / SKUs</th>
                                 <th className="text-right p-4 text-sm font-medium text-gray-500">Total</th>
                                 <th className="text-left p-4 text-sm font-medium text-gray-500">Ship To</th>
                                 <th className="text-left p-4 text-sm font-medium text-gray-500">Date</th>
@@ -717,6 +792,22 @@ export default function OrdersPage() {
                                                 <Truck className="w-3 h-3" />
                                                 Standard
                                             </span>
+                                        )}
+                                    </td>
+                                    <td className="p-4">
+                                        {order.order_items.length > 0 ? (
+                                            <div className="space-y-0.5">
+                                                {order.order_items.map((item) => (
+                                                    <div key={item.id} className="text-sm">
+                                                        <span className="font-mono text-xs text-violet-600 dark:text-violet-400">{item.sku}</span>
+                                                        <span className="text-gray-500 mx-1">&middot;</span>
+                                                        <span className="text-gray-700 dark:text-gray-300 truncate">{item.name}</span>
+                                                        <span className="text-gray-400 ml-1">x{item.qty}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs text-gray-400">No items</span>
                                         )}
                                     </td>
                                     <td className="p-4 text-right font-medium text-gray-900 dark:text-white">
@@ -1075,6 +1166,25 @@ export default function OrdersPage() {
                                     <p className="text-sm text-gray-500">Shipping Address</p>
                                     <p className="font-medium">{showOrderDetails.shipping_address}</p>
                                 </div>
+                                {showOrderDetails.order_items.length > 0 && (
+                                    <div className="col-span-2 pt-2 border-t">
+                                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Line Items</p>
+                                        <div className="space-y-2">
+                                            {showOrderDetails.order_items.map((item) => (
+                                                <div key={item.id} className="flex items-center justify-between text-sm p-2 bg-gray-50 dark:bg-gray-800/50 rounded">
+                                                    <div>
+                                                        <span className="font-mono text-xs text-violet-600 dark:text-violet-400">{item.sku}</span>
+                                                        <p className="text-gray-900 dark:text-white">{item.name}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-gray-500">x{item.qty}</p>
+                                                        <p className="font-medium text-gray-900 dark:text-white">{formatCurrency(item.unit_price_cents * item.qty)}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                                 <div>
                                     <p className="text-sm text-gray-500">ShipStation Status</p>
                                     {showOrderDetails.shipstation_synced ? (

@@ -117,12 +117,12 @@ export async function PATCH(request: NextRequest) {
                 });
             }
             console.error('Settings save error:', error);
-            return NextResponse.json({ success: false, error: 'Failed to save' }, { status: 500 });
+            return NextResponse.json({ success: false, error: 'Failed to save settings. The database rejected the changes — please try again.' }, { status: 500 });
         }
 
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Settings PATCH error:', error);
-        return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ success: false, error: 'Failed to update settings due to an unexpected error. Please try again.' }, { status: 500 });
     }
 }

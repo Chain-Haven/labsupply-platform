@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
 
         if (insertError) {
             console.error('Error storing OTP code:', insertError);
-            return NextResponse.json({ error: 'Failed to generate code' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to generate login code. The database may be temporarily unavailable — please try again.' }, { status: 500 });
         }
 
         // Send email
@@ -139,6 +139,6 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         console.error('Send OTP error:', error);
-        return NextResponse.json({ error: 'Failed to send login code' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to send login code email. Verify your email address is correct and try again.' }, { status: 500 });
     }
 }

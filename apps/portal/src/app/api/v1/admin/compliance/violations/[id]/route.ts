@@ -52,7 +52,7 @@ export async function GET(
         });
     } catch (error) {
         console.error('Violation GET error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Compliance violation operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }
 
@@ -113,7 +113,7 @@ export async function PATCH(
             .single();
 
         if (updateError) {
-            return NextResponse.json({ error: 'Failed to update violation' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to update violation status. The database rejected the change — please try again.' }, { status: 500 });
         }
 
         // Side effects for notify and block actions
@@ -172,6 +172,6 @@ export async function PATCH(
         return NextResponse.json({ data: updated });
     } catch (error) {
         console.error('Violation PATCH error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Compliance violation operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }

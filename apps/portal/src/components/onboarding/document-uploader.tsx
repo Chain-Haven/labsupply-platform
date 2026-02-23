@@ -1,17 +1,18 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Upload, FileText, Image, X, CheckCircle, Loader2 } from 'lucide-react';
+import { Upload, FileText, X, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface DocumentUploaderProps {
     label: string;
     description: string;
+    documentType: string;
     accept?: string;
     required?: boolean;
     status: 'pending' | 'uploaded' | 'approved' | 'rejected';
-    onUpload: (file: File) => void;
+    onUploaded: (documentType: string, fileName: string) => void;
     onRemove: () => void;
     fileName?: string;
 }
@@ -19,35 +20,56 @@ interface DocumentUploaderProps {
 export function DocumentUploader({
     label,
     description,
+    documentType,
     accept = '.pdf,.jpg,.jpeg,.png',
     required = false,
     status,
-    onUpload,
+    onUploaded,
     onRemove,
     fileName,
 }: DocumentUploaderProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [uploadError, setUploadError] = useState<string | null>(null);
 
     const handleDrop = useCallback(
         (e: React.DragEvent) => {
             e.preventDefault();
             setIsDragging(false);
-
             const file = e.dataTransfer.files[0];
             if (file) {
                 handleFile(file);
             }
         },
-        [onUpload]
+        [documentType]
     );
 
     const handleFile = async (file: File) => {
         setIsUploading(true);
-        // Simulate upload delay
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        onUpload(file);
-        setIsUploading(false);
+        setUploadError(null);
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('document_type', documentType);
+
+            const res = await fetch('/api/v1/onboarding/documents', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const json = await res.json();
+
+            if (!res.ok) {
+                throw new Error(json.error || 'Upload failed');
+            }
+
+            onUploaded(documentType, file.name);
+        } catch (err) {
+            setUploadError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,6 +132,13 @@ export function DocumentUploader({
                             >
                                 <X className="w-4 h-4" />
                             </button>
+                        </div>
+                    )}
+
+                    {uploadError && (
+                        <div className="flex items-center gap-1.5 mt-2 text-sm text-red-600">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>{uploadError}</span>
                         </div>
                     )}
                 </div>

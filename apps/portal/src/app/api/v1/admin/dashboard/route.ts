@@ -82,6 +82,6 @@ export async function GET() {
         });
     } catch (error) {
         console.error('Dashboard API error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to load dashboard data. Please refresh the page.' }, { status: 500 });
     }
 }

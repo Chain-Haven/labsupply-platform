@@ -83,7 +83,73 @@ export async function GET(request: NextRequest) {
         });
     } catch (error) {
         console.error('Inventory API error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Inventory operation failed unexpectedly. Please try again.' }, { status: 500 });
+    }
+}
+
+export async function POST(request: NextRequest) {
+    try {
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+
+        const supabase = getServiceClient();
+        const body = await request.json();
+        const { sku, name, category, wholesale_price_cents, on_hand, reorder_point } = body;
+
+        if (!sku || !name || wholesale_price_cents === undefined) {
+            return NextResponse.json({
+                error: 'Missing required fields: sku, name, and wholesale_price_cents are all required.',
+            }, { status: 400 });
+        }
+
+        const { data: existing } = await supabase
+            .from('products')
+            .select('id')
+            .eq('sku', sku.toUpperCase())
+            .maybeSingle();
+
+        if (existing) {
+            return NextResponse.json({
+                error: `A product with SKU "${sku}" already exists. Use a unique SKU or edit the existing product.`,
+            }, { status: 409 });
+        }
+
+        const { data: product, error: insertError } = await supabase
+            .from('products')
+            .insert({
+                sku: sku.toUpperCase(),
+                name,
+                category: category || null,
+                cost_cents: wholesale_price_cents,
+                active: true,
+            })
+            .select('id')
+            .single();
+
+        if (insertError || !product) {
+            console.error('Product insert error:', insertError);
+            return NextResponse.json({
+                error: 'Failed to create product. The database rejected the insert — check the data and try again.',
+            }, { status: 500 });
+        }
+
+        await supabase.from('inventory').insert({
+            product_id: product.id,
+            on_hand: on_hand || 0,
+            reorder_point: reorder_point || 10,
+        });
+
+        await supabase.from('audit_events').insert({
+            action: 'inventory.product_created',
+            entity_type: 'product',
+            entity_id: product.id,
+            metadata: { sku, name, cost_cents: wholesale_price_cents },
+        }).then(() => {}, () => {});
+
+        return NextResponse.json({ data: { id: product.id, sku } }, { status: 201 });
+    } catch (error) {
+        console.error('Inventory POST error:', error);
+        return NextResponse.json({ error: 'Product creation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }
 
@@ -135,6 +201,6 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Inventory PATCH error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Inventory operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }

@@ -36,7 +36,7 @@ async function verifyAdmin(): Promise<boolean> {
 export async function GET() {
     try {
         if (!(await verifyAdmin())) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Admin access required to run crypto reconciliation.' }, { status: 403 });
         }
 
         const sc = getServiceClient();
@@ -136,6 +136,6 @@ export async function GET() {
         });
     } catch (error) {
         console.error('Reconciliation error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Crypto reconciliation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }

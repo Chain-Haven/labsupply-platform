@@ -56,13 +56,13 @@ export async function GET(request: NextRequest) {
         const { data: requests, error } = await query;
 
         if (error) {
-            return NextResponse.json({ error: 'Failed to fetch withdrawals' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to load withdrawal requests. Please refresh and try again.' }, { status: 500 });
         }
 
         return NextResponse.json({ data: requests || [] });
     } catch (error) {
         console.error('Admin withdrawals fetch error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Withdrawal operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }
 
@@ -160,7 +160,7 @@ export async function PATCH(request: NextRequest) {
             .eq('id', withdrawal_id);
 
         if (updateErr) {
-            return NextResponse.json({ error: 'Failed to update withdrawal' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to update withdrawal status. The database rejected the change — please try again.' }, { status: 500 });
         }
 
         // Audit log
@@ -180,6 +180,6 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ data: { id: withdrawal_id, status } });
     } catch (error) {
         console.error('Admin withdrawal update error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Withdrawal operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }

@@ -152,7 +152,7 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
 
             return { success: true };
         } catch (err) {
-            return { success: false, error: 'An unexpected error occurred' };
+            return { success: false, error: 'An unexpected error occurred. Please refresh the page and try again.' };
         }
     };
 
@@ -174,7 +174,7 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
 
             return { success: true };
         } catch (err) {
-            return { success: false, error: 'An unexpected error occurred' };
+            return { success: false, error: 'An unexpected error occurred. Please refresh the page and try again.' };
         }
     };
 
@@ -220,7 +220,7 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
 
             return { success: true };
         } catch (err) {
-            return { success: false, error: 'Failed to verify code. Please try again.' };
+            return { success: false, error: 'Failed to verify login code. The code may have expired — please request a new one.' };
         }
     };
 
@@ -262,7 +262,7 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
 
             return { success: true };
         } catch (err) {
-            return { success: false, error: 'Failed to verify code. Please try again.' };
+            return { success: false, error: 'Failed to verify login code. The code may have expired — please request a new one.' };
         }
     };
 
@@ -313,7 +313,7 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
 
             return { success: true };
         } catch (err) {
-            return { success: false, error: 'An unexpected error occurred' };
+            return { success: false, error: 'An unexpected error occurred. Please refresh the page and try again.' };
         }
     };
 
@@ -349,7 +349,7 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
 
             return { success: true };
         } catch (err) {
-            return { success: false, error: 'An unexpected error occurred' };
+            return { success: false, error: 'An unexpected error occurred. Please refresh the page and try again.' };
         }
     };
 

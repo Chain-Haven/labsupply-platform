@@ -306,6 +306,150 @@ the wallet balance is credited automatically.
 
 ---
 
+### Shipments
+
+#### Create Shipment (Admin)
+
+```
+POST /v1/shipments
+```
+
+Creates a shipment for an order. If ShipStation is configured, automatically purchases a label.
+
+**Request:**
+```json
+{
+  "order_id": "uuid",
+  "carrier": "usps",
+  "service": "usps_priority_mail",
+  "weight_oz": 16
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "shipment_id": "uuid",
+    "order_id": "uuid",
+    "status": "LABEL_CREATED",
+    "carrier": "usps",
+    "service": "usps_priority_mail",
+    "tracking_number": "9400111899223100123456",
+    "tracking_url": "https://track.shipstation.com/tracking/9400111899223100123456",
+    "label_url": "https://...",
+    "rate_cents": 895
+  }
+}
+```
+
+#### Mark Shipped (Admin)
+
+```
+POST /v1/shipments/{id}/ship
+```
+
+Marks a shipment as shipped with tracking info and triggers wallet settlement.
+
+**Request:**
+```json
+{
+  "tracking_number": "9400111899223100123456",
+  "tracking_url": "https://...",
+  "carrier": "usps",
+  "actual_cost_cents": 895
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "shipment_id": "uuid",
+    "order_id": "uuid",
+    "status": "IN_TRANSIT",
+    "tracking_number": "9400111899223100123456"
+  }
+}
+```
+
+### Tracking
+
+#### Get Pending Updates
+
+```
+GET /v1/tracking/pending
+```
+
+Returns orders with tracking info that haven't been acknowledged by the store. Used by WooCommerce plugin polling.
+
+#### Acknowledge Updates
+
+```
+POST /v1/tracking/acknowledge
+```
+
+Acknowledges that tracking updates have been processed by the store.
+
+**Request:**
+```json
+{
+  "order_ids": ["uuid1", "uuid2"]
+}
+```
+
+#### Order Updates (Delta Sync)
+
+```
+GET /v1/orders/updates?since=2024-01-10T00:00:00Z&limit=50
+```
+
+Returns orders updated since the given timestamp. Lightweight alternative to full order listing.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "updates": [
+      {
+        "order_id": "uuid",
+        "status": "SHIPPED",
+        "updated_at": "2024-01-10T12:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+### Webhooks
+
+#### ShipStation Webhook
+
+```
+POST /v1/webhooks/shipstation
+```
+
+Receives delivery events from ShipStation. Automatically transitions shipments to DELIVERED and orders to COMPLETE.
+
+---
+
+## Shipment Statuses
+
+| Status | Description |
+|--------|-------------|
+| `PENDING` | Shipment created, no label yet |
+| `LABEL_CREATED` | Label purchased, awaiting pickup |
+| `PICKED_UP` | Carrier has picked up package |
+| `IN_TRANSIT` | Package in transit |
+| `DELIVERED` | Package delivered |
+| `FAILED` | Delivery failed |
+| `RETURNED` | Package returned |
+
+---
+
 ## Order Statuses
 
 | Status | Description |

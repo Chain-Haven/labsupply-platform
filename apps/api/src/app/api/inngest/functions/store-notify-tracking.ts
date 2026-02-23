@@ -1,11 +1,13 @@
 /**
  * Store Notify Tracking
  * Triggered after a shipment is shipped.
- * Pushes tracking info back to the merchant's WooCommerce store.
+ * Pushes tracking info back to the merchant's WooCommerce store via signed webhook,
+ * with polling as a fallback (tracking/pending endpoint).
  */
 
 import { inngest } from '@/lib/inngest';
 import { getServiceClient } from '@/lib/supabase';
+import { generateSignature, generateNonce, nowMs } from '@whitelabel-peptides/shared';
 
 export const storeNotifyTrackingFunction = inngest.createFunction(
     {
@@ -18,7 +20,6 @@ export const storeNotifyTrackingFunction = inngest.createFunction(
         const { storeId, orderId, trackingNumber, trackingUrl, carrier } = event.data;
         const supabase = getServiceClient();
 
-        // Step 1: Get store connection details
         const store = await step.run('get-store', async () => {
             const { data, error } = await supabase
                 .from('stores')
@@ -37,7 +38,6 @@ export const storeNotifyTrackingFunction = inngest.createFunction(
             return data;
         });
 
-        // Step 2: Get the WooCommerce order ID
         const order = await step.run('get-order', async () => {
             const { data, error } = await supabase
                 .from('orders')
@@ -52,16 +52,75 @@ export const storeNotifyTrackingFunction = inngest.createFunction(
             return data;
         });
 
-        // Step 3: Record the tracking update as pending for the plugin to poll
-        await step.run('record-tracking-update', async () => {
-            // The WooCommerce plugin polls /v1/tracking/pending for updates.
-            // The order is already marked SHIPPED by shipment-shipped.ts.
-            // The tracking/pending endpoint returns shipped orders with tracking info.
-            // So we just need to make sure the shipment record is correct.
+        // Push tracking update to the store's webhook endpoint
+        const pushResult = await step.run('push-tracking-to-store', async () => {
+            const storeUrl = store.url?.replace(/\/$/, '');
+            if (!storeUrl) {
+                return { pushed: false, reason: 'No store URL' };
+            }
 
+            const secrets = (store as Record<string, unknown>).store_secrets as Array<{ secret_hash: string }> | undefined;
+            const secret = secrets?.[0]?.secret_hash;
+            if (!secret) {
+                return { pushed: false, reason: 'No store secret available' };
+            }
+
+            const payload = {
+                updates: [{
+                    woo_order_id: order.woo_order_id,
+                    supplier_order_id: orderId,
+                    status: 'shipped' as const,
+                    tracking_number: trackingNumber,
+                    tracking_url: trackingUrl || '',
+                    carrier,
+                    shipped_at: new Date().toISOString(),
+                }],
+            };
+
+            const bodyStr = JSON.stringify(payload);
+            const timestamp = nowMs().toString();
+            const nonce = generateNonce();
+            const signature = generateSignature({
+                storeId,
+                timestamp,
+                nonce,
+                body: bodyStr,
+                secret,
+            });
+
+            const webhookUrl = `${storeUrl}/wp-json/wlp/v1/tracking`;
+
+            try {
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Store-Id': storeId,
+                        'X-Timestamp': timestamp,
+                        'X-Nonce': nonce,
+                        'X-Signature': signature,
+                    },
+                    body: bodyStr,
+                    signal: AbortSignal.timeout(15000),
+                });
+
+                if (!response.ok) {
+                    const text = await response.text().catch(() => '');
+                    console.warn(`[StoreNotify] Push to ${webhookUrl} failed (${response.status}): ${text}`);
+                    return { pushed: false, reason: `HTTP ${response.status}` };
+                }
+
+                return { pushed: true };
+            } catch (err) {
+                console.warn('[StoreNotify] Push request failed:', (err as Error).message);
+                return { pushed: false, reason: (err as Error).message };
+            }
+        });
+
+        await step.run('record-audit', async () => {
             await supabase.from('audit_events').insert({
                 merchant_id: null,
-                action: 'tracking.notification_queued',
+                action: pushResult.pushed ? 'tracking.pushed' : 'tracking.push_failed',
                 entity_type: 'order',
                 entity_id: orderId,
                 metadata: {
@@ -70,10 +129,9 @@ export const storeNotifyTrackingFunction = inngest.createFunction(
                     tracking_number: trackingNumber,
                     carrier,
                     tracking_url: trackingUrl,
+                    push_result: pushResult,
                 },
             }).then(() => {}, () => {});
-
-            return { queued: true };
         });
 
         return {
@@ -81,7 +139,7 @@ export const storeNotifyTrackingFunction = inngest.createFunction(
             orderId,
             wooOrderId: order.woo_order_id,
             trackingNumber,
-            notified: true,
+            pushed: pushResult.pushed,
         };
     }
 );

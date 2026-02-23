@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
             });
 
         if (secretError) {
-            throw new ApiError('SECRET_ROTATE_FAILED', 'Failed to rotate secret', 500);
+            throw new ApiError('SECRET_ROTATE_FAILED', 'Failed to rotate store API secret. The database rejected the update — please try again.', 500);
         }
 
         // Log the rotation

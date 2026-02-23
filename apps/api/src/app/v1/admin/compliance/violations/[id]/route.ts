@@ -110,7 +110,7 @@ async function handlePatch(
 
     if (updateError) {
         console.error('Failed to update violation:', updateError);
-        return NextResponse.json({ error: 'Failed to update violation' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to update violation status. The database rejected the change — please try again.' }, { status: 500 });
     }
 
     // Execute the action side effects

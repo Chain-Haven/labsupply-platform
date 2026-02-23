@@ -20,6 +20,8 @@ class WLP_Admin
         add_action('wp_ajax_wlp_connect', array(__CLASS__, 'ajax_connect'));
         add_action('wp_ajax_wlp_disconnect', array(__CLASS__, 'ajax_disconnect'));
         add_action('wp_ajax_wlp_resync_orders', array(__CLASS__, 'ajax_resync_orders'));
+        add_action('wp_ajax_wlp_toggle_btc', array(__CLASS__, 'ajax_toggle_btc'));
+        add_action('wp_ajax_wlp_save_setting', array(__CLASS__, 'ajax_save_setting'));
     }
 
     /**
@@ -186,6 +188,57 @@ class WLP_Admin
             'synced' => $synced,
             'message' => sprintf(__('%d orders synced', 'wlp-fulfillment'), $synced),
         ));
+    }
+
+    /**
+     * Ajax: Toggle BTC payment gateway on/off
+     */
+    public static function ajax_toggle_btc()
+    {
+        check_ajax_referer('wlp_admin', 'nonce');
+
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error('Permission denied');
+            return;
+        }
+
+        $enabled = sanitize_text_field($_POST['enabled'] ?? 'no');
+        $settings = get_option('woocommerce_wlp_btc_settings', array());
+        $settings['enabled'] = $enabled === 'yes' ? 'yes' : 'no';
+        update_option('woocommerce_wlp_btc_settings', $settings);
+
+        self::log('info', 'Bitcoin payments ' . ($enabled === 'yes' ? 'enabled' : 'disabled'));
+
+        wp_send_json_success(array(
+            'enabled' => $settings['enabled'] === 'yes',
+            'message' => $settings['enabled'] === 'yes'
+                ? __('Bitcoin payments enabled', 'wlp-fulfillment')
+                : __('Bitcoin payments disabled', 'wlp-fulfillment'),
+        ));
+    }
+
+    /**
+     * Ajax: Save a single setting
+     */
+    public static function ajax_save_setting()
+    {
+        check_ajax_referer('wlp_admin', 'nonce');
+
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error('Permission denied');
+            return;
+        }
+
+        $key = sanitize_key($_POST['key'] ?? '');
+        $value = sanitize_text_field($_POST['value'] ?? '');
+
+        if (empty($key)) {
+            wp_send_json_error('Missing key');
+            return;
+        }
+
+        WLP_Settings::set($key, $value);
+        wp_send_json_success();
     }
 
     /**

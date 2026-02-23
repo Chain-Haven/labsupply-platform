@@ -7,6 +7,7 @@ import { NextRequest } from 'next/server';
 import { getServiceClient } from '@/lib/supabase';
 import { verifyStoreRequest, successResponse, errorResponse } from '@/lib/auth';
 import { cancelOrderSchema, ApiError, OrderStatus, isValidStatusTransition } from '@whitelabel-peptides/shared';
+import { recordStatusChange } from '@/lib/order-helpers';
 
 export async function POST(
     request: NextRequest,
@@ -19,7 +20,7 @@ export async function POST(
         const parsed = cancelOrderSchema.safeParse(body);
 
         if (!parsed.success) {
-            throw new ApiError('VALIDATION_ERROR', 'Invalid request', 400);
+            throw new ApiError('VALIDATION_ERROR', 'Invalid cancel request. Provide a valid reason string in the request body.', 400);
         }
 
         const supabase = getServiceClient();
@@ -114,8 +115,10 @@ export async function POST(
             .eq('id', order.id);
 
         if (updateError) {
-            throw new ApiError('CANCEL_FAILED', 'Failed to cancel order', 500);
+            throw new ApiError('CANCEL_FAILED', 'Failed to cancel order. The database rejected the status change — the order may have already been updated.', 500);
         }
+
+        await recordStatusChange(supabase, order.id, order.status, OrderStatus.CANCELLED, undefined, parsed.data.reason || 'Cancelled by merchant');
 
         // Audit log
         await supabase.from('audit_events').insert({

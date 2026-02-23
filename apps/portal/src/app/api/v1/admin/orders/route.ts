@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/admin-api-auth';
+import { isValidStatusTransition, ORDER_STATUS_TRANSITIONS } from '@whitelabel-peptides/shared';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,8 @@ export async function GET(request: NextRequest) {
                 subtotal_cents, total_estimate_cents, actual_total_cents,
                 shipping_address, customer_email, supplier_notes,
                 created_at, shipped_at,
-                merchants!inner(company_name, email)
+                merchants!inner(company_name, email),
+                order_items(id, sku, name, qty, unit_price_cents)
             `, { count: 'exact' })
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
@@ -67,7 +69,7 @@ export async function GET(request: NextRequest) {
         });
     } catch (error) {
         console.error('Orders API error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to load orders. Please refresh the page or contact support if this persists.' }, { status: 500 });
     }
 }
 
@@ -84,9 +86,34 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: 'Order ID required' }, { status: 400 });
         }
 
+        // Fetch current order for status transition validation
+        const { data: currentOrder, error: fetchErr } = await supabase
+            .from('orders')
+            .select('status')
+            .eq('id', id)
+            .single();
+
+        if (fetchErr || !currentOrder) {
+            return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+        }
+
         const updates: Record<string, unknown> = {};
-        if (status) updates.status = status;
         if (supplier_notes !== undefined) updates.supplier_notes = supplier_notes;
+
+        if (status) {
+            if (currentOrder.status === status) {
+                return NextResponse.json({ error: 'Order is already in this status' }, { status: 400 });
+            }
+
+            if (!isValidStatusTransition(currentOrder.status, status)) {
+                const allowed = ORDER_STATUS_TRANSITIONS[currentOrder.status] ?? [];
+                return NextResponse.json({
+                    error: `Invalid status transition: ${currentOrder.status} -> ${status}. Allowed: [${allowed.join(', ')}]`,
+                }, { status: 400 });
+            }
+
+            updates.status = status;
+        }
 
         if (Object.keys(updates).length === 0) {
             return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
@@ -101,7 +128,16 @@ export async function PATCH(request: NextRequest) {
 
         if (error) {
             console.error('Order update error:', error);
-            return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to update order. The database rejected the changes — verify the order ID is valid and try again.' }, { status: 500 });
+        }
+
+        if (status) {
+            await supabase.from('order_status_history').insert({
+                order_id: id,
+                from_status: currentOrder.status,
+                to_status: status,
+                notes: supplier_notes || null,
+            }).then(() => {}, () => {});
         }
 
         await supabase.from('audit_events').insert({
@@ -114,6 +150,6 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ data });
     } catch (error) {
         console.error('Orders PATCH error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to update order due to an unexpected error. Please try again or contact support.' }, { status: 500 });
     }
 }

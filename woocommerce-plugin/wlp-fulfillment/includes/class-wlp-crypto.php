@@ -83,7 +83,10 @@ class WLP_Crypto
         $key = self::get_encryption_key();
         $iv = openssl_random_pseudo_bytes(16);
 
-        $encrypted = openssl_encrypt($data, 'AES-256-CBC', $key, 0, $iv);
+        $encrypted = openssl_encrypt($data, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+        if ($encrypted === false) {
+            return false;
+        }
 
         return base64_encode($iv . $encrypted);
     }
@@ -96,10 +99,15 @@ class WLP_Crypto
         $key = self::get_encryption_key();
         $decoded = base64_decode($data);
 
+        if ($decoded === false || strlen($decoded) < 17) {
+            return false;
+        }
+
         $iv = substr($decoded, 0, 16);
         $encrypted = substr($decoded, 16);
 
-        return openssl_decrypt($encrypted, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+        $decrypted = openssl_decrypt($encrypted, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+        return $decrypted !== false ? $decrypted : false;
     }
 
     /**

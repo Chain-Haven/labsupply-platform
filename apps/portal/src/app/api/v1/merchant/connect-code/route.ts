@@ -57,7 +57,7 @@ export async function POST() {
 
         if (error) {
             console.error('Connect code creation error:', error);
-            return NextResponse.json({ error: 'Failed to create connect code' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to generate store connect code. Please try again.' }, { status: 500 });
         }
 
         return NextResponse.json({
@@ -69,6 +69,6 @@ export async function POST() {
         });
     } catch (error) {
         console.error('Connect code error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Connect code generation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }

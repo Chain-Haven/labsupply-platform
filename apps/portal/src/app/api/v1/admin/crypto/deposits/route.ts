@@ -42,7 +42,7 @@ function getExplorerUrl(txid: string): string {
 export async function GET(request: NextRequest) {
     try {
         if (!(await verifyAdmin())) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Admin access required to view crypto deposits.' }, { status: 403 });
         }
 
         const { searchParams } = new URL(request.url);
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
         const { data: deposits, error } = await query;
 
         if (error) {
-            return NextResponse.json({ error: 'Failed to fetch deposits' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to load crypto deposits from the database. Please refresh and try again.' }, { status: 500 });
         }
 
         // Enrich with merchant names
@@ -93,6 +93,6 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ data: enriched });
     } catch (error) {
         console.error('Admin deposits fetch error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Crypto deposits operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }

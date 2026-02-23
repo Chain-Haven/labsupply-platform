@@ -44,6 +44,6 @@ export async function GET(request: NextRequest) {
         });
     } catch (error) {
         console.error('Validate backup session error:', error);
-        return NextResponse.json({ valid: false, error: 'Failed to validate session' }, { status: 500 });
+        return NextResponse.json({ valid: false, error: 'Failed to validate admin session. Your session may have expired — please log in again.' }, { status: 500 });
     }
 }

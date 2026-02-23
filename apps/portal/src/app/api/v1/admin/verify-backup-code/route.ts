@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (!adminUser) {
-            return NextResponse.json({ error: 'Verification failed' }, { status: 401 });
+            return NextResponse.json({ error: 'Backup code verification failed. Ensure you are using the code sent to your admin email.' }, { status: 401 });
         }
 
         // Attempt throttling: max 5 failed attempts per email per 15 minutes
@@ -99,6 +99,6 @@ export async function POST(request: NextRequest) {
         return response;
     } catch (error) {
         console.error('Verify backup code error:', error);
-        return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
+        return NextResponse.json({ error: 'Backup code verification encountered an unexpected error. Please request a new code and try again.' }, { status: 500 });
     }
 }

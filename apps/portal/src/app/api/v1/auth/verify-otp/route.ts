@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         if (linkError || !linkData) {
             console.error('generateLink error:', linkError);
             return NextResponse.json(
-                { error: 'Failed to create session. Ensure the account exists.' },
+                { error: 'Login code verified, but failed to create a session. Ensure your account has been registered and try again.' },
                 { status: 500 }
             );
         }
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('Verify OTP error:', error);
         return NextResponse.json(
-            { error: 'Verification failed' },
+            { error: 'Login code verification encountered an unexpected error. Please request a new code and try again.' },
             { status: 500 }
         );
     }

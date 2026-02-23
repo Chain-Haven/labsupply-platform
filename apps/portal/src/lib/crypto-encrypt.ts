@@ -28,7 +28,7 @@ export function encryptValue(plaintext: string): string {
 export function decryptValue(encryptedValue: string): string {
     const key = getEncryptionKey();
     const parts = encryptedValue.split(':');
-    if (parts.length !== 3) throw new Error('Invalid encrypted format');
+    if (parts.length !== 3) throw new Error('Invalid encrypted format: expected iv:authTag:ciphertext. The stored value may be corrupted.');
 
     const [ivHex, authTagHex, ciphertextHex] = parts;
     const iv = Buffer.from(ivHex, 'hex');

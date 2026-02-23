@@ -94,13 +94,13 @@ export async function PATCH(request: NextRequest) {
 
         if (error) {
             console.error('Error updating billing settings:', error);
-            return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to save billing settings. Verify your changes are valid and try again.' }, { status: 500 });
         }
 
         return NextResponse.json({ data });
     } catch (error) {
         console.error('Billing settings update error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Billing settings operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }
 
@@ -120,6 +120,6 @@ export async function GET() {
         });
     } catch (error) {
         console.error('Billing settings fetch error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Billing settings operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }

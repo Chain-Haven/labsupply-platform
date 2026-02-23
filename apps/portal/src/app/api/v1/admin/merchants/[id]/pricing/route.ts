@@ -42,7 +42,7 @@ export async function GET(
         .order('sku');
 
     if (productsErr) {
-        return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to load product catalog for pricing. Please refresh and try again.' }, { status: 500 });
     }
 
     const { data: overrides } = await supabase
@@ -133,7 +133,7 @@ export async function PATCH(
 
         if (error) {
             console.error('Upsert error:', error);
-            return NextResponse.json({ error: 'Failed to save overrides' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to save pricing overrides. Verify the values are valid and try again.' }, { status: 500 });
         }
     }
 
@@ -168,7 +168,7 @@ export async function POST(
         .eq('active', true);
 
     if (productsErr || !products) {
-        return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to load product catalog for pricing. Please refresh and try again.' }, { status: 500 });
     }
 
     const rows = products.map((p) => ({
@@ -184,7 +184,7 @@ export async function POST(
 
     if (error) {
         console.error('Bulk upsert error:', error);
-        return NextResponse.json({ error: 'Failed to apply bulk pricing' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to apply bulk pricing adjustment. Verify the percentage is valid and try again.' }, { status: 500 });
     }
 
     // Also save the adjustment percent on the merchant for display purposes

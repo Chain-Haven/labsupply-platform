@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         });
     } catch (error) {
         console.error('Merchants API error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to load merchants. Please refresh and try again.' }, { status: 500 });
     }
 }
 
@@ -103,7 +103,7 @@ export async function PATCH(request: NextRequest) {
 
         if (error) {
             console.error('Merchant update error:', error);
-            return NextResponse.json({ error: 'Failed to update merchant' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to update merchant. The database rejected the changes — verify the data and try again.' }, { status: 500 });
         }
 
         // Audit log -- ignore errors if table doesn't exist
@@ -117,6 +117,6 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ data });
     } catch (error) {
         console.error('Merchants PATCH error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to update merchant due to an unexpected error. Please try again.' }, { status: 500 });
     }
 }

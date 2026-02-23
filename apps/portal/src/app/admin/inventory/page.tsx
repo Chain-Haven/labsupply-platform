@@ -14,7 +14,12 @@ import {
     TrendingDown,
     Package,
     Save,
-    Loader2
+    Loader2,
+    Upload,
+    Download,
+    FileText,
+    CheckCircle,
+    XCircle,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -78,6 +83,15 @@ export default function InventoryPage() {
         low_stock_threshold: '',
         is_active: true,
     });
+
+    // Bulk upload state
+    const [showBulkUpload, setShowBulkUpload] = useState(false);
+    const [bulkFile, setBulkFile] = useState<File | null>(null);
+    const [bulkUploading, setBulkUploading] = useState(false);
+    const [bulkResults, setBulkResults] = useState<{
+        summary: { total: number; created: number; failed: number };
+        results: Array<{ row: number; sku: string; success: boolean; error?: string }>;
+    } | null>(null);
 
     // Debounce search
     useEffect(() => {
@@ -288,6 +302,66 @@ export default function InventoryPage() {
         }
     };
 
+    const CSV_TEMPLATE_HEADERS = 'sku,name,price_dollars,description,category,initial_stock,low_stock_threshold,weight_grams,min_order_qty,max_order_qty,active,requires_coa,tags';
+    const CSV_TEMPLATE_EXAMPLE = 'BPC-157-5MG,BPC-157 5mg,24.99,Body Protection Compound,Peptides,100,10,5,1,,true,false,peptide;research';
+
+    const handleDownloadTemplate = () => {
+        const content = CSV_TEMPLATE_HEADERS + '\n' + CSV_TEMPLATE_EXAMPLE + '\n';
+        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'product-upload-template.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const handleBulkUpload = async () => {
+        if (!bulkFile) return;
+        setBulkUploading(true);
+        setBulkResults(null);
+
+        try {
+            const formData = new FormData();
+            formData.append('file', bulkFile);
+
+            const res = await fetch('/api/v1/admin/inventory/bulk-upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const json = await res.json();
+
+            if (!res.ok) {
+                throw new Error(json.error || 'Upload failed');
+            }
+
+            setBulkResults(json);
+
+            if (json.summary.created > 0) {
+                toast({
+                    title: 'Products imported',
+                    description: `${json.summary.created} product(s) created, ${json.summary.failed} failed.`,
+                });
+                fetchInventory();
+            }
+        } catch (e) {
+            toast({
+                title: 'Bulk upload failed',
+                description: e instanceof Error ? e.message : 'Could not process CSV file',
+                variant: 'destructive',
+            });
+        } finally {
+            setBulkUploading(false);
+        }
+    };
+
+    const closeBulkUpload = () => {
+        setShowBulkUpload(false);
+        setBulkFile(null);
+        setBulkResults(null);
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -297,7 +371,8 @@ export default function InventoryPage() {
                     <p className="text-gray-500">Manage product stock levels and pricing</p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline">
+                    <Button variant="outline" onClick={() => setShowBulkUpload(true)}>
+                        <Upload className="w-4 h-4 mr-2" />
                         Import CSV
                     </Button>
                     <Button onClick={() => setShowAddModal(true)}>
@@ -742,6 +817,215 @@ export default function InventoryPage() {
                                     Cancel
                                 </Button>
                             </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Bulk Upload Modal */}
+            {showBulkUpload && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+                    <Card className="w-full max-w-2xl my-8">
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Upload className="w-5 h-5" />
+                                        Bulk Import Products
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Upload a CSV file to create or update multiple products at once
+                                    </CardDescription>
+                                </div>
+                                <Button variant="ghost" size="icon" onClick={closeBulkUpload}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-5">
+                            {/* Step 1: Download template */}
+                            <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                                <div className="flex items-start gap-3">
+                                    <FileText className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                                    <div className="flex-1">
+                                        <h4 className="font-medium text-blue-900 dark:text-blue-100">CSV Template</h4>
+                                        <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                                            Download the template to see the required format. Required columns:
+                                            <strong> sku</strong>, <strong>name</strong>, and <strong>price_dollars</strong>.
+                                            Existing SKUs will be updated.
+                                        </p>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="mt-3 bg-white dark:bg-gray-900"
+                                            onClick={handleDownloadTemplate}
+                                        >
+                                            <Download className="w-4 h-4 mr-2" />
+                                            Download Template
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Step 2: Upload file */}
+                            {!bulkResults && (
+                                <div className="space-y-3">
+                                    <label className="block">
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Select CSV file
+                                        </span>
+                                        <div className="mt-1 flex items-center gap-3">
+                                            <label className="flex-1">
+                                                <input
+                                                    type="file"
+                                                    accept=".csv,text/csv"
+                                                    onChange={(e) => {
+                                                        setBulkFile(e.target.files?.[0] || null);
+                                                        setBulkResults(null);
+                                                    }}
+                                                    className="hidden"
+                                                />
+                                                <div className={cn(
+                                                    'border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors',
+                                                    bulkFile
+                                                        ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20'
+                                                        : 'border-gray-300 hover:border-violet-400 dark:border-gray-700'
+                                                )}>
+                                                    {bulkFile ? (
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <CheckCircle className="w-5 h-5 text-green-600" />
+                                                            <span className="font-medium text-green-700 dark:text-green-300">
+                                                                {bulkFile.name}
+                                                            </span>
+                                                            <span className="text-sm text-gray-500">
+                                                                ({(bulkFile.size / 1024).toFixed(1)} KB)
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <div>
+                                                            <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                                                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                                Click to select a CSV file, or drag and drop
+                                                            </p>
+                                                            <p className="text-xs text-gray-400 mt-1">
+                                                                Max 500 rows per upload
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </label>
+
+                                    <div className="flex gap-3 pt-2">
+                                        <Button
+                                            onClick={handleBulkUpload}
+                                            disabled={!bulkFile || bulkUploading}
+                                            className="flex-1"
+                                        >
+                                            {bulkUploading ? (
+                                                <>
+                                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                    Importing...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload className="w-4 h-4 mr-2" />
+                                                    Import Products
+                                                </>
+                                            )}
+                                        </Button>
+                                        <Button variant="outline" onClick={closeBulkUpload}>
+                                            Cancel
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Step 3: Results */}
+                            {bulkResults && (
+                                <div className="space-y-4">
+                                    {/* Summary */}
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800 text-center">
+                                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{bulkResults.summary.total}</p>
+                                            <p className="text-xs text-gray-500">Total Rows</p>
+                                        </div>
+                                        <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 text-center">
+                                            <p className="text-2xl font-bold text-green-700 dark:text-green-400">{bulkResults.summary.created}</p>
+                                            <p className="text-xs text-green-600">Imported</p>
+                                        </div>
+                                        <div className={cn(
+                                            'p-3 rounded-lg text-center',
+                                            bulkResults.summary.failed > 0
+                                                ? 'bg-red-50 dark:bg-red-900/20'
+                                                : 'bg-gray-50 dark:bg-gray-800'
+                                        )}>
+                                            <p className={cn(
+                                                'text-2xl font-bold',
+                                                bulkResults.summary.failed > 0
+                                                    ? 'text-red-700 dark:text-red-400'
+                                                    : 'text-gray-900 dark:text-white'
+                                            )}>{bulkResults.summary.failed}</p>
+                                            <p className="text-xs text-gray-500">Failed</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Error details */}
+                                    {bulkResults.results.some(r => !r.success) && (
+                                        <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
+                                            {bulkResults.results.filter(r => !r.success).map((r, i) => (
+                                                <div key={i} className="p-2.5 flex items-start gap-2 text-sm">
+                                                    <XCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                                                    <div>
+                                                        <span className="font-medium">Row {r.row}</span>
+                                                        <span className="text-gray-500 mx-1">({r.sku})</span>
+                                                        <span className="text-red-600 dark:text-red-400">{r.error}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-3 pt-2">
+                                        <Button
+                                            onClick={() => {
+                                                setBulkFile(null);
+                                                setBulkResults(null);
+                                            }}
+                                            variant="outline"
+                                            className="flex-1"
+                                        >
+                                            Upload Another File
+                                        </Button>
+                                        <Button onClick={closeBulkUpload}>
+                                            Done
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Column reference */}
+                            <details className="text-sm">
+                                <summary className="cursor-pointer text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-medium">
+                                    Column reference
+                                </summary>
+                                <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-gray-600 dark:text-gray-400 pl-2">
+                                    <span><strong>sku</strong> — Required, unique ID</span>
+                                    <span><strong>name</strong> — Required, product name</span>
+                                    <span><strong>price_dollars</strong> — Required, e.g. 24.99</span>
+                                    <span><strong>description</strong> — Optional</span>
+                                    <span><strong>category</strong> — Optional, e.g. Peptides</span>
+                                    <span><strong>initial_stock</strong> — Optional, default 0</span>
+                                    <span><strong>low_stock_threshold</strong> — Optional, default 10</span>
+                                    <span><strong>weight_grams</strong> — Optional, integer</span>
+                                    <span><strong>min_order_qty</strong> — Optional, default 1</span>
+                                    <span><strong>max_order_qty</strong> — Optional</span>
+                                    <span><strong>active</strong> — Optional, true/false</span>
+                                    <span><strong>requires_coa</strong> — Optional, true/false</span>
+                                    <span><strong>tags</strong> — Optional, semicolon-separated</span>
+                                </div>
+                            </details>
                         </CardContent>
                     </Card>
                 </div>

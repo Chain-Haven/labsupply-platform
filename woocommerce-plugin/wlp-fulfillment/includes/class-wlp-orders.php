@@ -28,12 +28,25 @@ class WLP_Orders
     }
 
     /**
-     * Sync order to WhiteLabel Peptides
+     * Sync order to WhiteLabel Peptides.
+     * Wrapped in try/catch to prevent fatal errors from breaking WooCommerce checkout.
      *
      * @param int $order_id WooCommerce order ID
      * @param WC_Order|null $order Order object
      */
     public static function sync_order($order_id, $order = null)
+    {
+        try {
+            self::do_sync_order($order_id, $order);
+        } catch (Throwable $e) {
+            if (class_exists('WLP_Admin')) {
+                WLP_Admin::log('error', "Fatal error syncing order {$order_id}: " . $e->getMessage());
+            }
+            error_log('[WLP] Fatal error syncing order ' . $order_id . ': ' . $e->getMessage());
+        }
+    }
+
+    private static function do_sync_order($order_id, $order = null)
     {
         if (!$order) {
             $order = wc_get_order($order_id);

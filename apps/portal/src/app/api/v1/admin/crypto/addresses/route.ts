@@ -35,7 +35,7 @@ async function verifyAdmin(): Promise<boolean> {
 export async function GET(request: NextRequest) {
     try {
         if (!(await verifyAdmin())) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Admin access required to view crypto addresses.' }, { status: 403 });
         }
 
         const { searchParams } = new URL(request.url);
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
         const { data: addresses, error } = await query;
 
         if (error) {
-            return NextResponse.json({ error: 'Failed to fetch addresses' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to load crypto addresses from the database. Please refresh and try again.' }, { status: 500 });
         }
 
         // Enrich with merchant names
@@ -80,6 +80,6 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ data: enriched });
     } catch (error) {
         console.error('Admin addresses fetch error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Crypto address operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }

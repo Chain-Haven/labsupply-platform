@@ -69,7 +69,7 @@ export async function GET(
         return NextResponse.json({ data });
     } catch (error) {
         console.error('Testing order GET error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Testing order operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }
 
@@ -122,7 +122,7 @@ export async function PATCH(
 
         if (error || !data) {
             console.error('Testing order update error:', error);
-            return NextResponse.json({ error: 'Failed to update testing order' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to update testing order. The database rejected the changes — please try again.' }, { status: 500 });
         }
 
         // Record audit event
@@ -137,7 +137,7 @@ export async function PATCH(
         return NextResponse.json({ data });
     } catch (error) {
         console.error('Testing order PATCH error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Testing order operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }
 
@@ -182,6 +182,6 @@ export async function POST(
         });
     } catch (error) {
         console.error('Testing order POST error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Testing order operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }

@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
 
         if (error) {
             console.error('Catalog fetch error:', error);
-            throw new Error('Failed to fetch catalog');
+            throw new Error('Failed to load product catalog from the database. Please try again.');
         }
 
         // Fetch merchant's global price adjustment for products without explicit overrides

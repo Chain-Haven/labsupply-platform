@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
         // Validate input
         const parsed = connectExchangeSchema.safeParse(body);
         if (!parsed.success) {
-            throw new ApiError('VALIDATION_ERROR', 'Invalid request body', 400, {
+            throw new ApiError('VALIDATION_ERROR', 'Invalid connect request. Provide connect_code, store_url, and store_name in the request body.', 400, {
                 errors: parsed.error.flatten().fieldErrors,
             });
         }
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (storeError || !store) {
-            throw new ApiError('STORE_CREATE_FAILED', 'Failed to create store', 500);
+            throw new ApiError('STORE_CREATE_FAILED', 'Failed to register store. A store with this URL may already exist for this merchant.', 500);
         }
 
         // Create the store secret (save plaintext for HMAC verification + hash for lookup)
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
         if (secretError) {
             // Rollback store creation
             await supabase.from('stores').delete().eq('id', store.id);
-            throw new ApiError('SECRET_CREATE_FAILED', 'Failed to create credentials', 500);
+            throw new ApiError('SECRET_CREATE_FAILED', 'Store was registered but failed to generate API credentials. Contact support.', 500);
         }
 
         // Mark connect code as used

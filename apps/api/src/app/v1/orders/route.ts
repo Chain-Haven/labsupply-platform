@@ -14,6 +14,7 @@ import {
     ApiError,
     OrderStatus,
 } from '@whitelabel-peptides/shared';
+import { recordStatusChange } from '@/lib/order-helpers';
 
 export async function POST(request: NextRequest) {
     try {
@@ -167,12 +168,28 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // Calculate estimates
-        const handlingCents = 0; // Configurable
-        const shippingEstimateCents = 895; // $8.95 default estimate
+        // Calculate estimates using admin-configured shipping costs
+        const shippingMethod = orderData.shipping_method || 'STANDARD';
+        let shippingEstimateCents = 895; // fallback $8.95
+
+        const { data: adminSettings } = await supabase
+            .from('admin_settings')
+            .select('settings')
+            .eq('id', 'global')
+            .single();
+
+        if (adminSettings?.settings) {
+            const settings = adminSettings.settings as Record<string, string>;
+            if (shippingMethod === 'EXPEDITED' && settings.expedited_shipping_cost) {
+                shippingEstimateCents = Math.round(parseFloat(settings.expedited_shipping_cost) * 100);
+            } else if (settings.standard_shipping_cost) {
+                shippingEstimateCents = Math.round(parseFloat(settings.standard_shipping_cost) * 100);
+            }
+        }
+
+        const handlingCents = 0;
         const totalEstimateCents = subtotalCents + handlingCents + shippingEstimateCents;
 
-        // Create the order
         const { data: order, error: orderError } = await supabase
             .from('orders')
             .insert({
@@ -182,6 +199,7 @@ export async function POST(request: NextRequest) {
                 woo_order_number: orderData.woo_order_number,
                 status: OrderStatus.RECEIVED,
                 currency: orderData.currency,
+                shipping_method: shippingMethod,
                 subtotal_cents: subtotalCents,
                 handling_cents: handlingCents,
                 shipping_estimate_cents: shippingEstimateCents,
@@ -197,7 +215,7 @@ export async function POST(request: NextRequest) {
 
         if (orderError || !order) {
             console.error('Order creation error:', orderError);
-            throw new ApiError('ORDER_CREATE_FAILED', 'Failed to create order', 500);
+            throw new ApiError('ORDER_CREATE_FAILED', 'Failed to create order. The database rejected the insert — verify order data and try again.', 500);
         }
 
         // Insert order items
@@ -214,7 +232,7 @@ export async function POST(request: NextRequest) {
             console.error('Order items error:', itemsError);
             // Rollback order
             await supabase.from('orders').delete().eq('id', order.id);
-            throw new ApiError('ORDER_ITEMS_FAILED', 'Failed to create order items', 500);
+            throw new ApiError('ORDER_ITEMS_FAILED', 'Order was created but failed to save line items. Contact support with the order ID.', 500);
         }
 
         // Get USD wallet balance (orders use USD)
@@ -235,6 +253,9 @@ export async function POST(request: NextRequest) {
         // Determine initial status based on funding availability
         const initialStatus = canFund ? OrderStatus.RECEIVED : OrderStatus.AWAITING_FUNDS;
 
+        // Record initial status
+        await recordStatusChange(supabase, order.id, null, OrderStatus.RECEIVED, undefined, 'Order created');
+
         // Update order status if insufficient funds (including compliance reserve)
         if (!canFund) {
             await supabase
@@ -248,6 +269,8 @@ export async function POST(request: NextRequest) {
                     }
                 })
                 .eq('id', order.id);
+
+            await recordStatusChange(supabase, order.id, OrderStatus.RECEIVED, OrderStatus.AWAITING_FUNDS, undefined, 'Insufficient funds');
         }
 
         // Only trigger processing if order can be funded while maintaining compliance reserve
@@ -341,7 +364,7 @@ export async function GET(request: NextRequest) {
         const { data: orders, count, error } = await query;
 
         if (error) {
-            throw new ApiError('FETCH_FAILED', 'Failed to fetch orders', 500);
+            throw new ApiError('FETCH_FAILED', 'Failed to load orders from the database. Please try again.', 500);
         }
 
         return successResponse({

@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
                 });
             } catch (emailError) {
                 console.error('SMTP email error:', emailError);
-                return NextResponse.json({ error: 'Failed to send reset email. Please try again.' }, { status: 500 });
+                return NextResponse.json({ error: 'Failed to send password reset email. Verify SMTP is configured and the email address is valid.' }, { status: 500 });
             }
         } else {
             console.warn('SMTP not configured.');
@@ -133,6 +133,6 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         console.error('Request reset error:', error);
-        return NextResponse.json({ error: 'An error occurred. Please try again.' }, { status: 500 });
+        return NextResponse.json({ error: 'Password reset failed due to an unexpected error. Please try again.' }, { status: 500 });
     }
 }

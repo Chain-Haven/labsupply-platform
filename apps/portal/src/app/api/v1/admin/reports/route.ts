@@ -90,6 +90,6 @@ export async function GET() {
         });
     } catch (error) {
         console.error('Reports API error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to generate report. Please try again or narrow the date range.' }, { status: 500 });
     }
 }

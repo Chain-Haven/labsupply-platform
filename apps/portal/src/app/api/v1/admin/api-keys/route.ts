@@ -38,7 +38,7 @@ export async function GET() {
         });
     } catch (error) {
         console.error('API keys GET error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'API key operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }
 
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'API keys table not set up yet. Run the database migration first.' }, { status: 503 });
             }
             console.error('API key create error:', error);
-            return NextResponse.json({ error: 'Failed to create API key' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to create API key. A key with this name may already exist.' }, { status: 500 });
         }
 
         await supabase.from('audit_events').insert({
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         console.error('API keys POST error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'API key operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }
 
@@ -119,7 +119,7 @@ export async function DELETE(request: NextRequest) {
                 return NextResponse.json({ error: 'API keys table not set up yet.' }, { status: 503 });
             }
             console.error('API key revoke error:', error);
-            return NextResponse.json({ error: 'Failed to revoke API key' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to revoke API key. It may have already been revoked.' }, { status: 500 });
         }
 
         await supabase.from('audit_events').insert({
@@ -131,6 +131,6 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('API keys DELETE error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'API key operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }

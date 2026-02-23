@@ -54,7 +54,7 @@ export async function GET() {
     } catch (error) {
         console.error('Plugin download error:', error);
         return NextResponse.json(
-            { error: 'Failed to generate plugin download' },
+            { error: 'Failed to generate plugin ZIP file. Ensure the plugin has been built first (npm run build:plugin).' },
             { status: 500 }
         );
     }

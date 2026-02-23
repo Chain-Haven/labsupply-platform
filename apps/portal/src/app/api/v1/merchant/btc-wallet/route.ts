@@ -74,6 +74,6 @@ export async function GET() {
         });
     } catch (error) {
         console.error('BTC wallet fetch error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to load BTC wallet data. Please refresh and try again.' }, { status: 500 });
     }
 }

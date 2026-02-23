@@ -10,8 +10,9 @@ defined('ABSPATH') || exit;
 
 <div class="wrap wlp-admin">
     <h1>
-        <span class="wlp-logo">🧪</span>
+        <span class="wlp-logo">&#129514;</span>
         <?php esc_html_e('WhiteLabel Peptides Fulfillment', 'wlp-fulfillment'); ?>
+        <span style="font-size:12px; font-weight:normal; color:#888; margin-left:8px;">v<?php echo esc_html(WLP_VERSION); ?></span>
     </h1>
 
     <div class="wlp-admin-content">
@@ -44,10 +45,10 @@ defined('ABSPATH') || exit;
                 <div class="wlp-wallet-info">
                     <h3><?php esc_html_e('Wallet Balance', 'wlp-fulfillment'); ?></h3>
                     <div class="wlp-balance">
-                        $<?php echo number_format($wallet['balance_cents'] / 100, 2); ?>
-                        <span class="wlp-currency"><?php echo esc_html($wallet['currency']); ?></span>
+                        $<?php echo number_format(($wallet['balance_cents'] ?? 0) / 100, 2); ?>
+                        <span class="wlp-currency"><?php echo esc_html($wallet['currency'] ?? 'USD'); ?></span>
                     </div>
-                    <?php if ($wallet['reserved_cents'] > 0): ?>
+                    <?php if (isset($wallet['reserved_cents']) && $wallet['reserved_cents'] > 0): ?>
                     <p class="wlp-reserved">
                         <?php printf(
                             esc_html__('Reserved: $%s', 'wlp-fulfillment'),
@@ -89,7 +90,7 @@ defined('ABSPATH') || exit;
                 
                 <p>
                     <?php esc_html_e("Don't have an account?", 'wlp-fulfillment'); ?>
-                    <a href="https://portal.whitelabel.peptidetech.co/register" target="_blank">
+                    <a href="https://whitelabel.peptidetech.co/register" target="_blank">
                         <?php esc_html_e('Sign up for WhiteLabel Peptides', 'wlp-fulfillment'); ?>
                     </a>
                 </p>
@@ -130,11 +131,51 @@ defined('ABSPATH') || exit;
             <p id="wlp-catalog-message" class="wlp-message"></p>
         </div>
 
+        <!-- Bitcoin Payments Card -->
+        <div class="wlp-card">
+            <h2>&#8383; <?php esc_html_e('Bitcoin Payments', 'wlp-fulfillment'); ?></h2>
+
+            <?php
+            $btc_enabled = get_option('woocommerce_wlp_btc_settings', array());
+            $btc_is_on = !empty($btc_enabled['enabled']) && $btc_enabled['enabled'] === 'yes';
+            ?>
+
+            <p><?php esc_html_e('Let your customers pay with Bitcoin at checkout. Payments are verified on the blockchain and orders are marked as paid automatically.', 'wlp-fulfillment'); ?></p>
+
+            <div class="wlp-btc-toggle-row">
+                <label class="wlp-toggle" for="wlp-btc-toggle">
+                    <input type="checkbox" id="wlp-btc-toggle" <?php checked($btc_is_on); ?>>
+                    <span class="wlp-toggle-slider"></span>
+                </label>
+                <span class="wlp-btc-toggle-label" id="wlp-btc-toggle-status">
+                    <?php echo $btc_is_on
+                        ? '<span class="wlp-btc-badge wlp-btc-badge-on">' . esc_html__('Enabled', 'wlp-fulfillment') . '</span>'
+                        : '<span class="wlp-btc-badge wlp-btc-badge-off">' . esc_html__('Disabled', 'wlp-fulfillment') . '</span>'; ?>
+                </span>
+            </div>
+
+            <p id="wlp-btc-toggle-message" class="wlp-message"></p>
+
+            <?php if ($btc_is_on): ?>
+            <div class="wlp-btc-active-info">
+                <p class="description">
+                    <?php
+                    printf(
+                        esc_html__('Advanced settings (title, description, timeout, markup): %sWooCommerce &gt; Settings &gt; Payments &gt; Bitcoin (BTC)%s', 'wlp-fulfillment'),
+                        '<a href="' . esc_url(admin_url('admin.php?page=wc-settings&tab=checkout&section=wlp_btc')) . '">',
+                        '</a>'
+                    );
+                    ?>
+                </p>
+            </div>
+            <?php endif; ?>
+        </div>
+
         <!-- Order Sync Card -->
         <div class="wlp-card">
             <h2><?php esc_html_e('Order Synchronization', 'wlp-fulfillment'); ?></h2>
             
-            <p><?php esc_html_e('Orders with supplier products are automatically synced when payment is received.', 'wlp-fulfillment'); ?></p>
+            <p><?php esc_html_e('Orders with supplier products are automatically synced when payment is received. Tracking numbers are applied automatically and orders are marked as completed when shipped.', 'wlp-fulfillment'); ?></p>
             
             <label>
                 <input type="checkbox" name="auto_sync" <?php checked($settings['auto_sync'], 'yes'); ?>>
@@ -159,6 +200,69 @@ defined('ABSPATH') || exit;
             <p id="wlp-sync-message" class="wlp-message"></p>
         </div>
         <?php endif; ?>
+
+        <!-- Firewall / API Routes Reference -->
+        <div class="wlp-card">
+            <h2>&#128274; <?php esc_html_e('Firewall & API Routes', 'wlp-fulfillment'); ?></h2>
+            <p><?php esc_html_e('If you use a firewall (Cloudflare, Sucuri, Wordfence), whitelist these routes:', 'wlp-fulfillment'); ?></p>
+
+            <table class="wp-list-table widefat striped" style="max-width:750px;">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e('Direction', 'wlp-fulfillment'); ?></th>
+                        <th><?php esc_html_e('URL', 'wlp-fulfillment'); ?></th>
+                        <th><?php esc_html_e('Method', 'wlp-fulfillment'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong><?php esc_html_e('Outbound', 'wlp-fulfillment'); ?></strong></td>
+                        <td><code><?php echo esc_html($settings['api_url']); ?>/v1/stores/connect/exchange</code></td>
+                        <td>POST</td>
+                    </tr>
+                    <tr>
+                        <td><strong><?php esc_html_e('Outbound', 'wlp-fulfillment'); ?></strong></td>
+                        <td><code><?php echo esc_html($settings['api_url']); ?>/v1/orders</code></td>
+                        <td>POST</td>
+                    </tr>
+                    <tr>
+                        <td><strong><?php esc_html_e('Outbound', 'wlp-fulfillment'); ?></strong></td>
+                        <td><code><?php echo esc_html($settings['api_url']); ?>/v1/catalog</code></td>
+                        <td>GET</td>
+                    </tr>
+                    <tr>
+                        <td><strong><?php esc_html_e('Outbound', 'wlp-fulfillment'); ?></strong></td>
+                        <td><code><?php echo esc_html($settings['api_url']); ?>/v1/tracking/pending</code></td>
+                        <td>GET</td>
+                    </tr>
+                    <tr>
+                        <td><strong><?php esc_html_e('Outbound', 'wlp-fulfillment'); ?></strong></td>
+                        <td><code><?php echo esc_html($settings['api_url']); ?>/v1/tracking/acknowledge</code></td>
+                        <td>POST</td>
+                    </tr>
+                    <tr>
+                        <td><strong><?php esc_html_e('Inbound', 'wlp-fulfillment'); ?></strong></td>
+                        <td><code><?php echo esc_url(home_url('/wp-json/wlp/v1/tracking')); ?></code></td>
+                        <td>POST</td>
+                    </tr>
+                    <tr>
+                        <td><strong><?php esc_html_e('Inbound', 'wlp-fulfillment'); ?></strong></td>
+                        <td><code><?php echo esc_url(home_url('/wp-json/wlp/v1/order-status')); ?></code></td>
+                        <td>POST</td>
+                    </tr>
+                    <tr>
+                        <td><strong><?php esc_html_e('Inbound', 'wlp-fulfillment'); ?></strong></td>
+                        <td><code><?php echo esc_url(home_url('/wp-json/wlp/v1/health')); ?></code></td>
+                        <td>GET</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p style="margin-top:12px;">
+                <strong><?php esc_html_e('Vercel IP ranges to whitelist for inbound webhooks:', 'wlp-fulfillment'); ?></strong>
+                <code>76.76.21.0/24</code>, <code>64.29.18.0/24</code>
+            </p>
+        </div>
 
         <!-- Debug Logs Card -->
         <div class="wlp-card">

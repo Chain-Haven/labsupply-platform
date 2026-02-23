@@ -149,7 +149,7 @@ export async function GET() {
         });
     } catch (error) {
         console.error('Admin invoices fetch error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Mercury invoice operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }
 
@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
             );
 
             if (!cancelRes.ok) {
-                return NextResponse.json({ error: 'Failed to cancel invoice in Mercury' }, { status: 502 });
+                return NextResponse.json({ error: 'Failed to cancel invoice in Mercury. The Mercury API rejected the request — the invoice may have already been paid or cancelled.' }, { status: 502 });
             }
 
             await supabase
@@ -276,7 +276,7 @@ export async function POST(request: NextRequest) {
         if (!mercuryRes.ok) {
             const errorBody = await mercuryRes.text();
             console.error('Mercury create invoice error:', errorBody);
-            return NextResponse.json({ error: 'Failed to create invoice in Mercury' }, { status: 502 });
+            return NextResponse.json({ error: 'Failed to create invoice in Mercury. The Mercury API rejected the request — verify the merchant billing details are correct.' }, { status: 502 });
         }
 
         const mercuryInvoice = await mercuryRes.json();
@@ -295,6 +295,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, invoice: mercuryInvoice });
     } catch (error) {
         console.error('Admin invoice action error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Mercury invoice operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }

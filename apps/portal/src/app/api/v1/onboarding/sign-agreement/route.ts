@@ -472,6 +472,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     console.error('Error in POST /api/v1/onboarding/sign-agreement:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to process agreement signature. Please try signing again.' }, { status: 500 });
   }
 }

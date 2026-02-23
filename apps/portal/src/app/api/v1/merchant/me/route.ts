@@ -44,7 +44,7 @@ export async function GET() {
         return NextResponse.json(merchant);
     } catch (err) {
         console.error('Error in GET /api/v1/merchant/me:', err);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to load merchant profile. Please refresh and try again.' }, { status: 500 });
     }
 }
 
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
 
         if (insertError) {
             console.error('Error creating merchant profile:', insertError);
-            return NextResponse.json({ error: 'Failed to create merchant profile' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to create merchant profile. An account with this email may already exist.' }, { status: 500 });
         }
 
         const { data: merchant } = await serviceClient
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(merchant, { status: 201 });
     } catch (err) {
         console.error('Error in POST /api/v1/merchant/me:', err);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to create merchant profile due to an unexpected error. Please try again.' }, { status: 500 });
     }
 }
 
@@ -134,7 +134,7 @@ export async function PATCH(request: NextRequest) {
 
         if (updateError) {
             console.error('Error updating merchant profile:', updateError);
-            return NextResponse.json({ error: 'Failed to update merchant profile' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to update merchant profile. Verify your changes are valid and try again.' }, { status: 500 });
         }
 
         const { data: merchant } = await serviceClient
@@ -146,6 +146,6 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json(merchant);
     } catch (err) {
         console.error('Error in PATCH /api/v1/merchant/me:', err);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to update merchant profile due to an unexpected error. Please try again.' }, { status: 500 });
     }
 }

@@ -277,6 +277,7 @@ export interface Order {
     order_type?: OrderType;
     status: OrderStatus;
     currency: string;
+    shipping_method?: 'STANDARD' | 'EXPEDITED';
     subtotal_cents: number;
     shipping_estimate_cents: number;
     handling_cents: number;
@@ -292,7 +293,9 @@ export interface Order {
     released_at?: string;
     shipped_at?: string;
     completed_at?: string;
+    tracking_acknowledged_at?: string;
     idempotency_key: string;
+    metadata?: Record<string, unknown>;
     created_at: string;
     updated_at: string;
 }
@@ -610,16 +613,22 @@ export interface CreateShipmentRequest {
 
 export interface CreateShipmentResponse {
     shipment_id: string;
-    tracking_number: string;
-    tracking_url: string;
-    label_url: string;
-    rate_cents: number;
+    order_id: string;
+    status: string;
+    carrier: string;
+    service: string;
+    tracking_number?: string | null;
+    tracking_url?: string | null;
+    label_url?: string | null;
+    rate_cents?: number | null;
 }
 
 export interface MarkShippedRequest {
     tracking_number?: string;
     tracking_url?: string;
-    notify_store: boolean;
+    carrier?: string;
+    actual_cost_cents?: number;
+    notify_store?: boolean;
 }
 
 // Plugin tracking callback

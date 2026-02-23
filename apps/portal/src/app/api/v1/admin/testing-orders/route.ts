@@ -1,12 +1,14 @@
 /**
- * Admin Testing Orders API
- * GET  - List testing orders with filters
+ * Testing Orders API
+ * GET  - List testing orders with filters (admin only)
  * POST - Create a new testing order with addon calculations and wallet deduction
+ *        Accepts merchant_id='current' to resolve from the authenticated user's session.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/admin-api-auth';
+import { createRouteHandlerClient } from '@/lib/supabase-server';
 import { z } from 'zod';
 
 // Addon constants
@@ -31,7 +33,7 @@ const testingOrderItemSchema = z.object({
 });
 
 const createTestingOrderSchema = z.object({
-    merchant_id: z.string().uuid(),
+    merchant_id: z.union([z.literal('current'), z.string().uuid()]),
     testing_lab_id: z.string().uuid(),
     items: z.array(testingOrderItemSchema).min(1).max(50),
     notes: z.string().max(2000).optional(),
@@ -150,21 +152,18 @@ export async function GET(request: NextRequest) {
 
         if (error) {
             console.error('Testing orders fetch error:', error);
-            return NextResponse.json({ error: 'Failed to fetch testing orders' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to load testing orders from the database. Please refresh and try again.' }, { status: 500 });
         }
 
         return NextResponse.json({ data, total: count });
     } catch (error) {
         console.error('Testing orders GET error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to load testing orders due to an unexpected error. Please try again.' }, { status: 500 });
     }
 }
 
 export async function POST(request: NextRequest) {
     try {
-        const authResult = await requireAdmin();
-        if (authResult instanceof NextResponse) return authResult;
-
         const body = await request.json();
         const validation = validateInput(createTestingOrderSchema, body);
         if (!validation.success) {
@@ -174,8 +173,33 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const { merchant_id, testing_lab_id, items, notes } = validation.data;
+        let { merchant_id } = validation.data;
+        const { testing_lab_id, items, notes } = validation.data;
         const supabase = getServiceClient();
+
+        // Resolve merchant_id='current' from the authenticated user's session
+        if (merchant_id === 'current') {
+            const userClient = createRouteHandlerClient();
+            const { data: { user }, error: userError } = await userClient.auth.getUser();
+            if (userError || !user) {
+                return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+            }
+
+            const { data: resolved } = await supabase
+                .from('merchants')
+                .select('id')
+                .eq('user_id', user.id)
+                .single();
+
+            if (!resolved) {
+                return NextResponse.json({ error: 'No merchant account linked to this user' }, { status: 403 });
+            }
+            merchant_id = resolved.id;
+        } else {
+            // Explicit merchant_id requires admin auth
+            const authResult = await requireAdmin();
+            if (authResult instanceof NextResponse) return authResult;
+        }
 
         // Verify the testing lab exists and is active
         const { data: lab, error: labError } = await supabase
@@ -317,7 +341,7 @@ export async function POST(request: NextRequest) {
 
         if (testingError || !testingOrder) {
             console.error('Testing order create error:', testingError);
-            return NextResponse.json({ error: 'Failed to create testing order' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to save testing order to the database. The order was not created — please try again.' }, { status: 500 });
         }
 
         // Create testing order items
@@ -403,6 +427,6 @@ export async function POST(request: NextRequest) {
         }, { status: 201 });
     } catch (error) {
         console.error('Testing orders POST error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to create testing order due to an unexpected error. No charges were applied — please try again.' }, { status: 500 });
     }
 }

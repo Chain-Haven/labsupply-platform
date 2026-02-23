@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
         if (insertError) {
             console.error('Error storing admin code:', insertError);
-            return NextResponse.json({ error: 'Failed to generate code' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to generate backup code. The database may be temporarily unavailable — please try again.' }, { status: 500 });
         }
 
         // Send email via Proton SMTP
@@ -161,6 +161,6 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         console.error('Send backup code error:', error);
-        return NextResponse.json({ error: 'Failed to send backup code' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to send backup code email. Verify SMTP settings are configured correctly in admin settings.' }, { status: 500 });
     }
 }

@@ -13,6 +13,7 @@
 import { inngest } from '@/lib/inngest';
 import { getServiceClient } from '@/lib/supabase';
 import { OrderStatus } from '@whitelabel-peptides/shared';
+import { recordStatusChange } from '@/lib/order-helpers';
 
 export const orderReceivedFunction = inngest.createFunction(
     {
@@ -73,6 +74,7 @@ export const orderReceivedFunction = inngest.createFunction(
                         })
                         .eq('id', orderId);
 
+                    await recordStatusChange(supabase, orderId, order.status, OrderStatus.ON_HOLD_COMPLIANCE, undefined, `Insufficient inventory for product ${item.product_id}`);
                     throw new Error(`Insufficient inventory for product ${item.product_id}`);
                 }
             }
@@ -164,7 +166,8 @@ export const orderReceivedFunction = inngest.createFunction(
                     })
                     .eq('id', orderId);
 
-                // Log audit event
+                await recordStatusChange(supabase, orderId, order.status, OrderStatus.FUNDED, undefined, 'Wallet reservation succeeded');
+
                 await supabase.from('audit_events').insert({
                     merchant_id: merchantId,
                     action: 'order.funded',
@@ -175,13 +178,14 @@ export const orderReceivedFunction = inngest.createFunction(
 
                 return { status: OrderStatus.FUNDED };
             } else {
-                // Mark as awaiting funds
                 await supabase
                     .from('orders')
                     .update({
                         status: OrderStatus.AWAITING_FUNDS,
                     })
                     .eq('id', orderId);
+
+                await recordStatusChange(supabase, orderId, order.status, OrderStatus.AWAITING_FUNDS, undefined, 'Insufficient funds');
 
                 const available = 'available' in reservationResult ? (reservationResult.available as number) : 0;
                 const required = 'required' in reservationResult ? (reservationResult.required as number) : totalEstimateCents;

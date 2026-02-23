@@ -148,6 +148,6 @@ export async function GET() {
         });
     } catch (error) {
         console.error('BTC address fetch error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to generate BTC deposit address. Please try again or contact support.' }, { status: 500 });
     }
 }

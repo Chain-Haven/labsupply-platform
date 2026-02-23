@@ -60,13 +60,13 @@ export async function GET() {
 
         if (error) {
             console.error('Testing labs fetch error:', error);
-            return NextResponse.json({ error: 'Failed to fetch testing labs' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to load testing labs from the database. Please refresh and try again.' }, { status: 500 });
         }
 
         return NextResponse.json({ data });
     } catch (error) {
         console.error('Testing labs GET error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Testing labs service encountered an unexpected error. Please try again.' }, { status: 500 });
     }
 }
 
@@ -102,13 +102,13 @@ export async function POST(request: NextRequest) {
 
         if (error) {
             console.error('Testing lab create error:', error);
-            return NextResponse.json({ error: 'Failed to create testing lab' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to create testing lab. A lab with this name or email may already exist.' }, { status: 500 });
         }
 
         return NextResponse.json({ data }, { status: 201 });
     } catch (error) {
         console.error('Testing labs POST error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Testing labs service encountered an unexpected error. Please try again.' }, { status: 500 });
     }
 }
 
@@ -151,13 +151,13 @@ export async function PATCH(request: NextRequest) {
 
         if (error) {
             console.error('Testing lab update error:', error);
-            return NextResponse.json({ error: 'Failed to update testing lab' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to update testing lab. Verify the data is valid and try again.' }, { status: 500 });
         }
 
         return NextResponse.json({ data });
     } catch (error) {
         console.error('Testing labs PATCH error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Testing labs service encountered an unexpected error. Please try again.' }, { status: 500 });
     }
 }
 
@@ -185,12 +185,12 @@ export async function DELETE(request: NextRequest) {
 
         if (error) {
             console.error('Testing lab delete error:', error);
-            return NextResponse.json({ error: 'Failed to delete testing lab' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to delete testing lab. It may have active testing orders associated with it.' }, { status: 500 });
         }
 
         return NextResponse.json({ data, message: 'Testing lab deactivated' });
     } catch (error) {
         console.error('Testing labs DELETE error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Testing labs service encountered an unexpected error. Please try again.' }, { status: 500 });
     }
 }

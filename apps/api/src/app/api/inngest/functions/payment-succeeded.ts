@@ -10,6 +10,7 @@
 import { inngest } from '@/lib/inngest';
 import { getServiceClient } from '@/lib/supabase';
 import { OrderStatus } from '@whitelabel-peptides/shared';
+import { recordStatusChange } from '@/lib/order-helpers';
 
 export const paymentSucceededFunction = inngest.createFunction(
     {
@@ -86,7 +87,6 @@ export const paymentSucceededFunction = inngest.createFunction(
                     description: `Auto-reservation for order ${order.id}`,
                 }).then(() => {}, () => {});
 
-                // Update order status
                 await supabase
                     .from('orders')
                     .update({
@@ -96,7 +96,8 @@ export const paymentSucceededFunction = inngest.createFunction(
                     })
                     .eq('id', order.id);
 
-                // Log audit event
+                await recordStatusChange(supabase, order.id, OrderStatus.AWAITING_FUNDS, OrderStatus.FUNDED, undefined, 'Auto-funded from wallet top-up');
+
                 await supabase.from('audit_events').insert({
                     merchant_id: merchantId,
                     action: 'order.auto_funded',

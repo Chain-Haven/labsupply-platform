@@ -11,6 +11,7 @@
 import { inngest } from '@/lib/inngest';
 import { getServiceClient } from '@/lib/supabase';
 import { OrderStatus } from '@whitelabel-peptides/shared';
+import { recordStatusChange } from '@/lib/order-helpers';
 
 export const shipmentShippedFunction = inngest.createFunction(
     {
@@ -61,11 +62,23 @@ export const shipmentShippedFunction = inngest.createFunction(
         });
 
         // Step 3: Settle wallet transaction (actual vs estimated)
-        await step.run('settle-wallet', async () => {
+        const settlementResult = await step.run('settle-wallet', async () => {
             const estimatedTotal = orderDetails.total_estimate_cents;
-            const actualShipping = shipment.actual_cost_cents || shipment.rate_cents || 0;
+            const actualShipping = shipment.actual_cost_cents || shipment.rate_cents || null;
 
-            // Calculate actual total (subtotal + actual shipping)
+            if (actualShipping == null || actualShipping === 0) {
+                // No shipping cost data -- hold the order for manual review instead of settling at $0
+                await supabase.from('audit_events').insert({
+                    merchant_id: merchantId,
+                    action: 'settlement.missing_cost',
+                    entity_type: 'shipment',
+                    entity_id: shipmentId,
+                    metadata: { orderId, actual_cost_cents: shipment.actual_cost_cents, rate_cents: shipment.rate_cents },
+                }).then(() => {}, () => {});
+
+                return { skipped: true, reason: 'No shipping cost available' };
+            }
+
             const { data: orderItems } = await supabase
                 .from('order_items')
                 .select('unit_price_cents, qty')
@@ -79,7 +92,6 @@ export const shipmentShippedFunction = inngest.createFunction(
             const actualTotal = subtotal + actualShipping;
             const difference = estimatedTotal - actualTotal;
 
-            // Get USD wallet (order settlements are in USD)
             const { data: wallet } = await supabase
                 .from('wallet_accounts')
                 .select('id, balance_cents, reserved_cents')
@@ -91,15 +103,9 @@ export const shipmentShippedFunction = inngest.createFunction(
                 throw new Error('Wallet not found');
             }
 
-            // Settlement logic:
-            // 1. Release the reservation (subtract estimatedTotal from reserved_cents)
-            // 2. Deduct the ACTUAL amount from balance_cents
-            // If actual < estimated, merchant keeps the difference in available balance
-            // If actual > estimated, merchant pays the extra from available balance
             const newReserved = Math.max(0, wallet.reserved_cents - estimatedTotal);
             const newBalance = wallet.balance_cents - actualTotal;
 
-            // Atomic update with optimistic locking to prevent race conditions
             const { error: updateError } = await supabase
                 .from('wallet_accounts')
                 .update({
@@ -107,13 +113,12 @@ export const shipmentShippedFunction = inngest.createFunction(
                     balance_cents: newBalance,
                 })
                 .eq('id', wallet.id)
-                .eq('balance_cents', wallet.balance_cents); // optimistic lock
+                .eq('balance_cents', wallet.balance_cents);
 
             if (updateError) {
                 throw new Error(`Wallet update failed (possible race): ${updateError.message}`);
             }
 
-            // Record settlement transaction
             await supabase.from('wallet_transactions').insert({
                 merchant_id: merchantId,
                 wallet_id: wallet.id,
@@ -130,13 +135,12 @@ export const shipmentShippedFunction = inngest.createFunction(
                 },
             });
 
-            // Update order with actual total
             await supabase
                 .from('orders')
                 .update({ actual_total_cents: actualTotal })
                 .eq('id', orderId);
 
-            return { estimatedTotal, actualTotal, difference };
+            return { skipped: false, estimatedTotal, actualTotal, difference };
         });
 
         // Step 4: Update order status to shipped
@@ -148,6 +152,8 @@ export const shipmentShippedFunction = inngest.createFunction(
                     shipped_at: new Date().toISOString(),
                 })
                 .eq('id', orderId);
+
+            await recordStatusChange(supabase, orderId, 'PACKED', OrderStatus.SHIPPED, undefined, `Tracking: ${trackingNumber}`);
 
             await supabase.from('audit_events').insert({
                 merchant_id: merchantId,

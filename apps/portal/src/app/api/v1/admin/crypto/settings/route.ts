@@ -40,7 +40,7 @@ export async function GET() {
     try {
         const adminId = await verifyAdmin();
         if (!adminId) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Super admin access required to manage crypto settings.' }, { status: 403 });
         }
 
         const sc = getServiceClient();
@@ -88,7 +88,7 @@ export async function GET() {
         return NextResponse.json({ data: result });
     } catch (error) {
         console.error('Crypto settings fetch error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Crypto settings operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }
 
@@ -96,7 +96,7 @@ export async function PATCH(request: NextRequest) {
     try {
         const adminId = await verifyAdmin();
         if (!adminId) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Super admin access required to manage crypto settings.' }, { status: 403 });
         }
 
         const body = await request.json();
@@ -177,6 +177,6 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ data: { updated: updates } });
     } catch (error) {
         console.error('Crypto settings update error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Crypto settings operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }

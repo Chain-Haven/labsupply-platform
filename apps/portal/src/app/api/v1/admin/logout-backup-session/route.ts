@@ -41,6 +41,6 @@ export async function POST(request: NextRequest) {
         return response;
     } catch (error) {
         console.error('Logout backup session error:', error);
-        return NextResponse.json({ error: 'Failed to logout' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to end admin session. You can clear your browser cookies to force logout.' }, { status: 500 });
     }
 }

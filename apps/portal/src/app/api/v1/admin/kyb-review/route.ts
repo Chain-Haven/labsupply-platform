@@ -21,10 +21,10 @@ export async function GET() {
         const { data, error } = await supabase
             .from('merchants')
             .select(`
-                id, user_id, email, company_name, phone,
+                id, user_id, email, contact_email, company_name, phone,
                 status, kyb_status, can_ship,
                 legal_opinion_letter_url,
-                billing_name, billing_address_street, billing_address_city,
+                billing_name, billing_email, billing_address_street, billing_address_city,
                 billing_address_state, billing_address_zip,
                 selected_package_id,
                 service_packages(slug, name, price_cents),
@@ -44,13 +44,47 @@ export async function GET() {
             .select('id', { count: 'exact', head: true })
             .eq('kyb_status', 'approved');
 
+        // Fetch KYB documents for all pending merchants
+        const userIds = (data || []).map((m: { user_id: string }) => m.user_id).filter(Boolean);
+        let kybDocuments: Record<string, unknown>[] = [];
+        if (userIds.length > 0) {
+            const { data: docs } = await supabase
+                .from('kyb_documents')
+                .select('id, user_id, document_type, file_name, storage_path, mime_type, status, created_at')
+                .in('user_id', userIds);
+            kybDocuments = docs || [];
+        }
+
+        // Generate signed URLs for each document
+        const docsWithUrls = await Promise.all(
+            kybDocuments.map(async (doc: Record<string, unknown>) => {
+                const { data: signedUrl } = await supabase.storage
+                    .from('merchant-uploads')
+                    .createSignedUrl(doc.storage_path as string, 3600);
+                return { ...doc, signed_url: signedUrl?.signedUrl || null };
+            })
+        );
+
+        // Group documents by user_id
+        const docsByUser: Record<string, typeof docsWithUrls> = {};
+        for (const doc of docsWithUrls) {
+            const uid = doc.user_id as string;
+            if (!docsByUser[uid]) docsByUser[uid] = [];
+            docsByUser[uid].push(doc);
+        }
+
+        const enrichedData = (data || []).map((merchant: Record<string, unknown>) => ({
+            ...merchant,
+            kyb_documents: docsByUser[merchant.user_id as string] || [],
+        }));
+
         return NextResponse.json({
-            data: data || [],
+            data: enrichedData,
             stats: { approvedCount: approvedCount || 0 },
         });
     } catch (error) {
         console.error('KYB review API error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to load merchant reviews. Please refresh and try again.' }, { status: 500 });
     }
 }
 
@@ -133,7 +167,7 @@ export async function POST(request: NextRequest) {
 
             if (updateError) {
                 console.error('KYB approve error:', updateError);
-                return NextResponse.json({ error: 'Failed to approve merchant' }, { status: 500 });
+                return NextResponse.json({ error: 'Failed to approve merchant. The database update was rejected — please try again or check the merchant status.' }, { status: 500 });
             }
 
             // Audit log -- ignore if table doesn't exist
@@ -236,7 +270,7 @@ export async function POST(request: NextRequest) {
 
             if (updateError) {
                 console.error('KYB reject error:', updateError);
-                return NextResponse.json({ error: 'Failed to reject merchant' }, { status: 500 });
+                return NextResponse.json({ error: 'Failed to reject merchant. The database update was rejected — please try again or check the merchant status.' }, { status: 500 });
             }
 
             await supabase.from('audit_events').insert({
@@ -250,6 +284,6 @@ export async function POST(request: NextRequest) {
         }
     } catch (error) {
         console.error('KYB review POST error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to process KYB review due to an unexpected error. Please try again.' }, { status: 500 });
     }
 }

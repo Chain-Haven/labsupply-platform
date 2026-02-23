@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('Mercury webhook error:', error);
         return NextResponse.json(
-            { error: 'Webhook processing failed' },
+            { error: 'Mercury webhook processing failed. The payment event was received but could not be fully processed.' },
             { status: 500 }
         );
     }

@@ -9,6 +9,7 @@ import { getServiceClient } from '@/lib/supabase';
 import { verifyAdminRequest, successResponse, errorResponse } from '@/lib/auth';
 import { inngest } from '@/lib/inngest';
 import { ApiError } from '@whitelabel-peptides/shared';
+import { isValidShipmentTransition } from '@/lib/order-helpers';
 
 export async function POST(
     request: NextRequest,
@@ -18,7 +19,7 @@ export async function POST(
         await verifyAdminRequest(request);
 
         const body = await request.json();
-        const { tracking_number, tracking_url, carrier } = body;
+        const { tracking_number, tracking_url, carrier, actual_cost_cents } = body;
 
         const supabase = getServiceClient();
 
@@ -33,8 +34,12 @@ export async function POST(
             throw new ApiError('SHIPMENT_NOT_FOUND', 'Shipment not found', 404);
         }
 
-        if (shipment.status === 'DELIVERED' || shipment.status === 'IN_TRANSIT') {
-            throw new ApiError('ALREADY_SHIPPED', 'Shipment has already been shipped', 400);
+        if (!isValidShipmentTransition(shipment.status, 'IN_TRANSIT')) {
+            throw new ApiError(
+                'INVALID_SHIPMENT_TRANSITION',
+                `Cannot transition shipment from ${shipment.status} to IN_TRANSIT`,
+                400
+            );
         }
 
         // Get order to find merchant and store
@@ -48,16 +53,20 @@ export async function POST(
             throw new ApiError('ORDER_NOT_FOUND', 'Associated order not found', 404);
         }
 
-        // Update shipment with tracking
+        const shipmentUpdate: Record<string, unknown> = {
+            status: 'IN_TRANSIT',
+            tracking_number: tracking_number || null,
+            tracking_url: tracking_url || null,
+            carrier: carrier || shipment.carrier,
+            shipped_at: new Date().toISOString(),
+        };
+        if (actual_cost_cents != null) {
+            shipmentUpdate.actual_cost_cents = actual_cost_cents;
+        }
+
         await supabase
             .from('shipments')
-            .update({
-                status: 'IN_TRANSIT',
-                tracking_number: tracking_number || null,
-                tracking_url: tracking_url || null,
-                carrier: carrier || shipment.carrier,
-                shipped_at: new Date().toISOString(),
-            })
+            .update(shipmentUpdate)
             .eq('id', params.id);
 
         // Trigger the shipment/shipped Inngest event for wallet settlement

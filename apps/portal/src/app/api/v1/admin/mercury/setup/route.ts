@@ -94,7 +94,7 @@ export async function GET() {
         });
     } catch (error) {
         console.error('Mercury setup check error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Mercury setup operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }
 
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
             const errBody = await createRes.text();
             console.error('Mercury webhook creation failed:', errBody);
             return NextResponse.json({
-                error: 'Failed to register webhook with Mercury',
+                error: 'Failed to register webhook with Mercury. The Mercury API rejected the request — verify your API token is valid.',
                 details: errBody,
             }, { status: 502 });
         }
@@ -181,6 +181,6 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         console.error('Mercury webhook setup error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Mercury setup operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }

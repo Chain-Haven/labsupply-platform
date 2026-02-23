@@ -49,12 +49,12 @@ export async function GET() {
 
         if (error) {
             console.error('Error fetching BTC deposits:', error);
-            return NextResponse.json({ error: 'Failed to fetch deposits' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to load BTC deposit history. Please refresh and try again.' }, { status: 500 });
         }
 
         return NextResponse.json({ data: deposits || [] });
     } catch (error) {
         console.error('BTC deposits fetch error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'BTC deposit lookup failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }

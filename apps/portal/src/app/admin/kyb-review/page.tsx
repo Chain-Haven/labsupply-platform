@@ -15,10 +15,22 @@ import {
     ChevronRight,
     Eye,
     Loader2,
+    Download,
+    ImageIcon,
 } from 'lucide-react';
 import { cn, formatRelativeTime } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { SERVICE_PACKAGES, formatPrice } from '@/lib/packages';
+
+type KybDocument = {
+    id: string;
+    document_type: string;
+    file_name: string;
+    mime_type: string;
+    status: string;
+    signed_url: string | null;
+    created_at: string;
+};
 
 type KybReviewItem = {
     id: string;
@@ -38,7 +50,16 @@ type KybReviewItem = {
     billing_address_zip: string | null;
     selected_package_id: string | null;
     service_packages: { slug: string; name: string; price_cents: number } | null;
+    kyb_documents: KybDocument[];
     created_at: string;
+};
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+    businessLicense: 'Business License',
+    articlesOfIncorporation: 'Articles of Incorporation',
+    taxExemptCertificate: 'Tax Exemption Certificate',
+    researchCredentials: 'Research Credentials',
+    governmentId: 'Government-Issued ID',
 };
 
 type ApiResponse = {
@@ -162,21 +183,26 @@ export default function KybReviewPage() {
         });
     };
 
-    const documents: { type: string; name: string; status: string; url?: string }[] =
-        selectedMerchant
-            ? [
-                  ...(selectedMerchant.legal_opinion_letter_url
-                      ? [
-                            {
-                                type: 'Legal Opinion Letter',
-                                name: 'Legal Opinion Letter',
-                                status: 'pending',
-                                url: selectedMerchant.legal_opinion_letter_url,
-                            },
-                        ]
-                      : []),
-              ]
-            : [];
+    const documents = selectedMerchant
+        ? [
+              ...selectedMerchant.kyb_documents.map((doc) => ({
+                  type: DOC_TYPE_LABELS[doc.document_type] || doc.document_type,
+                  name: doc.file_name,
+                  status: doc.status,
+                  url: doc.signed_url,
+              })),
+              ...(selectedMerchant.legal_opinion_letter_url
+                  ? [
+                        {
+                            type: 'Legal Opinion Letter',
+                            name: 'Legal Opinion Letter',
+                            status: 'pending',
+                            url: selectedMerchant.legal_opinion_letter_url,
+                        },
+                    ]
+                  : []),
+          ]
+        : [];
 
     const pendingCount = reviews.filter((r) => r.kyb_status === 'not_started').length;
     const inReviewCount = reviews.filter((r) => r.kyb_status === 'in_progress').length;
@@ -284,6 +310,11 @@ export default function KybReviewPage() {
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-1.5 flex-shrink-0">
+                                            {review.kyb_documents?.length > 0 && (
+                                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                                    {review.kyb_documents.length} doc{review.kyb_documents.length !== 1 ? 's' : ''}
+                                                </span>
+                                            )}
                                             {review.service_packages && review.service_packages.slug !== 'self-service' && (
                                                 <span className="px-2 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
                                                     {review.service_packages.name}
@@ -394,45 +425,60 @@ export default function KybReviewPage() {
                                     </h4>
                                     <div className="space-y-2 pl-6">
                                         {documents.length > 0 ? (
-                                            documents.map((doc, index) => (
-                                                <div
-                                                    key={index}
-                                                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800"
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <FileText className="w-5 h-5 text-gray-400" />
-                                                        <div>
-                                                            <p className="font-medium text-sm text-gray-900 dark:text-white">
-                                                                {doc.type}
-                                                            </p>
-                                                            <p className="text-xs text-gray-500">{doc.name}</p>
+                                            documents.map((doc, index) => {
+                                                const isImage = doc.name?.match(/\.(jpg|jpeg|png|webp)$/i);
+                                                return (
+                                                    <div
+                                                        key={index}
+                                                        className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800"
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            {isImage ? (
+                                                                <ImageIcon className="w-5 h-5 text-blue-400" />
+                                                            ) : (
+                                                                <FileText className="w-5 h-5 text-gray-400" />
+                                                            )}
+                                                            <div>
+                                                                <p className="font-medium text-sm text-gray-900 dark:text-white">
+                                                                    {doc.type}
+                                                                </p>
+                                                                <p className="text-xs text-gray-500 truncate max-w-[200px]">{doc.name}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={cn(
+                                                                'px-1.5 py-0.5 rounded text-xs font-medium',
+                                                                doc.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                                                doc.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                                                'bg-yellow-100 text-yellow-700'
+                                                            )}>
+                                                                {doc.status === 'approved' ? 'Approved' :
+                                                                 doc.status === 'rejected' ? 'Rejected' : 'Pending'}
+                                                            </span>
+                                                            {doc.url && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    asChild
+                                                                >
+                                                                    <a
+                                                                        href={doc.url}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                    >
+                                                                        <Eye className="w-4 h-4 mr-1" />
+                                                                        View
+                                                                    </a>
+                                                                </Button>
+                                                            )}
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
-                                                        {doc.url ? (
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                asChild
-                                                            >
-                                                                <a
-                                                                    href={doc.url}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                >
-                                                                    <Eye className="w-4 h-4 mr-1" />
-                                                                    View
-                                                                </a>
-                                                            </Button>
-                                                        ) : (
-                                                            <CheckCircle className="w-5 h-5 text-green-500" />
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ))
+                                                );
+                                            })
                                         ) : (
-                                            <p className="text-sm text-gray-500 py-2">
-                                                No documents submitted
+                                            <p className="text-sm text-yellow-600 py-2 flex items-center gap-2">
+                                                <AlertCircle className="w-4 h-4" />
+                                                No documents submitted yet
                                             </p>
                                         )}
                                     </div>

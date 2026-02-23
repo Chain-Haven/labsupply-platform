@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
         if (!response.ok) {
             console.error('Mercury API error:', response.status, response.statusText);
             return NextResponse.json(
-                { error: 'Failed to fetch Mercury account' },
+                { error: 'Failed to fetch Mercury account details. The Mercury API may be temporarily unavailable — try again later.' },
                 { status: 502 }
             );
         }
@@ -121,6 +121,6 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(result);
     } catch (error) {
         console.error('Mercury account fetch error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Mercury account operation failed unexpectedly. Please try again.' }, { status: 500 });
     }
 }

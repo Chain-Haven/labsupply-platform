@@ -301,7 +301,7 @@ export default function CatalogPage() {
             setIsProcessingTesting(false);
             toast({
                 title: 'Testing order failed',
-                description: error instanceof Error ? error.message : 'An error occurred',
+                description: error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.',
                 variant: 'destructive',
             });
         }

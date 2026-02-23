@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,22 +18,13 @@ import {
     AlertTriangle,
     ChevronDown,
     Shield,
-    AlertCircle
+    AlertCircle,
+    Loader2
 } from 'lucide-react';
 import { cn, formatCurrency, formatRelativeTime, getStatusColor } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 
-// Compliance reserve constant
-const COMPLIANCE_RESERVE_CENTS = 50000; // $500.00
-
-// Wallet data - defaults for empty state
-const walletData = {
-    balance_cents: 0,
-    reserved_cents: 0,
-};
-
-// Orders data - empty by default (fetched from API in production)
-const orders: any[] = [];
+const COMPLIANCE_RESERVE_CENTS = 50000;
 
 const statusFilters = [
     { value: 'all', label: 'All Orders' },
@@ -63,27 +54,59 @@ const getStatusIcon = (status: string, complianceBlocked: boolean = false) => {
 };
 
 export default function OrdersPage() {
+    const [orders, setOrders] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [walletData, setWalletData] = useState({ balance_cents: 0, reserved_cents: 0 });
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
 
-    // Check if compliance reserve is met
-    const isComplianceMet = walletData.balance_cents >= COMPLIANCE_RESERVE_CENTS;
-    const blockedOrdersCount = orders.filter(o => o.compliance_blocked).length;
+    const fetchOrders = useCallback(async () => {
+        setLoading(true);
+        try {
+            const params = new URLSearchParams();
+            params.set('limit', '100');
+            if (statusFilter !== 'all') params.set('status', statusFilter);
 
-    const filteredOrders = orders.filter((order) => {
+            const res = await fetch(`/api/v1/merchant/orders?${params.toString()}`);
+            if (res.ok) {
+                const json = await res.json();
+                setOrders(json.data || []);
+            }
+        } catch { /* silent */ }
+        setLoading(false);
+    }, [statusFilter]);
+
+    useEffect(() => { fetchOrders(); }, [fetchOrders]);
+
+    useEffect(() => {
+        fetch('/api/v1/merchant/me')
+            .then(r => r.json())
+            .then(m => {
+                if (m?.wallet_balance_cents != null) {
+                    setWalletData({ balance_cents: m.wallet_balance_cents, reserved_cents: 0 });
+                }
+            })
+            .catch(() => {});
+    }, []);
+
+    const isComplianceMet = walletData.balance_cents >= COMPLIANCE_RESERVE_CENTS;
+    const blockedOrdersCount = orders.filter((o: any) => o.metadata?.compliance_blocked).length;
+
+    const filteredOrders = orders.filter((order: any) => {
+        const woo = (order.woo_order_number || '').toLowerCase();
+        const email = (order.customer_email || '').toLowerCase();
         const matchesSearch =
-            order.woo_order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            order.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            order.customer_email.toLowerCase().includes(searchQuery.toLowerCase());
+            woo.includes(searchQuery.toLowerCase()) ||
+            email.includes(searchQuery.toLowerCase());
         const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
 
     const stats = {
         total: orders.length,
-        awaitingFunds: orders.filter(o => o.status === 'AWAITING_FUNDS').length,
-        inProgress: orders.filter(o => ['FUNDED', 'PICKING', 'PACKED'].includes(o.status)).length,
-        shipped: orders.filter(o => o.status === 'SHIPPED').length,
+        awaitingFunds: orders.filter((o: any) => o.status === 'AWAITING_FUNDS').length,
+        inProgress: orders.filter((o: any) => ['FUNDED', 'PICKING', 'PACKED'].includes(o.status)).length,
+        shipped: orders.filter((o: any) => o.status === 'SHIPPED').length,
     };
 
     return (
@@ -231,90 +254,102 @@ export default function OrdersPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y">
-                            {filteredOrders.map((order) => (
-                                <tr
-                                    key={order.id}
-                                    className={cn(
-                                        "hover:bg-gray-50 dark:hover:bg-gray-800/50",
-                                        order.compliance_blocked && "bg-red-50/50 dark:bg-red-900/10"
-                                    )}
-                                >
-                                    <td className="p-4">
-                                        <div>
-                                            <p className="font-medium text-gray-900 dark:text-white">{order.woo_order_number}</p>
-                                            <p className="text-xs text-gray-500 font-mono">{order.id}</p>
-                                        </div>
+                            {loading && (
+                                <tr>
+                                    <td colSpan={7} className="p-8 text-center text-gray-500">
+                                        <Loader2 className="w-5 h-5 animate-spin inline mr-2" />
+                                        Loading orders...
                                     </td>
-                                    <td className="p-4">
-                                        <div>
-                                            <p className="text-gray-900 dark:text-white">{order.customer_name}</p>
-                                            <p className="text-xs text-gray-500">{order.customer_email}</p>
-                                        </div>
-                                    </td>
-                                    <td className="p-4">
-                                        <div className="flex items-center gap-2">
-                                            {getStatusIcon(order.status, order.compliance_blocked)}
-                                            <span className={cn(
-                                                'px-2 py-1 rounded-full text-xs font-medium',
-                                                order.compliance_blocked
-                                                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                                    : getStatusColor(order.status)
-                                            )}>
-                                                {order.compliance_blocked ? 'BLOCKED' : order.status.replace(/_/g, ' ')}
-                                            </span>
-                                        </div>
-                                        {order.compliance_blocked && (
-                                            <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                                                <Shield className="w-3 h-3" />
-                                                Compliance reserve required
-                                            </p>
+                                </tr>
+                            )}
+                            {filteredOrders.map((order: any) => {
+                                const complianceBlocked = order.metadata?.compliance_blocked;
+                                const shipment = order.shipments?.[0];
+                                const trackingNumber = shipment?.tracking_number;
+                                const trackingUrl = shipment?.tracking_url;
+                                const itemsCount = order.order_items?.length || 0;
+                                const addr = order.shipping_address as Record<string, string> | undefined;
+                                const customerName = addr ? [addr.first_name, addr.last_name].filter(Boolean).join(' ') : '';
+
+                                return (
+                                    <tr
+                                        key={order.id}
+                                        className={cn(
+                                            "hover:bg-gray-50 dark:hover:bg-gray-800/50",
+                                            complianceBlocked && "bg-red-50/50 dark:bg-red-900/10"
                                         )}
-                                        {order.tracking_number && (
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                {order.carrier}: {order.tracking_number.substring(0, 12)}...
-                                            </p>
-                                        )}
-                                    </td>
-                                    <td className="p-4 text-right text-gray-500">{order.items_count}</td>
-                                    <td className="p-4 text-right font-medium text-gray-900 dark:text-white">
-                                        {formatCurrency(order.total_estimate_cents)}
-                                    </td>
-                                    <td className="p-4 text-gray-500 text-sm">
-                                        {formatRelativeTime(order.created_at)}
-                                    </td>
-                                    <td className="p-4 text-right">
-                                        <div className="flex items-center justify-end gap-1">
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() => {
-                                                    toast({
-                                                        title: 'Order Details',
-                                                        description: `Order ${order.woo_order_number}: ${order.items_count} item(s), Total: ${formatCurrency(order.total_estimate_cents)}`
-                                                    });
-                                                }}
-                                            >
-                                                <Eye className="w-4 h-4" />
-                                            </Button>
-                                            {order.tracking_number && (
+                                    >
+                                        <td className="p-4">
+                                            <div>
+                                                <p className="font-medium text-gray-900 dark:text-white">{order.woo_order_number || order.woo_order_id}</p>
+                                                <p className="text-xs text-gray-500 font-mono">{order.id?.substring(0, 8)}</p>
+                                            </div>
+                                        </td>
+                                        <td className="p-4">
+                                            <div>
+                                                <p className="text-gray-900 dark:text-white">{customerName || '-'}</p>
+                                                <p className="text-xs text-gray-500">{order.customer_email || ''}</p>
+                                            </div>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex items-center gap-2">
+                                                {getStatusIcon(order.status, complianceBlocked)}
+                                                <span className={cn(
+                                                    'px-2 py-1 rounded-full text-xs font-medium',
+                                                    complianceBlocked
+                                                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                                        : getStatusColor(order.status)
+                                                )}>
+                                                    {complianceBlocked ? 'BLOCKED' : (order.status || '').replace(/_/g, ' ')}
+                                                </span>
+                                            </div>
+                                            {complianceBlocked && (
+                                                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                                                    <Shield className="w-3 h-3" />
+                                                    Compliance reserve required
+                                                </p>
+                                            )}
+                                            {trackingNumber && (
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    {shipment?.carrier}: {trackingNumber.substring(0, 12)}...
+                                                </p>
+                                            )}
+                                        </td>
+                                        <td className="p-4 text-right text-gray-500">{itemsCount}</td>
+                                        <td className="p-4 text-right font-medium text-gray-900 dark:text-white">
+                                            {formatCurrency(order.total_estimate_cents)}
+                                        </td>
+                                        <td className="p-4 text-gray-500 text-sm">
+                                            {formatRelativeTime(order.created_at)}
+                                        </td>
+                                        <td className="p-4 text-right">
+                                            <div className="flex items-center justify-end gap-1">
                                                 <Button
                                                     size="sm"
                                                     variant="ghost"
                                                     onClick={() => {
-                                                        window.open(`https://track.shipstation.com/tracking/${order.tracking_number}`, '_blank');
                                                         toast({
-                                                            title: 'Opening tracking',
-                                                            description: `Tracking: ${order.tracking_number}`
+                                                            title: 'Order Details',
+                                                            description: `Order ${order.woo_order_number || order.woo_order_id}: ${itemsCount} item(s), Total: ${formatCurrency(order.total_estimate_cents)}`
                                                         });
                                                     }}
                                                 >
-                                                    <Truck className="w-4 h-4" />
+                                                    <Eye className="w-4 h-4" />
                                                 </Button>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                                {trackingUrl && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => window.open(trackingUrl, '_blank')}
+                                                    >
+                                                        <Truck className="w-4 h-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </CardContent>

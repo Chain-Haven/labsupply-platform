@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
 
         if (insertErr || !withdrawalReq) {
             console.error('Failed to create withdrawal request:', insertErr);
-            return NextResponse.json({ error: 'Failed to create withdrawal request' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to submit withdrawal request. No funds were deducted — please try again.' }, { status: 500 });
         }
 
         // Record ledger transaction
@@ -224,6 +224,6 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         console.error('Withdrawal request error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Withdrawal request failed unexpectedly. No funds were deducted — please try again.' }, { status: 500 });
     }
 }

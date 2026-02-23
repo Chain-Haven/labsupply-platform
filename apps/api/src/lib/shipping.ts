@@ -235,7 +235,7 @@ export class EasyPostShippingProvider implements ShippingProvider {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.error?.message || 'EasyPost API error');
+            throw new Error(error.error?.message || 'EasyPost API returned an error. Check the shipping address and carrier details.');
         }
 
         return response.json();
@@ -416,15 +416,38 @@ export class EasyPostShippingProvider implements ShippingProvider {
 // Provider Factory
 // ============================================================================
 
+import { ShipStationShippingProvider } from './shipstation';
+
 let shippingProvider: ShippingProvider | null = null;
 
+/**
+ * Returns the configured shipping provider. Resolution order:
+ *   1. SHIPPING_PROVIDER env var (shipstation | easypost | stub)
+ *   2. Falls back to stub for development
+ *
+ * For ShipStation, credentials are read from env vars; the admin UI persists
+ * them to admin_settings, and the caller can override via getShippingProviderWithCredentials().
+ */
 export function getShippingProvider(): ShippingProvider {
     if (!shippingProvider) {
         const provider = process.env.SHIPPING_PROVIDER || 'stub';
-        const easypostKey = process.env.EASYPOST_API_KEY;
 
-        if (provider === 'easypost' && easypostKey) {
-            shippingProvider = new EasyPostShippingProvider(easypostKey);
+        if (provider === 'shipstation') {
+            const apiKey = process.env.SHIPSTATION_API_KEY || '';
+            const apiSecret = process.env.SHIPSTATION_API_SECRET || '';
+            if (apiKey && apiSecret) {
+                shippingProvider = new ShipStationShippingProvider(apiKey, apiSecret);
+            } else {
+                console.warn('[Shipping] ShipStation selected but credentials missing, falling back to stub');
+                shippingProvider = new StubShippingProvider();
+            }
+        } else if (provider === 'easypost') {
+            const easypostKey = process.env.EASYPOST_API_KEY;
+            if (easypostKey) {
+                shippingProvider = new EasyPostShippingProvider(easypostKey);
+            } else {
+                shippingProvider = new StubShippingProvider();
+            }
         } else {
             shippingProvider = new StubShippingProvider();
         }
@@ -433,6 +456,23 @@ export function getShippingProvider(): ShippingProvider {
     }
 
     return shippingProvider;
+}
+
+/**
+ * Create a provider using explicit credentials (e.g. from admin_settings DB).
+ * Does not cache -- use for one-off operations where credentials come from DB.
+ */
+export function getShippingProviderWithCredentials(
+    provider: string,
+    credentials: Record<string, string>
+): ShippingProvider {
+    if (provider === 'shipstation' && credentials.apiKey && credentials.apiSecret) {
+        return new ShipStationShippingProvider(credentials.apiKey, credentials.apiSecret);
+    }
+    if (provider === 'easypost' && credentials.apiKey) {
+        return new EasyPostShippingProvider(credentials.apiKey);
+    }
+    return new StubShippingProvider();
 }
 
 // Default origin address (supplier warehouse)

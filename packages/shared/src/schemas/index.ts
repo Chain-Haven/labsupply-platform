@@ -220,6 +220,7 @@ export const createOrderSchema = z.object({
     woo_order_id: z.string().min(1).max(50),
     woo_order_number: z.string().max(50).optional(),
     currency: z.string().length(3).default('USD'),
+    shipping_method: z.enum(['STANDARD', 'EXPEDITED']).default('STANDARD'),
     shipping_address: addressSchema,
     billing_address: addressSchema.optional(),
     customer_email: z.string().email().optional(),

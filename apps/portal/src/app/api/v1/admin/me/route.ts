@@ -63,6 +63,6 @@ export async function GET() {
         return NextResponse.json({ error: 'Not an admin' }, { status: 403 });
     } catch (err) {
         console.error('Error in GET /api/v1/admin/me:', err);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to verify admin session. Please log in again.' }, { status: 500 });
     }
 }
