@@ -56,16 +56,19 @@ function AdminLayoutContent({ children }: { children: ReactNode }) {
         return <>{children}</>;
     }
 
-    // Show loading spinner only while actively checking auth
+    // Show a brief loading state while checking auth (max 8s safety via provider)
     if (isLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-950">
-                <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
+                <div className="text-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-violet-600 mx-auto" />
+                    <p className="text-sm text-gray-500 mt-3">Loading admin panel...</p>
+                </div>
             </div>
         );
     }
 
-    // Not authenticated — the useEffect above will redirect to login
+    // Not authenticated — redirect handled by useEffect above
     if (!isAuthenticated) {
         return null;
     }
