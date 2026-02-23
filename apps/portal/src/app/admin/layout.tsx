@@ -43,16 +43,20 @@ function AdminLayoutContent({ children }: { children: ReactNode }) {
     const router = useRouter();
     const { currentAdmin, isAuthenticated, isLoading, logout, isSuperAdmin } = useAdminAuth();
 
-    // Allow login page to render without auth
     const isLoginPage = pathname === '/admin/login';
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated && !isLoginPage) {
-            router.push('/admin/login');
+            router.replace('/admin/login');
         }
     }, [isLoading, isAuthenticated, isLoginPage, router]);
 
-    // Show loading state
+    // Login page always renders immediately — never blocked by auth loading
+    if (isLoginPage) {
+        return <>{children}</>;
+    }
+
+    // Show loading spinner only while actively checking auth
     if (isLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-950">
@@ -61,18 +65,9 @@ function AdminLayoutContent({ children }: { children: ReactNode }) {
         );
     }
 
-    // Render login page without layout
-    if (isLoginPage) {
-        return <>{children}</>;
-    }
-
-    // Redirect to login if not authenticated
+    // Not authenticated — the useEffect above will redirect to login
     if (!isAuthenticated) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-950">
-                <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
-            </div>
-        );
+        return null;
     }
 
     const handleLogout = () => {

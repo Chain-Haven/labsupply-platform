@@ -64,20 +64,30 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-            const res = await fetch('/api/v1/admin/me', { credentials: 'include' });
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000);
+
+            const res = await fetch('/api/v1/admin/me', {
+                credentials: 'include',
+                signal: controller.signal,
+            });
+            clearTimeout(timeout);
+
             if (res.ok) {
                 const data = await res.json();
                 if (data.admin) {
                     setCurrentAdmin(data.admin);
-                    await refreshAdminUsers();
+                    // Non-blocking: load admin users list in background
+                    refreshAdminUsers().catch(() => {});
                     return true;
                 }
             }
         } catch (err) {
-            console.error('Error checking admin status:', err);
+            if ((err as Error).name !== 'AbortError') {
+                console.error('Error checking admin status:', err);
+            }
         }
 
-        // User is authenticated but not an admin
         setCurrentAdmin(null);
         return false;
     };
@@ -120,18 +130,21 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
     // Initialize auth state
     useEffect(() => {
+        let cancelled = false;
+
         const initAuth = async () => {
             setIsLoading(true);
 
             try {
-                // First, check for Supabase session
                 const { data: { session: currentSession } } = await supabase.auth.getSession();
+                if (cancelled) return;
+
                 setSession(currentSession);
                 setUser(currentSession?.user || null);
 
                 if (currentSession?.user) {
                     await checkAndSetAdmin(currentSession.user);
-                    setIsLoading(false);
+                    if (!cancelled) setIsLoading(false);
                     return;
                 }
             } catch (err) {
@@ -139,8 +152,9 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
             }
 
             try {
-                // If no Supabase session, check for backup session cookie
                 const backupSessionData = await checkBackupSession();
+                if (cancelled) return;
+
                 if (backupSessionData) {
                     setBackupSession(backupSessionData);
                     const syntheticAdmin: AdminUser = {
@@ -152,16 +166,21 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
                         created_at: new Date().toISOString(),
                     };
                     setCurrentAdmin(syntheticAdmin);
-                    await refreshAdminUsers();
+                    refreshAdminUsers().catch(() => {});
                 }
             } catch (err) {
                 console.error('Error checking backup session:', err);
             }
 
-            setIsLoading(false);
+            if (!cancelled) setIsLoading(false);
         };
 
-        initAuth();
+        // Safety timeout: if auth check takes >8 seconds, stop loading
+        const safetyTimeout = setTimeout(() => {
+            setIsLoading(false);
+        }, 8000);
+
+        initAuth().finally(() => clearTimeout(safetyTimeout));
 
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
@@ -177,6 +196,8 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         });
 
         return () => {
+            cancelled = true;
+            clearTimeout(safetyTimeout);
             subscription.unsubscribe();
         };
     }, []);
