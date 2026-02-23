@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Package, Loader2, Mail, Lock, Building, ArrowRight, CheckCircle, KeyRound, Users } from 'lucide-react';
@@ -17,6 +17,18 @@ interface InviteInfo {
 }
 
 export default function RegisterPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+                <Loader2 className="w-8 h-8 animate-spin text-violet-400" />
+            </div>
+        }>
+            <RegisterContent />
+        </Suspense>
+    );
+}
+
+function RegisterContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const inviteToken = searchParams.get('invite');
