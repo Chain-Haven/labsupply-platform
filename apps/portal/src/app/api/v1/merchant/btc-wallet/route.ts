@@ -4,32 +4,9 @@
  */
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { createRouteHandlerClient } from '@/lib/supabase-server';
+import { requireMerchant, getServiceClient } from '@/lib/merchant-api-auth';
 
 export const dynamic = 'force-dynamic';
-
-function getServiceClient() {
-    return createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-}
-
-async function getAuthenticatedMerchantId(): Promise<string | null> {
-    const supabase = createRouteHandlerClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) return null;
-
-    const sc = getServiceClient();
-    const { data: merchant } = await sc
-        .from('merchants')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-    return merchant?.id || null;
-}
 
 function formatBtc(sats: number): string {
     return (sats / 100_000_000).toFixed(8);
@@ -37,10 +14,9 @@ function formatBtc(sats: number): string {
 
 export async function GET() {
     try {
-        const merchantId = await getAuthenticatedMerchantId();
-        if (!merchantId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        const authResult = await requireMerchant();
+        if (authResult instanceof NextResponse) return authResult;
+        const { merchant } = authResult.data;
 
         const sc = getServiceClient();
 
@@ -48,7 +24,7 @@ export async function GET() {
         const { data: wallet } = await sc
             .from('wallet_accounts')
             .select('balance_cents, reserved_cents')
-            .eq('merchant_id', merchantId)
+            .eq('merchant_id', merchant.id)
             .eq('currency', 'BTC')
             .single();
 
@@ -60,7 +36,7 @@ export async function GET() {
         const { count: pendingCount } = await sc
             .from('btc_deposits')
             .select('id', { count: 'exact', head: true })
-            .eq('merchant_id', merchantId)
+            .eq('merchant_id', merchant.id)
             .in('status', ['PENDING', 'CONFIRMED']);
 
         return NextResponse.json({

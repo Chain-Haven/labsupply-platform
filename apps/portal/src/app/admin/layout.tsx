@@ -7,6 +7,7 @@ import {
     Package,
     LayoutDashboard,
     Users,
+    UserPlus,
     Box,
     ShoppingCart,
     FileCheck,
@@ -35,6 +36,7 @@ const navigation = [
     { name: 'Crypto', href: '/admin/crypto', icon: Bitcoin },
     { name: 'Withdrawals', href: '/admin/withdrawals', icon: LogOut },
     { name: 'API Keys', href: '/admin/api-keys', icon: Key },
+    { name: 'Team', href: '/admin/team', icon: UserPlus },
     { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 

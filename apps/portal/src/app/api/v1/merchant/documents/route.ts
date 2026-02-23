@@ -6,8 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { createRouteHandlerClient } from '@/lib/supabase-server';
+import { requireMerchant, getServiceClient } from '@/lib/merchant-api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,41 +27,11 @@ const ALLOWED_MIME_TYPES = [
     'image/webp',
 ];
 
-function getServiceClient() {
-    return createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-}
-
-async function getAuthUser() {
-    const supabase = createRouteHandlerClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) return null;
-    return user;
-}
-
-async function resolveMerchant(userId: string) {
-    const { data, error } = await getServiceClient()
-        .from('merchants')
-        .select('id')
-        .eq('user_id', userId)
-        .single();
-    if (error || !data) return null;
-    return data;
-}
-
 export async function GET() {
     try {
-        const user = await getAuthUser();
-        if (!user) {
-            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-        }
-
-        const merchant = await resolveMerchant(user.id);
-        if (!merchant) {
-            return NextResponse.json({ error: 'Merchant profile not found' }, { status: 404 });
-        }
+        const authResult = await requireMerchant();
+        if (authResult instanceof NextResponse) return authResult;
+        const { merchant } = authResult.data;
 
         const { data, error } = await getServiceClient()
             .from('merchant_documents')
@@ -84,15 +53,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
     try {
-        const user = await getAuthUser();
-        if (!user) {
-            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-        }
-
-        const merchant = await resolveMerchant(user.id);
-        if (!merchant) {
-            return NextResponse.json({ error: 'Merchant profile not found' }, { status: 404 });
-        }
+        const authResult = await requireMerchant();
+        if (authResult instanceof NextResponse) return authResult;
+        const { merchant, userId } = authResult.data;
 
         const formData = await request.formData();
         const file = formData.get('file') as File | null;
@@ -120,12 +83,12 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
-        const supabase = getServiceClient();
+        const sc = getServiceClient();
         const ext = file.name.split('.').pop()?.toLowerCase() || 'pdf';
         const storagePath = `${merchant.id}/documents/${documentType}_${Date.now()}.${ext}`;
         const fileBuffer = Buffer.from(await file.arrayBuffer());
 
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError } = await sc.storage
             .from('merchant-uploads')
             .upload(storagePath, fileBuffer, {
                 contentType: file.type,
@@ -139,11 +102,11 @@ export async function POST(request: NextRequest) {
             }, { status: 500 });
         }
 
-        const { data: doc, error: dbError } = await supabase
+        const { data: doc, error: dbError } = await sc
             .from('merchant_documents')
             .insert({
                 merchant_id: merchant.id,
-                user_id: user.id,
+                user_id: userId,
                 document_type: documentType,
                 file_name: file.name,
                 storage_path: storagePath,
@@ -170,24 +133,18 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
     try {
-        const user = await getAuthUser();
-        if (!user) {
-            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-        }
-
-        const merchant = await resolveMerchant(user.id);
-        if (!merchant) {
-            return NextResponse.json({ error: 'Merchant profile not found' }, { status: 404 });
-        }
+        const authResult = await requireMerchant();
+        if (authResult instanceof NextResponse) return authResult;
+        const { merchant } = authResult.data;
 
         const { document_id } = await request.json();
         if (!document_id) {
             return NextResponse.json({ error: 'document_id is required' }, { status: 400 });
         }
 
-        const supabase = getServiceClient();
+        const sc = getServiceClient();
 
-        const { data: doc, error: fetchError } = await supabase
+        const { data: doc, error: fetchError } = await sc
             .from('merchant_documents')
             .select('id, storage_path')
             .eq('id', document_id)
@@ -198,11 +155,11 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'Document not found' }, { status: 404 });
         }
 
-        await supabase.storage
+        await sc.storage
             .from('merchant-uploads')
             .remove([doc.storage_path]);
 
-        const { error: deleteError } = await supabase
+        const { error: deleteError } = await sc
             .from('merchant_documents')
             .delete()
             .eq('id', doc.id);

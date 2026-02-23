@@ -20,9 +20,11 @@ import {
     X,
     Check,
     Loader2,
+    Users,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useMerchantAuth } from '@/lib/merchant-auth';
+import TeamTab from './team-tab';
 
 export default function SettingsPage() {
     return (
@@ -40,7 +42,7 @@ function SettingsContent() {
     // Allow deep-linking to a tab via ?tab= query param (e.g. from Wallet page)
     useEffect(() => {
         const tab = searchParams.get('tab');
-        if (tab && ['profile', 'orders', 'account', 'notifications', 'security', 'billing'].includes(tab)) {
+        if (tab && ['profile', 'orders', 'account', 'notifications', 'security', 'billing', 'team'].includes(tab)) {
             setActiveTab(tab);
         }
     }, [searchParams]);
@@ -240,6 +242,7 @@ function SettingsContent() {
     const tabs = [
         { id: 'profile', label: 'Company Profile', icon: Building },
         { id: 'orders', label: 'Order Settings', icon: ShoppingCart },
+        { id: 'team', label: 'Team', icon: Users },
         { id: 'account', label: 'Account', icon: User },
         { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'security', label: 'Security', icon: Shield },
@@ -763,6 +766,8 @@ function SettingsContent() {
                             </CardContent>
                         </Card>
                     )}
+
+                    {activeTab === 'team' && <TeamTab />}
                 </div>
             </div>
 

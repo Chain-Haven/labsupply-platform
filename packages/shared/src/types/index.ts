@@ -119,6 +119,57 @@ export const UserRole = {
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
+export const MerchantInvitableRoles = ['MERCHANT_ADMIN', 'MERCHANT_USER'] as const;
+export type MerchantInvitableRole = (typeof MerchantInvitableRoles)[number];
+
+export const AdminInvitableRoles = ['admin'] as const;
+export type AdminInvitableRole = (typeof AdminInvitableRoles)[number];
+
+export const InvitationScope = {
+    MERCHANT: 'merchant',
+    ADMIN: 'admin',
+} as const;
+
+export type InvitationScope = (typeof InvitationScope)[keyof typeof InvitationScope];
+
+export const InvitationStatus = {
+    PENDING: 'pending',
+    ACCEPTED: 'accepted',
+    EXPIRED: 'expired',
+    REVOKED: 'revoked',
+} as const;
+
+export type InvitationStatus = (typeof InvitationStatus)[keyof typeof InvitationStatus];
+
+export interface Invitation {
+    id: string;
+    scope: InvitationScope;
+    merchant_id: string | null;
+    email: string;
+    role: string;
+    permissions: Record<string, { read: boolean; write: boolean }> | null;
+    invited_by: string;
+    token: string;
+    status: InvitationStatus;
+    expires_at: string;
+    accepted_at: string | null;
+    created_at: string;
+}
+
+export interface MerchantUser {
+    id: string;
+    merchant_id: string;
+    user_id: string;
+    role: 'MERCHANT_OWNER' | 'MERCHANT_ADMIN' | 'MERCHANT_USER';
+    email: string;
+    first_name: string | null;
+    last_name: string | null;
+    is_active: boolean;
+    invited_by: string | null;
+    invited_at: string | null;
+    created_at: string;
+}
+
 export const ProductAssetType = {
     IMAGE: 'IMAGE',
     THUMBNAIL: 'THUMBNAIL',

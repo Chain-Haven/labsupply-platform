@@ -25,10 +25,13 @@ export interface Merchant {
     updated_at: string;
 }
 
+export type MerchantRole = 'MERCHANT_OWNER' | 'MERCHANT_ADMIN' | 'MERCHANT_USER';
+
 interface MerchantAuthContextType {
     user: User | null;
     session: Session | null;
     merchant: Merchant | null;
+    merchantRole: MerchantRole | null;
     isAuthenticated: boolean;
     isLoading: boolean;
     login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -47,12 +50,13 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [session, setSession] = useState<Session | null>(null);
     const [merchant, setMerchant] = useState<Merchant | null>(null);
+    const [merchantRole, setMerchantRole] = useState<MerchantRole | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     const supabase = createBrowserClient();
 
-    // Fetch merchant profile via server API (avoids client-side RLS issues)
-    const fetchMerchant = async (_userId: string) => {
+    // Fetch merchant profile and role via server API (avoids client-side RLS issues)
+    const fetchMerchant = async (_userId: string): Promise<{ merchant: Merchant; role: MerchantRole } | null> => {
         try {
             const res = await fetch('/api/v1/merchant/me', { credentials: 'include' });
             if (!res.ok) {
@@ -64,7 +68,8 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
                 console.error('Error fetching merchant:', data.error);
                 return null;
             }
-            return data as Merchant;
+            const role: MerchantRole = data.merchant_role || 'MERCHANT_OWNER';
+            return { merchant: data as Merchant, role };
         } catch (err) {
             console.error('Error in fetchMerchant:', err);
             return null;
@@ -80,8 +85,9 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
                 if (currentSession?.user) {
                     setUser(currentSession.user);
                     setSession(currentSession);
-                    const merchantData = await fetchMerchant(currentSession.user.id);
-                    setMerchant(merchantData);
+                    const result = await fetchMerchant(currentSession.user.id);
+                    setMerchant(result?.merchant ?? null);
+                    setMerchantRole(result?.role ?? null);
                 }
             } catch (err) {
                 console.error('Error initializing auth:', err);
@@ -98,12 +104,14 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
                 if (newSession?.user) {
                     setUser(newSession.user);
                     setSession(newSession);
-                    const merchantData = await fetchMerchant(newSession.user.id);
-                    setMerchant(merchantData);
+                    const result = await fetchMerchant(newSession.user.id);
+                    setMerchant(result?.merchant ?? null);
+                    setMerchantRole(result?.role ?? null);
                 } else {
                     setUser(null);
                     setSession(null);
                     setMerchant(null);
+                    setMerchantRole(null);
                 }
             }
         );
@@ -124,10 +132,10 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
             }
 
             if (data.user) {
-                let merchantData = await fetchMerchant(data.user.id);
+                let result = await fetchMerchant(data.user.id);
 
                 // Auto-create merchant profile if user registered but profile wasn't created yet
-                if (!merchantData) {
+                if (!result) {
                     const companyName = data.user.user_metadata?.company_name || '';
                     try {
                         const res = await fetch('/api/v1/merchant/me', {
@@ -137,17 +145,18 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
                             body: JSON.stringify({ companyName }),
                         });
                         if (res.ok) {
-                            merchantData = await fetchMerchant(data.user.id);
+                            result = await fetchMerchant(data.user.id);
                         }
                     } catch (profileErr) {
                         console.error('Error auto-creating merchant profile:', profileErr);
                     }
                 }
 
-                if (!merchantData) {
+                if (!result) {
                     return { success: false, error: 'Unable to create merchant profile. Please contact support.' };
                 }
-                setMerchant(merchantData);
+                setMerchant(result.merchant);
+                setMerchantRole(result.role);
             }
 
             return { success: true };
@@ -192,10 +201,10 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
             }
 
             if (data.user) {
-                let merchantData = await fetchMerchant(data.user.id);
+                let result = await fetchMerchant(data.user.id);
 
                 // Auto-create merchant profile if it doesn't exist
-                if (!merchantData) {
+                if (!result) {
                     const companyName = data.user.user_metadata?.company_name || '';
                     try {
                         const profileRes = await fetch('/api/v1/merchant/me', {
@@ -205,17 +214,18 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
                             body: JSON.stringify({ companyName }),
                         });
                         if (profileRes.ok) {
-                            merchantData = await fetchMerchant(data.user.id);
+                            result = await fetchMerchant(data.user.id);
                         }
                     } catch (profileErr) {
                         console.error('Error auto-creating merchant profile:', profileErr);
                     }
                 }
 
-                if (!merchantData) {
+                if (!result) {
                     return { success: false, error: 'Unable to find or create your account. Please register first.' };
                 }
-                setMerchant(merchantData);
+                setMerchant(result.merchant);
+                setMerchantRole(result.role);
             }
 
             return { success: true };
@@ -256,8 +266,9 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
                     console.error('Error ensuring merchant profile:', profileErr);
                 }
 
-                const merchantData = await fetchMerchant(data.user.id);
-                setMerchant(merchantData);
+                const result = await fetchMerchant(data.user.id);
+                setMerchant(result?.merchant ?? null);
+                setMerchantRole(result?.role ?? null);
             }
 
             return { success: true };
@@ -304,8 +315,9 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
                     if (!res.ok) {
                         console.error('Error creating merchant profile: status', res.status);
                     }
-                    const merchantData = await fetchMerchant(data.user.id);
-                    setMerchant(merchantData);
+                    const result = await fetchMerchant(data.user.id);
+                    setMerchant(result?.merchant ?? null);
+                    setMerchantRole(result?.role ?? null);
                 } catch (profileErr) {
                     console.error('Error creating merchant profile:', profileErr);
                 }
@@ -323,6 +335,7 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setSession(null);
         setMerchant(null);
+        setMerchantRole(null);
     };
 
     // Update merchant profile via server API
@@ -344,8 +357,8 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
                 return { success: false, error: body.error || 'Failed to update profile' };
             }
 
-            const updatedMerchant = await res.json();
-            setMerchant(updatedMerchant as Merchant);
+            const updatedData = await res.json();
+            setMerchant(updatedData as Merchant);
 
             return { success: true };
         } catch (err) {
@@ -356,8 +369,9 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
     // Refresh merchant data
     const refreshMerchant = async () => {
         if (user) {
-            const merchantData = await fetchMerchant(user.id);
-            setMerchant(merchantData);
+            const result = await fetchMerchant(user.id);
+            setMerchant(result?.merchant ?? null);
+            setMerchantRole(result?.role ?? null);
         }
     };
 
@@ -365,6 +379,7 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
         user,
         session,
         merchant,
+        merchantRole,
         isAuthenticated: !!user && !!merchant,
         isLoading,
         login,

@@ -13,34 +13,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { createRouteHandlerClient } from '@/lib/supabase-server';
+import { requireMerchant, getServiceClient } from '@/lib/merchant-api-auth';
 import { validateBech32Address } from '@/lib/btc-hd';
 import nodemailer from 'nodemailer';
 
 export const dynamic = 'force-dynamic';
-
-function getServiceClient() {
-    return createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-}
-
-async function getAuthenticatedMerchant() {
-    const supabase = createRouteHandlerClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) return null;
-
-    const sc = getServiceClient();
-    const { data: merchant } = await sc
-        .from('merchants')
-        .select('id, name, company_name, contact_email, status')
-        .eq('user_id', user.id)
-        .single();
-
-    return merchant;
-}
 
 async function sendWithdrawalEmail(details: {
     merchantName: string;
@@ -89,10 +66,9 @@ async function sendWithdrawalEmail(details: {
 
 export async function POST(request: NextRequest) {
     try {
-        const merchant = await getAuthenticatedMerchant();
-        if (!merchant) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        const authResult = await requireMerchant();
+        if (authResult instanceof NextResponse) return authResult;
+        const { merchant } = authResult.data;
 
         if (merchant.status === 'CLOSED' || merchant.status === 'CLOSING') {
             return NextResponse.json(
@@ -189,10 +165,10 @@ export async function POST(request: NextRequest) {
             .eq('id', merchant.id);
 
         // Send notification email
-        const merchantName = merchant.company_name || merchant.name || 'Unknown';
+        const merchantName = (merchant.company_name || (merchant as Record<string, unknown>).name || 'Unknown') as string;
         await sendWithdrawalEmail({
             merchantName,
-            merchantEmail: merchant.contact_email,
+            merchantEmail: ((merchant as Record<string, unknown>).contact_email || merchant.email) as string,
             currency,
             amount: withdrawAmount,
             destination: currency === 'USD' ? payout_email : payout_btc_address,

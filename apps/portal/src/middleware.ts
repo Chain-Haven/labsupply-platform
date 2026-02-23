@@ -120,11 +120,35 @@ export async function middleware(request: NextRequest) {
         // No cache hit -- verify merchant role via DB
         try {
             const serviceClient = getAdminServiceClient();
-            const { data: merchantRow } = await serviceClient
+
+            // Check direct ownership first, then team membership
+            let merchantRow: { id: string; kyb_status: string } | null = null;
+
+            const { data: ownedMerchant } = await serviceClient
                 .from('merchants')
                 .select('id, kyb_status')
                 .eq('user_id', user.id)
                 .maybeSingle();
+
+            if (ownedMerchant) {
+                merchantRow = ownedMerchant;
+            } else {
+                const { data: memberRow } = await serviceClient
+                    .from('merchant_users')
+                    .select('merchant_id')
+                    .eq('user_id', user.id)
+                    .eq('is_active', true)
+                    .maybeSingle();
+
+                if (memberRow) {
+                    const { data: teamMerchant } = await serviceClient
+                        .from('merchants')
+                        .select('id, kyb_status')
+                        .eq('id', memberRow.merchant_id)
+                        .single();
+                    merchantRow = teamMerchant;
+                }
+            }
 
             if (!merchantRow) {
                 return NextResponse.redirect(
@@ -133,7 +157,8 @@ export async function middleware(request: NextRequest) {
             }
 
             // Merchant hasn't completed onboarding -> redirect to onboarding
-            if (merchantRow.kyb_status === 'not_started') {
+            // Only applies to merchant owners, not team members
+            if (merchantRow.kyb_status === 'not_started' && ownedMerchant) {
                 return NextResponse.redirect(
                     new URL('/onboarding', request.url)
                 );

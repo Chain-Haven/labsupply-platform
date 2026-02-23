@@ -5,35 +5,11 @@
  */
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { createRouteHandlerClient } from '@/lib/supabase-server';
+import { requireMerchant, getServiceClient } from '@/lib/merchant-api-auth';
 import { deriveAddress } from '@/lib/btc-hd';
 import { decryptValue } from '@/lib/crypto-encrypt';
 
 export const dynamic = 'force-dynamic';
-
-function getServiceClient() {
-    return createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-}
-
-async function getAuthenticatedMerchantId(): Promise<string | null> {
-    const supabase = createRouteHandlerClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) return null;
-
-    const sc = getServiceClient();
-    const { data: merchant } = await sc
-        .from('merchants')
-        .select('id, status')
-        .eq('user_id', user.id)
-        .single();
-
-    if (!merchant || merchant.status === 'CLOSED' || merchant.status === 'CLOSING') return null;
-    return merchant.id;
-}
 
 async function assignNewAddress(
     sc: ReturnType<typeof getServiceClient>,
@@ -92,8 +68,11 @@ async function assignNewAddress(
 
 export async function GET() {
     try {
-        const merchantId = await getAuthenticatedMerchantId();
-        if (!merchantId) {
+        const authResult = await requireMerchant();
+        if (authResult instanceof NextResponse) return authResult;
+        const { merchant } = authResult.data;
+
+        if (merchant.status === 'CLOSED' || merchant.status === 'CLOSING') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -103,7 +82,7 @@ export async function GET() {
         const { data: activeAddr } = await sc
             .from('btc_addresses')
             .select('*')
-            .eq('merchant_id', merchantId)
+            .eq('merchant_id', merchant.id)
             .eq('purpose', 'TOPUP')
             .eq('status', 'ACTIVE')
             .order('created_at', { ascending: false })
@@ -136,7 +115,7 @@ export async function GET() {
         }
 
         // Auto-assign
-        const newAddr = await assignNewAddress(sc, merchantId, 'TOPUP');
+        const newAddr = await assignNewAddress(sc, merchant.id, 'TOPUP');
 
         return NextResponse.json({
             data: {

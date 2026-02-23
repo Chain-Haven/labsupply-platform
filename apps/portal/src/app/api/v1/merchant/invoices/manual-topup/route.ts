@@ -7,8 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { createRouteHandlerClient } from '@/lib/supabase-server';
+import { requireMerchant, getServiceClient } from '@/lib/merchant-api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,13 +17,6 @@ const MAX_AMOUNT_CENTS = 5000000; // $50,000 maximum
 const MERCURY_API_BASE = process.env.MERCURY_API_BASE_URL || 'https://api.mercury.com/api/v1';
 const MERCURY_API_TOKEN = process.env.MERCURY_API_TOKEN || '';
 const MERCURY_ACCOUNT_ID = process.env.MERCURY_ACCOUNT_ID || '';
-
-function getServiceClient() {
-    return createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-}
 
 function formatMercuryDate(date: Date): string {
     return date.toISOString().split('T')[0];
@@ -68,24 +60,11 @@ function extractMercuryError(body: string, status: number): string {
 
 export async function POST(request: NextRequest) {
     try {
-        const supabaseAuth = createRouteHandlerClient();
-        const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
-
-        if (authError || !user) {
-            return NextResponse.json({ error: 'Not authenticated. Please log in again.' }, { status: 401 });
-        }
+        const authResult = await requireMerchant();
+        if (authResult instanceof NextResponse) return authResult;
+        const { merchant } = authResult.data;
 
         const supabase = getServiceClient();
-
-        const { data: merchant, error: merchantError } = await supabase
-            .from('merchants')
-            .select('id, company_name, mercury_customer_id, billing_email, email')
-            .eq('user_id', user.id)
-            .single();
-
-        if (merchantError || !merchant) {
-            return NextResponse.json({ error: 'Merchant profile not found.' }, { status: 404 });
-        }
 
         if (!MERCURY_API_TOKEN) {
             return NextResponse.json(
@@ -126,19 +105,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(
                 { error: `Maximum top-up amount is $${(MAX_AMOUNT_CENTS / 100).toFixed(2)}.` },
                 { status: 400 }
-            );
-        }
-
-        const { count: openCount } = await supabase
-            .from('mercury_invoices')
-            .select('id', { count: 'exact', head: true })
-            .eq('merchant_id', merchant.id)
-            .in('status', ['Unpaid', 'Processing']);
-
-        if ((openCount || 0) >= 3) {
-            return NextResponse.json(
-                { error: 'You already have 3 open invoices. Please pay existing invoices before requesting more.' },
-                { status: 429 }
             );
         }
 

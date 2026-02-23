@@ -4,37 +4,18 @@
  */
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { createRouteHandlerClient } from '@/lib/supabase-server';
+import { requireMerchant, getServiceClient } from '@/lib/merchant-api-auth';
 import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST() {
     try {
-        // Authenticate merchant
-        const supabase = createRouteHandlerClient();
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        const authResult = await requireMerchant();
+        if (authResult instanceof NextResponse) return authResult;
+        const { merchant } = authResult.data;
 
-        if (authError || !user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        const serviceClient = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
-
-        // Get merchant
-        const { data: merchant } = await serviceClient
-            .from('merchants')
-            .select('id, status')
-            .eq('user_id', user.id)
-            .single();
-
-        if (!merchant) {
-            return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-        }
+        const serviceClient = getServiceClient();
 
         // Generate a unique connect code (format: XXXX-XXXX-XXXX)
         const rawCode = crypto.randomBytes(9).toString('base64url').toUpperCase().slice(0, 12);

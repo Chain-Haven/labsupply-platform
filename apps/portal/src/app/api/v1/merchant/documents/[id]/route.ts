@@ -3,46 +3,20 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { createRouteHandlerClient } from '@/lib/supabase-server';
+import { requireMerchant, getServiceClient } from '@/lib/merchant-api-auth';
 
 export const dynamic = 'force-dynamic';
-
-function getServiceClient() {
-    return createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-}
-
-async function getAuthUser() {
-    const supabase = createRouteHandlerClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) return null;
-    return user;
-}
 
 export async function GET(
     _request: NextRequest,
     { params }: { params: { id: string } }
 ) {
     try {
-        const user = await getAuthUser();
-        if (!user) {
-            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-        }
+        const authResult = await requireMerchant();
+        if (authResult instanceof NextResponse) return authResult;
+        const { merchant } = authResult.data;
 
         const supabase = getServiceClient();
-
-        const { data: merchant, error: merchantError } = await supabase
-            .from('merchants')
-            .select('id')
-            .eq('user_id', user.id)
-            .single();
-
-        if (merchantError || !merchant) {
-            return NextResponse.json({ error: 'Merchant profile not found' }, { status: 404 });
-        }
 
         const { data: doc, error: docError } = await supabase
             .from('merchant_documents')

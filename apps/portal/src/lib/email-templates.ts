@@ -1,5 +1,58 @@
 import { sendEmail, wrapHtml } from './email';
 
+export async function sendInvitationEmail(params: {
+    recipientEmail: string;
+    inviterName: string;
+    scope: 'merchant' | 'admin';
+    merchantName?: string;
+    role: string;
+    acceptUrl: string;
+}): Promise<void> {
+    const { recipientEmail, inviterName, scope, merchantName, role, acceptUrl } = params;
+
+    const roleLabel = role
+        .replace('MERCHANT_', '')
+        .replace('supplier_', '')
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, c => c.toUpperCase());
+
+    const contextLine = scope === 'merchant' && merchantName
+        ? `<b>${inviterName}</b> has invited you to join <b>${merchantName}</b> as a <b>${roleLabel}</b>.`
+        : `<b>${inviterName}</b> has invited you to join the admin team as a <b>${roleLabel}</b>.`;
+
+    const dashboardName = scope === 'merchant' ? 'Merchant Dashboard' : 'Admin Panel';
+
+    const inner = `
+        <div style="text-align: center; margin-bottom: 24px;">
+            <h1 style="color: #4f46e5; font-size: 20px; margin: 0;">You've Been Invited</h1>
+        </div>
+        <p style="color: #374151; font-size: 14px; line-height: 1.6;">
+            ${contextLine}
+        </p>
+        <p style="color: #374151; font-size: 14px; line-height: 1.6;">
+            Click the button below to accept the invitation and set up your account. You'll be directed to the ${dashboardName}.
+        </p>
+        <div style="text-align: center; margin: 24px 0;">
+            <a href="${acceptUrl}"
+               style="display: inline-block; background-color: #4f46e5; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 600;">
+                Accept Invitation
+            </a>
+        </div>
+        <p style="color: #6b7280; font-size: 12px; line-height: 1.5;">
+            This invitation will expire in 7 days. If you didn't expect this email, you can safely ignore it.
+        </p>`;
+
+    const subject = scope === 'merchant'
+        ? `You've been invited to join ${merchantName || 'a team'} - WhiteLabel Peptides`
+        : `Admin invitation - WhiteLabel Peptides`;
+
+    try {
+        await sendEmail(recipientEmail, subject, wrapHtml(inner));
+    } catch (err) {
+        console.error('Failed to send invitation email:', err);
+    }
+}
+
 function formatCents(cents: number): string {
     return `$${(cents / 100).toFixed(2)}`;
 }

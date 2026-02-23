@@ -134,6 +134,39 @@ export default function WalletPage() {
     const creditedBtcDeposits = btcDeposits.filter(d => d.status === 'CREDITED');
 
 
+    // Load wallet data, transactions, and invoices
+    const loadWalletData = useCallback(async () => {
+        try {
+            const [dashRes, invRes] = await Promise.all([
+                fetch('/api/v1/merchant/dashboard', { credentials: 'include' }),
+                fetch('/api/v1/merchant/invoices', { credentials: 'include' }),
+            ]);
+
+            if (dashRes.ok) {
+                const dash = await dashRes.json();
+                if (dash.wallet) {
+                    setWalletData(prev => ({
+                        ...prev,
+                        balance_cents: dash.wallet.balance_cents ?? prev.balance_cents,
+                        reserved_cents: dash.wallet.reserved_cents ?? prev.reserved_cents,
+                    }));
+                }
+                if (dash.recent_transactions) {
+                    setTransactions(dash.recent_transactions);
+                }
+            }
+
+            if (invRes.ok) {
+                const invData = await invRes.json();
+                setInvoices(invData.data || []);
+            }
+        } catch {
+            console.error('Failed to load wallet data');
+        }
+    }, []);
+
+    useEffect(() => { loadWalletData(); }, [loadWalletData]);
+
     // Load BTC data
     const loadBtcData = useCallback(async () => {
         setLoadingBtc(true);
@@ -208,14 +241,8 @@ export default function WalletPage() {
                 window.open(data.invoice.pay_url, '_blank');
             }
 
-            // Refresh invoices list
-            try {
-                const invRes = await fetch('/api/v1/merchant/invoices');
-                if (invRes.ok) {
-                    const invData = await invRes.json();
-                    setInvoices(invData.data || []);
-                }
-            } catch { /* ignore refresh failure */ }
+            // Refresh all wallet data including the new invoice
+            loadWalletData();
         } catch (err) {
             toast({ title: 'Error', description: (err as Error).message, variant: 'destructive' });
         } finally {
@@ -415,6 +442,82 @@ export default function WalletPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Open Invoices */}
+            {pendingInvoices.length > 0 && (
+                <Card className="border-violet-200 dark:border-violet-800">
+                    <CardHeader>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <CardTitle className="flex items-center gap-2">
+                                    <FileText className="w-5 h-5 text-violet-600" />
+                                    Open Invoices ({pendingInvoices.length})
+                                </CardTitle>
+                                <CardDescription>Pay these invoices to fund your wallet</CardDescription>
+                            </div>
+                            <Button
+                                onClick={() => setShowTopupModal(true)}
+                                size="sm"
+                                className="gap-2 bg-violet-600 hover:bg-violet-700"
+                            >
+                                <ArrowUpRight className="w-4 h-4" />
+                                New Invoice
+                            </Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-3">
+                            {pendingInvoices.map((invoice) => (
+                                <div
+                                    key={invoice.id}
+                                    className="flex items-center justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-violet-300 dark:hover:border-violet-700 transition-colors"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={cn(
+                                            'w-10 h-10 rounded-full flex items-center justify-center',
+                                            invoice.status === 'Unpaid'
+                                                ? 'bg-yellow-100 dark:bg-yellow-900/20'
+                                                : 'bg-blue-100 dark:bg-blue-900/20'
+                                        )}>
+                                            {invoice.status === 'Unpaid'
+                                                ? <DollarSign className="w-5 h-5 text-yellow-600" />
+                                                : <Clock className="w-5 h-5 text-blue-600" />
+                                            }
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-gray-900 dark:text-white">
+                                                {formatCurrency(invoice.amount_cents)}
+                                            </p>
+                                            <p className="text-xs text-gray-500">
+                                                Due {new Date(invoice.due_date).toLocaleDateString()} &middot; Created {new Date(invoice.created_at).toLocaleDateString()}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        {getStatusBadge(invoice.status)}
+                                        {invoice.status === 'Unpaid' && invoice.mercury_slug && (
+                                            <a
+                                                href={`https://app.mercury.com/pay/${invoice.mercury_slug}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors"
+                                            >
+                                                Pay Now
+                                                <ExternalLink className="w-4 h-4" />
+                                            </a>
+                                        )}
+                                        {invoice.status === 'Processing' && (
+                                            <span className="text-xs text-blue-600 dark:text-blue-400">
+                                                Payment processing...
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Add Funds Toggle */}
             <Card>

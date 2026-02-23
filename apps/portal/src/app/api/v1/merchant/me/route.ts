@@ -31,17 +31,40 @@ export async function GET() {
             return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
         }
 
-        const { data: merchant, error: dbError } = await getServiceClient()
+        const serviceClient = getServiceClient();
+
+        // Check direct ownership first
+        const { data: ownedMerchant } = await serviceClient
             .from('merchants')
             .select('*')
             .eq('user_id', user.id)
-            .single();
+            .maybeSingle();
 
-        if (dbError || !merchant) {
-            return NextResponse.json({ error: 'Merchant profile not found' }, { status: 404 });
+        if (ownedMerchant) {
+            return NextResponse.json({ ...ownedMerchant, merchant_role: 'MERCHANT_OWNER' });
         }
 
-        return NextResponse.json(merchant);
+        // Check team membership
+        const { data: membership } = await serviceClient
+            .from('merchant_users')
+            .select('role, merchant_id')
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .maybeSingle();
+
+        if (membership) {
+            const { data: merchant } = await serviceClient
+                .from('merchants')
+                .select('*')
+                .eq('id', membership.merchant_id)
+                .single();
+
+            if (merchant) {
+                return NextResponse.json({ ...merchant, merchant_role: membership.role });
+            }
+        }
+
+        return NextResponse.json({ error: 'Merchant profile not found' }, { status: 404 });
     } catch (err) {
         console.error('Error in GET /api/v1/merchant/me:', err);
         return NextResponse.json({ error: 'Failed to load merchant profile. Please refresh and try again.' }, { status: 500 });
@@ -114,6 +137,33 @@ export async function PATCH(request: NextRequest) {
         const body = await request.json();
         const serviceClient = getServiceClient();
 
+        // Resolve merchant: owner or team member
+        let merchantId: string | null = null;
+
+        const { data: ownedMerchant } = await serviceClient
+            .from('merchants')
+            .select('id')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+        if (ownedMerchant) {
+            merchantId = ownedMerchant.id;
+        } else {
+            const { data: membership } = await serviceClient
+                .from('merchant_users')
+                .select('merchant_id, role')
+                .eq('user_id', user.id)
+                .eq('is_active', true)
+                .maybeSingle();
+            if (membership && membership.role !== 'MERCHANT_USER') {
+                merchantId = membership.merchant_id;
+            }
+        }
+
+        if (!merchantId) {
+            return NextResponse.json({ error: 'Merchant profile not found or insufficient permissions' }, { status: 403 });
+        }
+
         // Resolve package slug to UUID if provided
         if (body.selected_package_slug) {
             const { data: pkg } = await serviceClient
@@ -130,7 +180,7 @@ export async function PATCH(request: NextRequest) {
         const { error: updateError } = await serviceClient
             .from('merchants')
             .update(body)
-            .eq('user_id', user.id);
+            .eq('id', merchantId);
 
         if (updateError) {
             console.error('Error updating merchant profile:', updateError);
@@ -140,7 +190,7 @@ export async function PATCH(request: NextRequest) {
         const { data: merchant } = await serviceClient
             .from('merchants')
             .select('*')
-            .eq('user_id', user.id)
+            .eq('id', merchantId)
             .single();
 
         return NextResponse.json(merchant);

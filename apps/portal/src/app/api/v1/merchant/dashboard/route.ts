@@ -4,31 +4,9 @@
  */
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { createRouteHandlerClient } from '@/lib/supabase-server';
+import { requireMerchant, getServiceClient } from '@/lib/merchant-api-auth';
 
 export const dynamic = 'force-dynamic';
-
-function getServiceClient() {
-    return createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-}
-
-async function getAuthMerchant() {
-    const supabase = createRouteHandlerClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) return null;
-
-    const { data: merchant } = await getServiceClient()
-        .from('merchants')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-    return merchant;
-}
 
 async function safeQuery(queryFn: () => any): Promise<{ data: any; count: number; error: null }> {
     try {
@@ -44,10 +22,9 @@ async function safeQuery(queryFn: () => any): Promise<{ data: any; count: number
 
 export async function GET() {
     try {
-        const merchant = await getAuthMerchant();
-        if (!merchant) {
-            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-        }
+        const authResult = await requireMerchant();
+        if (authResult instanceof NextResponse) return authResult;
+        const { merchant } = authResult.data;
 
         const supabase = getServiceClient();
 

@@ -4,39 +4,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { createRouteHandlerClient } from '@/lib/supabase-server';
+import { requireMerchant, getServiceClient } from '@/lib/merchant-api-auth';
 
 export const dynamic = 'force-dynamic';
 
-async function getAuthenticatedMerchant() {
-    const supabase = createRouteHandlerClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return null;
-    }
-
-    const serviceClient = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    const { data: merchant } = await serviceClient
-        .from('merchants')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-    return merchant;
-}
-
 export async function GET(request: NextRequest) {
     try {
-        const merchant = await getAuthenticatedMerchant();
-        if (!merchant) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        const authResult = await requireMerchant();
+        if (authResult instanceof NextResponse) return authResult;
+        const { merchant } = authResult.data;
 
         const { searchParams } = new URL(request.url);
         const status = searchParams.get('status');
@@ -44,11 +20,7 @@ export async function GET(request: NextRequest) {
         const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100);
         const offset = (page - 1) * limit;
 
-        const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
-
+        const supabase = getServiceClient();
         let query = supabase
             .from('mercury_invoices')
             .select('*', { count: 'exact' })
