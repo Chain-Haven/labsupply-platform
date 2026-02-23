@@ -144,15 +144,23 @@ export default function WalletPage() {
 
             if (dashRes.ok) {
                 const dash = await dashRes.json();
-                if (dash.wallet) {
+                const d = dash.data || dash;
+                if (d.walletBalanceCents !== undefined || d.balance_cents !== undefined) {
                     setWalletData(prev => ({
                         ...prev,
-                        balance_cents: dash.wallet.balance_cents ?? prev.balance_cents,
-                        reserved_cents: dash.wallet.reserved_cents ?? prev.reserved_cents,
+                        balance_cents: d.walletBalanceCents ?? d.balance_cents ?? prev.balance_cents,
+                        reserved_cents: d.reservedCents ?? d.reserved_cents ?? prev.reserved_cents,
                     }));
                 }
-                if (dash.recent_transactions) {
-                    setTransactions(dash.recent_transactions);
+                if (d.recentOrders) {
+                    setTransactions(d.recentOrders.map((o: Record<string, unknown>) => ({
+                        id: o.id as string,
+                        type: 'order',
+                        amount_cents: -(o.totalEstimateCents as number || 0),
+                        date: o.createdAt as string,
+                        status: (o.status as string || '').toLowerCase(),
+                        description: `Order #${o.wooOrderNumber || o.wooOrderId || o.id}`,
+                    })));
                 }
             }
 
