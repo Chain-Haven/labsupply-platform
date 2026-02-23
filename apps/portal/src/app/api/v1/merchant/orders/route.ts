@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
             .from('orders')
             .select(`
                 id, woo_order_id, woo_order_number,
-                status, currency, shipping_method,
+                status, currency, shipping_method, order_type,
                 subtotal_cents, total_estimate_cents, actual_total_cents,
                 shipping_address, customer_email, customer_note,
                 created_at, shipped_at, completed_at,

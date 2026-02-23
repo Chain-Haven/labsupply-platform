@@ -274,8 +274,49 @@ export async function POST(request: NextRequest) {
         const canPayFromWallet = balanceAfterDeduction >= COMPLIANCE_RESERVE_CENTS;
         let paymentMethod: 'wallet' | 'invoice' = canPayFromWallet ? 'wallet' : 'invoice';
 
-        // Skip parent order row creation (testing orders don't need the orders table)
-        const orderId = null;
+        // Create parent order row so testing orders appear in all order views
+        const idempotencyKey = `testing-${merchant_id}-${Date.now()}`;
+        const orderNumber = `TST-${Date.now().toString(36).toUpperCase()}`;
+        let orderId: string | null = null;
+
+        const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .insert({
+                merchant_id,
+                woo_order_id: `TESTING-${Date.now()}`,
+                woo_order_number: orderNumber,
+                order_type: 'TESTING',
+                status: 'RECEIVED',
+                currency: 'USD',
+                subtotal_cents: totalProductCostCents,
+                handling_cents: totalTestingFeeCents,
+                shipping_estimate_cents: shippingFeeCents,
+                total_estimate_cents: grandTotalCents,
+                shipping_address: {},
+                supplier_notes: notes || `3rd Party Testing Order - ${lab.name}`,
+                idempotency_key: idempotencyKey,
+            })
+            .select('id')
+            .single();
+
+        if (order) {
+            orderId = order.id;
+
+            // Create order_items for the parent order
+            const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            const orderItems = processedItems.map((item: { product_id: string; sku: string; product_name: string; total_qty: number; product_cost_cents: number }) => ({
+                order_id: orderId,
+                product_id: UUID_RE.test(item.product_id) ? item.product_id : null,
+                sku: item.sku,
+                name: item.product_name,
+                qty: item.total_qty,
+                unit_price_cents: item.total_qty > 0 ? Math.round(item.product_cost_cents / item.total_qty) : 0,
+            }));
+
+            await supabase.from('order_items').insert(orderItems);
+        } else if (orderError) {
+            console.warn('Could not create parent order row, proceeding without:', orderError.message);
+        }
 
         // Get invoice email from admin settings
         let invoiceEmail = 'whitelabel@peptidetech.co';

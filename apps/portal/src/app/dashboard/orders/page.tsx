@@ -281,7 +281,14 @@ export default function OrdersPage() {
                                     >
                                         <td className="p-4">
                                             <div>
-                                                <p className="font-medium text-gray-900 dark:text-white">{order.woo_order_number || order.woo_order_id}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-medium text-gray-900 dark:text-white">{order.woo_order_number || order.woo_order_id}</p>
+                                                    {order.order_type === 'TESTING' && (
+                                                        <span className="inline-flex items-center px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-medium dark:bg-purple-900/30 dark:text-purple-400">
+                                                            Testing
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <p className="text-xs text-gray-500 font-mono">{order.id?.substring(0, 8)}</p>
                                             </div>
                                         </td>

@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
             .from('orders')
             .select(`
                 id, store_id, merchant_id, woo_order_id, woo_order_number,
-                status, currency,
+                status, currency, order_type,
                 subtotal_cents, total_estimate_cents, actual_total_cents,
                 shipping_address, customer_email, supplier_notes,
                 created_at, shipped_at,
