@@ -19,13 +19,19 @@ CREATE INDEX IF NOT EXISTS idx_kyb_documents_merchant_id ON public.kyb_documents
 
 ALTER TABLE public.kyb_documents ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Service role full access on kyb_documents"
-    ON public.kyb_documents FOR ALL
-    USING (auth.role() = 'service_role');
+DO $$ BEGIN
+    CREATE POLICY "Service role full access on kyb_documents"
+        ON public.kyb_documents FOR ALL
+        USING (auth.role() = 'service_role');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Users can view their own documents"
-    ON public.kyb_documents FOR SELECT
-    USING (auth.uid() = user_id);
+DO $$ BEGIN
+    CREATE POLICY "Users can view their own documents"
+        ON public.kyb_documents FOR SELECT
+        USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE OR REPLACE FUNCTION update_kyb_documents_updated_at()
 RETURNS TRIGGER AS $$
@@ -35,6 +41,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_kyb_documents_updated_at ON public.kyb_documents;
 CREATE TRIGGER trg_kyb_documents_updated_at
     BEFORE UPDATE ON public.kyb_documents
     FOR EACH ROW EXECUTE FUNCTION update_kyb_documents_updated_at();

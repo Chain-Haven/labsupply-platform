@@ -55,3 +55,4 @@ woocommerce-plugin/dist/
 *.key
 .vercel
 .env*.local
+supabase/.temp/

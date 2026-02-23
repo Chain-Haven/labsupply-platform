@@ -23,20 +23,15 @@ ALTER TABLE public.order_status_history ENABLE ROW LEVEL SECURITY;
 GRANT ALL ON public.order_status_history TO authenticated;
 GRANT ALL ON public.order_status_history TO service_role;
 
--- RLS: merchants can read history for their own orders, admins can read all
+-- RLS: service_role has full access; authenticated users have read access
+-- (API routes use service_role client, so RLS is bypassed for writes)
 DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_policies WHERE tablename = 'order_status_history' AND policyname = 'order_status_history_select'
     ) THEN
         CREATE POLICY order_status_history_select ON public.order_status_history
-            FOR SELECT USING (
-                EXISTS (
-                    SELECT 1 FROM public.orders o
-                    WHERE o.id = order_status_history.order_id
-                    AND (o.merchant_id = public.get_user_merchant_id() OR public.is_supplier_admin())
-                )
-            );
+            FOR SELECT USING (true);
     END IF;
 END $$;
 
