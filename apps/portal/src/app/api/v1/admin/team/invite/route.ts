@@ -74,14 +74,18 @@ export async function POST(request: NextRequest) {
         }
 
         // Resolve the super admin's auth user_id for invited_by
-        let invitedByUserId = admin.id;
-        if (admin.id === 'backup-session') {
-            const { data: adminRecord } = await serviceClient
-                .from('admin_users')
-                .select('user_id')
-                .eq('email', admin.email)
-                .single();
-            invitedByUserId = adminRecord?.user_id || admin.id;
+        // admin.id may be the admin_users table PK (not auth.users.id) or 'backup-session'
+        let invitedByUserId: string | null = null;
+
+        // Try to get the real auth.users.id
+        const { data: adminRecord } = await serviceClient
+            .from('admin_users')
+            .select('user_id')
+            .eq('email', admin.email)
+            .single();
+
+        if (adminRecord?.user_id) {
+            invitedByUserId = adminRecord.user_id;
         }
 
         const { data: invitation, error: insertError } = await serviceClient
@@ -113,11 +117,11 @@ export async function POST(request: NextRequest) {
         }).catch(err => console.error('Failed to send admin invitation email:', err));
 
         await serviceClient.from('audit_events').insert({
-            actor_user_id: invitedByUserId,
+            actor_user_id: invitedByUserId || undefined,
             action: 'admin_team.invite_sent',
             entity_type: 'invitation',
             entity_id: invitation.id,
-            new_values: { email, role: inviteRole },
+            new_values: { email, role: inviteRole, inviter: admin.email },
         }).then(() => {}, () => {});
 
         return NextResponse.json(invitation, { status: 201 });
