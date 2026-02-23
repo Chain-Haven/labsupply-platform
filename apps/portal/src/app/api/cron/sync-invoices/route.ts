@@ -187,6 +187,22 @@ export async function GET(request: NextRequest) {
                 const credit = await creditWallet(supabase, invoice.merchant_id, invoice.amount_cents, invoice.id, invoice.mercury_invoice_id);
                 if (credit.success) results.credited++;
                 results.updated++;
+
+                // Auto-advance any testing orders linked to this invoice
+                const { data: linkedTestingOrders } = await supabase
+                    .from('testing_orders')
+                    .select('id, status')
+                    .eq('payment_invoice_id', invoice.id)
+                    .eq('payment_status', 'invoice_sent');
+
+                for (const to of linkedTestingOrders || []) {
+                    await supabase.from('testing_orders')
+                        .update({
+                            payment_status: 'paid',
+                            status: to.status === 'PENDING' ? 'AWAITING_SHIPMENT' : to.status,
+                        })
+                        .eq('id', to.id);
+                }
             } else if (newStatus === 'Processing') {
                 await supabase.from('mercury_invoices').update({ status: 'Processing' }).eq('id', invoice.id);
                 results.updated++;

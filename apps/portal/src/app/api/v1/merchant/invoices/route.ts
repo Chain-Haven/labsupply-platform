@@ -90,6 +90,21 @@ async function quickSyncMerchantInvoices(supabase: ReturnType<typeof getServiceC
                                 message: `$${(inv.amount_cents / 100).toFixed(2)} has been credited to your wallet.`,
                                 data: { mercury_invoice_id: inv.mercury_invoice_id, amount_cents: inv.amount_cents },
                             });
+
+                            // Auto-advance testing orders linked to this invoice
+                            const { data: linkedTOs } = await supabase
+                                .from('testing_orders')
+                                .select('id, status')
+                                .eq('payment_invoice_id', inv.id)
+                                .eq('payment_status', 'invoice_sent');
+                            for (const to of linkedTOs || []) {
+                                await supabase.from('testing_orders')
+                                    .update({
+                                        payment_status: 'paid',
+                                        status: to.status === 'PENDING' ? 'AWAITING_SHIPMENT' : to.status,
+                                    })
+                                    .eq('id', to.id);
+                            }
                         } else {
                             await supabase.from('mercury_invoices').update({ wallet_credited: false }).eq('id', inv.id);
                         }

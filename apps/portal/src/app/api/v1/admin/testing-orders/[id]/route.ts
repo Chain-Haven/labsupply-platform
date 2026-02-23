@@ -91,6 +91,26 @@ export async function PATCH(
         }
 
         const supabase = getServiceClient();
+
+        // Fetch current testing order to check payment status
+        const { data: current } = await supabase
+            .from('testing_orders')
+            .select('status, payment_status')
+            .eq('id', params.id)
+            .single();
+
+        if (!current) {
+            return NextResponse.json({ error: 'Testing order not found' }, { status: 404 });
+        }
+
+        // Block advancement past PENDING if not paid
+        const REQUIRES_PAYMENT = ['AWAITING_SHIPMENT', 'SHIPPED', 'IN_TESTING', 'RESULTS_RECEIVED', 'COMPLETE'];
+        if (REQUIRES_PAYMENT.includes(validation.data.status) && current.payment_status !== 'paid') {
+            return NextResponse.json({
+                error: 'This testing order has not been paid yet. The merchant must pay the outstanding invoice before the order can proceed.',
+            }, { status: 400 });
+        }
+
         const updates: Record<string, unknown> = {
             status: validation.data.status,
         };

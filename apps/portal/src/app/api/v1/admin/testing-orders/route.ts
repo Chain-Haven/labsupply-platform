@@ -331,13 +331,18 @@ export async function POST(request: NextRequest) {
         }
 
         // Create the testing order
+        // If paying by invoice, order starts as PENDING until invoice is paid
+        const initialStatus = paymentMethod === 'wallet' ? 'AWAITING_SHIPMENT' : 'PENDING';
+        const initialPaymentStatus = paymentMethod === 'wallet' ? 'paid' : 'invoice_sent';
+
         const { data: testingOrder, error: testingError } = await supabase
             .from('testing_orders')
             .insert({
                 order_id: orderId,
                 merchant_id,
                 testing_lab_id,
-                status: 'AWAITING_SHIPMENT',
+                status: initialStatus,
+                payment_status: initialPaymentStatus,
                 shipping_fee_cents: shippingFeeCents,
                 total_testing_fee_cents: totalTestingFeeCents,
                 total_product_cost_cents: totalProductCostCents,
@@ -468,7 +473,7 @@ export async function POST(request: NextRequest) {
                             ? `https://app.mercury.com/pay/${mercuryInvoice.slug}`
                             : null;
 
-                        await supabase.from('mercury_invoices').insert({
+                        const { data: invoiceRow } = await supabase.from('mercury_invoices').insert({
                             merchant_id,
                             mercury_invoice_id: mercuryInvoice.id,
                             mercury_invoice_number: mercuryInvoice.invoiceNumber,
@@ -476,7 +481,14 @@ export async function POST(request: NextRequest) {
                             amount_cents: grandTotalCents,
                             status: 'Unpaid',
                             due_date: dueDateStr,
-                        });
+                        }).select('id').single();
+
+                        // Link the invoice to the testing order
+                        if (invoiceRow && testingOrder) {
+                            await supabase.from('testing_orders')
+                                .update({ payment_invoice_id: invoiceRow.id })
+                                .eq('id', testingOrder.id);
+                        }
                     } else {
                         console.error('Mercury invoice creation failed for testing order:', await mercuryRes.text());
                     }

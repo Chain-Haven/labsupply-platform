@@ -234,6 +234,7 @@ export default function OrdersPage() {
         merchant_id: string;
         testing_lab_id: string;
         status: string;
+        payment_status?: 'paid' | 'pending_invoice' | 'invoice_sent';
         tracking_number?: string;
         tracking_notified_at?: string;
         shipping_fee_cents: number;
@@ -1009,6 +1010,11 @@ export default function OrdersPage() {
                                                     )}>
                                                         {to.status.replace(/_/g, ' ')}
                                                     </span>
+                                                    {to.payment_status && to.payment_status !== 'paid' && (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                                                            Unpaid
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <p className="text-sm text-gray-500">
                                                     {to.merchants?.company_name || to.merchants?.name || 'Unknown'} &middot;
