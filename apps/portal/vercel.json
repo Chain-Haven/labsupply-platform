@@ -5,6 +5,12 @@
     "regions": [
         "iad1"
     ],
+    "crons": [
+        {
+            "path": "/api/cron/sync-invoices",
+            "schedule": "*/5 * * * *"
+        }
+    ],
     "headers": [
         {
             "source": "/api/(.*)",

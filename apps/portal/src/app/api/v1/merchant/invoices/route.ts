@@ -1,6 +1,8 @@
 /**
  * GET /api/v1/merchant/invoices
- * List Mercury invoices for the authenticated merchant
+ * List Mercury invoices for the authenticated merchant.
+ * Also performs a quick inline sync for this merchant's open invoices
+ * against Mercury API so statuses are always fresh.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -8,11 +10,114 @@ import { requireMerchant, getServiceClient } from '@/lib/merchant-api-auth';
 
 export const dynamic = 'force-dynamic';
 
+const MERCURY_API_BASE = 'https://api.mercury.com/api/v1';
+
+async function quickSyncMerchantInvoices(supabase: ReturnType<typeof getServiceClient>, merchantId: string) {
+    const mercuryToken = process.env.MERCURY_API_TOKEN;
+    if (!mercuryToken) return;
+
+    const { data: openInvoices } = await supabase
+        .from('mercury_invoices')
+        .select('id, mercury_invoice_id, amount_cents, status')
+        .eq('merchant_id', merchantId)
+        .in('status', ['Unpaid', 'Processing'])
+        .eq('wallet_credited', false);
+
+    if (!openInvoices || openInvoices.length === 0) return;
+
+    for (const inv of openInvoices) {
+        try {
+            const res = await fetch(`${MERCURY_API_BASE}/ar/invoices/${inv.mercury_invoice_id}`, {
+                headers: { 'Authorization': `Bearer ${mercuryToken}`, 'Accept': 'application/json' },
+                signal: AbortSignal.timeout(8000),
+            });
+            if (!res.ok) continue;
+
+            const mercury = await res.json();
+            if (mercury.status === inv.status) continue;
+
+            if (mercury.status === 'Paid') {
+                // Claim + credit wallet atomically
+                const { data: claimed } = await supabase
+                    .from('mercury_invoices')
+                    .update({ status: 'Paid', wallet_credited: true })
+                    .eq('id', inv.id)
+                    .eq('wallet_credited', false)
+                    .select('id')
+                    .single();
+
+                if (claimed) {
+                    const { data: wallet } = await supabase
+                        .from('wallet_accounts')
+                        .select('id, balance_cents')
+                        .eq('merchant_id', merchantId)
+                        .eq('currency', 'USD')
+                        .single();
+
+                    if (wallet) {
+                        const newBalance = wallet.balance_cents + inv.amount_cents;
+                        const { error: upErr } = await supabase
+                            .from('wallet_accounts')
+                            .update({ balance_cents: newBalance })
+                            .eq('id', wallet.id)
+                            .eq('balance_cents', wallet.balance_cents);
+
+                        if (!upErr) {
+                            const { data: txn } = await supabase
+                                .from('wallet_transactions')
+                                .insert({
+                                    merchant_id: merchantId,
+                                    wallet_id: wallet.id,
+                                    type: 'TOPUP',
+                                    amount_cents: inv.amount_cents,
+                                    balance_after_cents: newBalance,
+                                    reference_type: 'mercury_invoice',
+                                    reference_id: inv.id,
+                                    description: `Mercury invoice payment (${inv.mercury_invoice_id})`,
+                                    metadata: { mercury_invoice_id: inv.mercury_invoice_id, source: 'mercury_invoicing' },
+                                })
+                                .select('id')
+                                .single();
+
+                            if (txn?.id) {
+                                await supabase.from('mercury_invoices').update({ wallet_transaction_id: txn.id }).eq('id', inv.id);
+                            }
+
+                            await supabase.from('notifications').insert({
+                                merchant_id: merchantId,
+                                type: 'INVOICE_PAID',
+                                title: 'Payment Received',
+                                message: `$${(inv.amount_cents / 100).toFixed(2)} has been credited to your wallet.`,
+                                data: { mercury_invoice_id: inv.mercury_invoice_id, amount_cents: inv.amount_cents },
+                            });
+                        } else {
+                            await supabase.from('mercury_invoices').update({ wallet_credited: false }).eq('id', inv.id);
+                        }
+                    } else {
+                        await supabase.from('mercury_invoices').update({ wallet_credited: false }).eq('id', inv.id);
+                    }
+                }
+            } else if (mercury.status === 'Processing') {
+                await supabase.from('mercury_invoices').update({ status: 'Processing' }).eq('id', inv.id);
+            } else if (mercury.status === 'Cancelled') {
+                await supabase.from('mercury_invoices').update({ status: 'Cancelled' }).eq('id', inv.id);
+            }
+        } catch {
+            // Best-effort sync, don't block the response
+        }
+    }
+}
+
 export async function GET(request: NextRequest) {
     try {
         const authResult = await requireMerchant();
         if (authResult instanceof NextResponse) return authResult;
         const { merchant } = authResult.data;
+
+        const supabase = getServiceClient();
+
+        // Quick sync this merchant's invoices with Mercury before returning
+        await quickSyncMerchantInvoices(supabase, merchant.id);
 
         const { searchParams } = new URL(request.url);
         const status = searchParams.get('status');
@@ -20,7 +125,6 @@ export async function GET(request: NextRequest) {
         const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100);
         const offset = (page - 1) * limit;
 
-        const supabase = getServiceClient();
         let query = supabase
             .from('mercury_invoices')
             .select('*', { count: 'exact' })
