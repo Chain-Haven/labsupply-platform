@@ -56,7 +56,7 @@ export async function GET() {
         }
 
         // Generate signed URLs for each document
-        const docsWithUrls = await Promise.all(
+        const docsWithUrls: Array<Record<string, unknown>> = await Promise.all(
             kybDocuments.map(async (doc: Record<string, unknown>) => {
                 const { data: signedUrl } = await supabase.storage
                     .from('merchant-uploads')
@@ -66,7 +66,7 @@ export async function GET() {
         );
 
         // Group documents by user_id
-        const docsByUser: Record<string, typeof docsWithUrls> = {};
+        const docsByUser: Record<string, Array<Record<string, unknown>>> = {};
         for (const doc of docsWithUrls) {
             const uid = doc.user_id as string;
             if (!docsByUser[uid]) docsByUser[uid] = [];
