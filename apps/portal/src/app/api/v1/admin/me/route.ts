@@ -9,8 +9,6 @@ import { createRouteHandlerClient } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
 
-const SUPER_ADMIN_EMAIL = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || 'info@chainhaven.co';
-
 export async function GET() {
     try {
         const supabase = createRouteHandlerClient();
@@ -27,7 +25,7 @@ export async function GET() {
 
         const email = user.email?.toLowerCase() || '';
 
-        // Check admin_users table
+        // Admin must exist in admin_users table -- no auto-creation or email-based bypass
         const { data: adminData, error: dbError } = await serviceClient
             .from('admin_users')
             .select('*')
@@ -38,25 +36,14 @@ export async function GET() {
             console.error('Error checking admin status:', dbError);
         }
 
-        // Auto-create super admin if not in table
-        if (!adminData && email === SUPER_ADMIN_EMAIL) {
-            const { data: newAdmin, error: insertError } = await serviceClient
-                .from('admin_users')
-                .insert({
-                    user_id: user.id,
-                    email,
-                    name: 'WhiteLabel Admin',
-                    role: 'super_admin',
-                })
-                .select()
-                .single();
-
-            if (!insertError && newAdmin) {
-                return NextResponse.json({ admin: newAdmin });
-            }
-        }
-
         if (adminData) {
+            // Link user_id if not already set
+            if (!adminData.user_id && user.id) {
+                await serviceClient
+                    .from('admin_users')
+                    .update({ user_id: user.id })
+                    .eq('id', adminData.id);
+            }
             return NextResponse.json({ admin: adminData });
         }
 

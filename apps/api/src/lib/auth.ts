@@ -22,31 +22,36 @@ export interface AuthenticatedStore {
  */
 export function decryptSecret(encryptedValue: string): string {
     const encryptionKey = process.env.STORE_SECRET_ENCRYPTION_KEY;
+    const isProduction = process.env.NODE_ENV === 'production';
+
     if (!encryptionKey) {
-        // No encryption key configured -- assume plaintext storage (migration period)
+        if (isProduction) {
+            throw new Error('STORE_SECRET_ENCRYPTION_KEY is required in production');
+        }
+        console.warn('STORE_SECRET_ENCRYPTION_KEY not set — returning value as-is (dev only)');
         return encryptedValue;
     }
 
-    try {
-        // Format: iv:authTag:ciphertext (all hex)
-        const parts = encryptedValue.split(':');
-        if (parts.length !== 3) {
-            return encryptedValue; // Not encrypted format, use as-is
+    // Format: iv:authTag:ciphertext (all hex)
+    const parts = encryptedValue.split(':');
+    if (parts.length !== 3) {
+        if (isProduction) {
+            throw new Error('Store secret is not in encrypted format. All secrets must be encrypted in production.');
         }
-
-        const [ivHex, authTagHex, ciphertextHex] = parts;
-        const key = Buffer.from(encryptionKey, 'hex');
-        const iv = Buffer.from(ivHex, 'hex');
-        const authTag = Buffer.from(authTagHex, 'hex');
-        const ciphertext = Buffer.from(ciphertextHex, 'hex');
-
-        const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-        decipher.setAuthTag(authTag);
-        const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-        return decrypted.toString('utf8');
-    } catch {
-        return encryptedValue; // Decryption failed, use as-is
+        console.warn('Store secret not in encrypted format — returning as-is (dev only)');
+        return encryptedValue;
     }
+
+    const [ivHex, authTagHex, ciphertextHex] = parts;
+    const key = Buffer.from(encryptionKey, 'hex');
+    const iv = Buffer.from(ivHex, 'hex');
+    const authTag = Buffer.from(authTagHex, 'hex');
+    const ciphertext = Buffer.from(ciphertextHex, 'hex');
+
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(authTag);
+    const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    return decrypted.toString('utf8');
 }
 
 /**
@@ -127,6 +132,20 @@ export async function verifyStoreRequest(
 
     if (!result.valid) {
         throw new ApiError('SIGNATURE_INVALID', result.error || 'Invalid signature', 401);
+    }
+
+    // Nonce replay protection: reject if this nonce was already used for this store
+    const { error: nonceErr } = await supabase
+        .from('request_nonces')
+        .insert({ store_id: storeId, nonce })
+        .single();
+
+    if (nonceErr) {
+        // Unique constraint violation = replay; other errors = log and allow (fail open for availability)
+        if (nonceErr.code === '23505') {
+            throw new ApiError('NONCE_REUSED', 'Request nonce has already been used. Replay rejected.', 401);
+        }
+        console.warn('Nonce insert failed (non-duplicate), allowing request:', nonceErr.message);
     }
 
     return {

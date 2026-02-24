@@ -9,8 +9,6 @@ import { createClient } from '@supabase/supabase-js';
 import { createRouteHandlerClient } from '@/lib/supabase-server';
 import { cookies } from 'next/headers';
 
-const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || 'info@chainhaven.co';
-
 interface AdminUser {
     id: string;
     email: string;
@@ -19,8 +17,8 @@ interface AdminUser {
 
 /**
  * Verify the request is from an authenticated admin.
- * Checks Supabase auth session first, then backup session cookie.
- * Returns the admin user or null.
+ * The user MUST exist in the admin_users table -- there is no fallback
+ * or auto-promotion based on email address.
  */
 export async function getAuthenticatedAdmin(request?: NextRequest): Promise<AdminUser | null> {
     const serviceClient = createClient(
@@ -36,20 +34,14 @@ export async function getAuthenticatedAdmin(request?: NextRequest): Promise<Admi
         if (!error && user?.email) {
             const email = user.email.toLowerCase();
 
-            // Check admin_users table
             const { data: admin } = await serviceClient
                 .from('admin_users')
-                .select('id, email, role')
+                .select('id, email, role, is_active')
                 .eq('email', email)
                 .single();
 
-            if (admin) {
+            if (admin && admin.is_active !== false) {
                 return { id: admin.id, email: admin.email, role: admin.role };
-            }
-
-            // Auto-create super admin if they're in admin_users but not found
-            if (email === SUPER_ADMIN_EMAIL.toLowerCase()) {
-                return { id: user.id, email, role: 'super_admin' };
             }
         }
     } catch {
@@ -80,10 +72,6 @@ export async function getAuthenticatedAdmin(request?: NextRequest): Promise<Admi
 
                 if (admin && admin.is_active !== false) {
                     return { id: admin.id, email: admin.email, role: admin.role };
-                }
-
-                if (email === SUPER_ADMIN_EMAIL.toLowerCase()) {
-                    return { id: 'backup-session', email, role: 'super_admin' };
                 }
             }
         }

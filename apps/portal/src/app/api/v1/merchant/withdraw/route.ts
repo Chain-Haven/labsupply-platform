@@ -141,23 +141,31 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to submit withdrawal request. No funds were deducted — please try again.' }, { status: 500 });
         }
 
-        // Record ledger transaction
+        // Atomically debit wallet and record ledger transaction
         const txType = currency === 'USD' ? 'USD_WITHDRAWAL_REQUESTED' : 'BTC_WITHDRAWAL_REQUESTED';
-        await sc.from('wallet_transactions').insert({
-            merchant_id: merchant.id,
-            wallet_id: wallet.id,
-            type: txType,
-            amount_cents: -withdrawAmount,
-            balance_after_cents: wallet.balance_cents,
-            reference_type: 'withdrawal_request',
-            reference_id: withdrawalReq.id,
-            description: `${currency} withdrawal requested`,
-            metadata: {
-                currency,
-                amount_minor: withdrawAmount,
-                withdrawal_request_id: withdrawalReq.id,
-            },
-        });
+        try {
+            const { adjustWalletBalance } = await import('@/lib/wallet-ops');
+            await adjustWalletBalance(sc, {
+                walletId: wallet.id,
+                merchantId: merchant.id,
+                amountCents: -withdrawAmount,
+                type: txType,
+                referenceType: 'withdrawal_request',
+                referenceId: withdrawalReq.id,
+                description: `${currency} withdrawal requested`,
+                metadata: {
+                    currency,
+                    amount_minor: withdrawAmount,
+                    withdrawal_request_id: withdrawalReq.id,
+                },
+                idempotencyKey: `withdraw-req-${withdrawalReq.id}`,
+            });
+        } catch (walletErr) {
+            console.error('Atomic wallet debit failed:', walletErr);
+            // Rollback the withdrawal request since wallet debit failed
+            await sc.from('withdrawal_requests').delete().eq('id', withdrawalReq.id);
+            return NextResponse.json({ error: 'Insufficient balance or wallet error. No funds were deducted.' }, { status: 400 });
+        }
 
         // Set merchant status to CLOSING
         await sc
