@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { logNonCritical } from '@/lib/logger';
 import { createRouteHandlerClient } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
@@ -179,14 +180,14 @@ export async function POST(request: NextRequest) {
         .eq('id', invitation.id);
 
     // Audit
-    await serviceClient.from('audit_events').insert({
+    logNonCritical(serviceClient.from('audit_events').insert({
         actor_user_id: user.id,
         merchant_id: invitation.merchant_id || undefined,
         action: 'team.invite_accepted',
         entity_type: 'invitation',
         entity_id: invitation.id,
         new_values: { email: invitation.email, role: invitation.role, scope: invitation.scope },
-    }).then(() => {}, () => {});
+    }), 'audit:team.invite_accepted');
 
     return NextResponse.json({
         success: true,

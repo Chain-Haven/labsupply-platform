@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/admin-api-auth';
+import { logNonCritical } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -160,12 +161,12 @@ export async function POST(request: NextRequest) {
                 });
             }
 
-            await supabase.from('audit_events').insert({
+            logNonCritical(supabase.from('audit_events').insert({
                 action: 'inventory.lot_added',
                 entity_type: 'lot',
                 entity_id: lot.id,
                 metadata: { product_id: productId, lot_code: lotCode, quantity: lotQuantity },
-            }).then(() => {}, () => {});
+            }), 'audit:inventory.lot_added');
         }
 
         return NextResponse.json({ data: lot }, { status: 201 });

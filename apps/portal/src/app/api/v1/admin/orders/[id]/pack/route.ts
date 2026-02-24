@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/admin-api-auth';
+import { validateBody, packOrderSchema } from '@/lib/api-schemas';
+import { logNonCritical } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,14 +27,12 @@ export async function POST(
         const orderId = params.id;
 
         const body = await request.json();
-        const items: Array<{ order_item_id: string; lot_code: string }> = body.items;
-
-        if (!Array.isArray(items) || items.length === 0) {
-            return NextResponse.json(
-                { error: 'items array is required and must not be empty' },
-                { status: 400 },
-            );
+        const validation = validateBody(packOrderSchema, body);
+        if ('error' in validation) {
+            return NextResponse.json(validation, { status: 400 });
         }
+        const { data } = validation;
+        const items = data.items;
 
         const { data: order, error: orderErr } = await supabase
             .from('orders')
@@ -135,19 +135,19 @@ export async function POST(
             );
         }
 
-        await supabase.from('order_status_history').insert({
+        logNonCritical(supabase.from('order_status_history').insert({
             order_id: orderId,
             from_status: currentStatus,
             to_status: 'PACKED',
             notes: 'Order packed with lot assignments',
-        }).then(() => {}, () => {});
+        }), 'status_history:pack');
 
-        await supabase.from('audit_events').insert({
+        logNonCritical(supabase.from('audit_events').insert({
             action: 'order.packed',
             entity_type: 'order',
             entity_id: orderId,
-            new_values: { items: body.items },
-        }).then(() => {}, () => {});
+            new_values: { items },
+        }), 'audit:order.packed');
 
         return NextResponse.json({
             data: {

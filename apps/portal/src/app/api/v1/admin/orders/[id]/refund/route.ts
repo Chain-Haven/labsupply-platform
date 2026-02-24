@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/admin-api-auth';
+import { validateBody, refundSchema } from '@/lib/api-schemas';
+import { logNonCritical } from '@/lib/logger';
+import { adjustWalletBalance, adjustWalletReserved, WalletNotFoundError } from '@/lib/wallet-ops';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +25,12 @@ export async function POST(
         const supabase = getServiceClient();
         const orderId = params.id;
         const body = await request.json();
-        const reason = body.reason || 'Admin refund';
+        const validation = validateBody(refundSchema, body);
+        if ('error' in validation) {
+            return NextResponse.json(validation, { status: 400 });
+        }
+        const { data } = validation;
+        const reason = data.reason;
 
         const { data: order, error: orderErr } = await supabase
             .from('orders')
@@ -53,7 +61,7 @@ export async function POST(
 
         const { data: wallet } = await supabase
             .from('wallet_accounts')
-            .select('id, balance_cents, reserved_cents')
+            .select('id, reserved_cents')
             .eq('merchant_id', order.merchant_id)
             .eq('currency', 'USD')
             .single();
@@ -62,53 +70,50 @@ export async function POST(
             return NextResponse.json({ error: 'Merchant wallet not found' }, { status: 500 });
         }
 
-        const newBalance = wallet.balance_cents + refundAmountCents;
+        let newBalance: number;
+        try {
+            const result = await adjustWalletBalance(supabase, {
+                walletId: wallet.id,
+                merchantId: order.merchant_id,
+                amountCents: refundAmountCents,
+                type: 'REFUND',
+                referenceType: 'order',
+                referenceId: orderId,
+                description: `Refund: ${reason}`,
+                idempotencyKey: `refund-${orderId}`,
+            });
+            newBalance = result.newBalance;
 
-        const preSettlementStatuses = ['FUNDED', 'PACKED', 'RELEASED_TO_FULFILLMENT', 'PICKING'];
-        let newReserved = wallet.reserved_cents;
-        if (preSettlementStatuses.includes(order.status) && order.total_estimate_cents) {
-            newReserved = Math.max(0, wallet.reserved_cents - order.total_estimate_cents);
-        }
-
-        const { error: walletErr } = await supabase
-            .from('wallet_accounts')
-            .update({ balance_cents: newBalance, reserved_cents: newReserved })
-            .eq('id', wallet.id);
-
-        if (walletErr) {
+            const preSettlementStatuses = ['FUNDED', 'PACKED', 'RELEASED_TO_FULFILLMENT', 'PICKING'];
+            if (preSettlementStatuses.includes(order.status)) {
+                await adjustWalletReserved(supabase, wallet.id, -(order.total_estimate_cents || 0));
+            }
+        } catch (err) {
+            if (err instanceof WalletNotFoundError) {
+                return NextResponse.json({ error: 'Merchant wallet not found' }, { status: 500 });
+            }
             return NextResponse.json({ error: 'Failed to credit wallet' }, { status: 500 });
         }
-
-        await supabase.from('wallet_transactions').insert({
-            merchant_id: order.merchant_id,
-            wallet_id: wallet.id,
-            type: 'REFUND',
-            amount_cents: refundAmountCents,
-            balance_after_cents: newBalance,
-            reference_type: 'order',
-            reference_id: orderId,
-            description: `Refund: ${reason}`,
-        });
 
         await supabase
             .from('orders')
             .update({ status: 'REFUNDED' })
             .eq('id', orderId);
 
-        await supabase.from('order_status_history').insert({
+        logNonCritical(supabase.from('order_status_history').insert({
             order_id: orderId,
             from_status: order.status,
             to_status: 'REFUNDED',
             notes: reason,
-        }).then(() => {}, () => {});
+        }), 'status_history:refund');
 
-        await supabase.from('audit_events').insert({
+        logNonCritical(supabase.from('audit_events').insert({
             merchant_id: order.merchant_id,
             action: 'order.refunded',
             entity_type: 'order',
             entity_id: orderId,
             metadata: { reason, refund_amount_cents: refundAmountCents },
-        }).then(() => {}, () => {});
+        }), 'audit:order.refunded');
 
         return NextResponse.json({
             data: {

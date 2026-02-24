@@ -7,7 +7,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createRouteHandlerClient } from '@/lib/supabase-server';
+import { validateBody, withdrawalActionSchema } from '@/lib/api-schemas';
+import { adjustWalletBalance } from '@/lib/wallet-ops';
+import { requireAdmin } from '@/lib/admin-api-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,27 +20,11 @@ function getServiceClient() {
     );
 }
 
-async function verifyAdmin(): Promise<string | null> {
-    const supabase = createRouteHandlerClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) return null;
-
-    const sc = getServiceClient();
-    const { data: admin } = await sc
-        .from('supplier_users')
-        .select('user_id')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .single();
-
-    return admin ? user.id : null;
-}
-
 export async function GET(request: NextRequest) {
     try {
-        if (!(await verifyAdmin())) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+        const { admin } = authResult;
 
         const { searchParams } = new URL(request.url);
         const status = searchParams.get('status');
@@ -68,17 +54,17 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
     try {
-        const adminId = await verifyAdmin();
-        if (!adminId) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        const authResult = await requireAdmin();
+        if (authResult instanceof NextResponse) return authResult;
+        const { admin } = authResult;
 
         const body = await request.json();
-        const { withdrawal_id, status, admin_notes } = body;
-
-        if (!withdrawal_id || !status) {
-            return NextResponse.json({ error: 'withdrawal_id and status required' }, { status: 400 });
+        const validation = validateBody(withdrawalActionSchema, body);
+        if ('error' in validation) {
+            return NextResponse.json(validation, { status: 400 });
         }
+        const { data } = validation;
+        const { withdrawal_id, status, admin_notes } = data;
 
         const validStatuses = ['PROCESSING', 'COMPLETED', 'REJECTED'];
         if (!validStatuses.includes(status)) {
@@ -109,41 +95,29 @@ export async function PATCH(request: NextRequest) {
             // Deduct the balance from the merchant's wallet
             const { data: wallet } = await sc
                 .from('wallet_accounts')
-                .select('id, balance_cents')
+                .select('id')
                 .eq('merchant_id', withdrawal.merchant_id)
                 .eq('currency', withdrawal.currency)
                 .single();
 
             if (wallet) {
-                const newBalance = Math.max(0, wallet.balance_cents - Number(withdrawal.amount_minor));
-
-                await sc
-                    .from('wallet_accounts')
-                    .update({ balance_cents: newBalance })
-                    .eq('id', wallet.id);
-
-                // Record completion ledger transaction
-                const txType = withdrawal.currency === 'USD'
-                    ? 'USD_WITHDRAWAL_COMPLETED'
-                    : 'BTC_WITHDRAWAL_COMPLETED';
-
-                await sc.from('wallet_transactions').insert({
-                    merchant_id: withdrawal.merchant_id,
-                    wallet_id: wallet.id,
-                    type: txType,
-                    amount_cents: -Number(withdrawal.amount_minor),
-                    balance_after_cents: newBalance,
-                    reference_type: 'withdrawal_request',
-                    reference_id: withdrawal.id,
-                    description: `${withdrawal.currency} withdrawal completed`,
-                    metadata: {
-                        currency: withdrawal.currency,
-                        amount_minor: withdrawal.amount_minor,
-                        destination: withdrawal.currency === 'USD'
-                            ? withdrawal.payout_email
-                            : withdrawal.payout_btc_address,
-                    },
-                });
+                const txType = withdrawal.currency === 'USD' ? 'USD_WITHDRAWAL_COMPLETED' : 'BTC_WITHDRAWAL_COMPLETED';
+                try {
+                    await adjustWalletBalance(sc, {
+                        walletId: wallet.id,
+                        merchantId: withdrawal.merchant_id,
+                        amountCents: -Number(withdrawal.amount_minor),
+                        type: txType,
+                        referenceType: 'withdrawal_request',
+                        referenceId: withdrawal.id,
+                        description: `${withdrawal.currency} withdrawal completed`,
+                        metadata: { currency: withdrawal.currency, amount_minor: withdrawal.amount_minor, destination: withdrawal.currency === 'USD' ? withdrawal.payout_email : withdrawal.payout_btc_address },
+                        idempotencyKey: `withdrawal-${withdrawal.id}`,
+                    });
+                } catch (err) {
+                    console.error('Withdrawal wallet deduction failed:', err);
+                    return NextResponse.json({ error: 'Failed to deduct from wallet' }, { status: 500 });
+                }
             }
 
             // Set merchant status to CLOSED permanently
@@ -165,7 +139,7 @@ export async function PATCH(request: NextRequest) {
 
         // Audit log
         await sc.from('audit_events').insert({
-            actor_user_id: adminId,
+            actor_user_id: admin.id,
             merchant_id: withdrawal.merchant_id,
             action: `admin.withdrawal_${status.toLowerCase()}`,
             entity_type: 'withdrawal_request',

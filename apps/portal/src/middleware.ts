@@ -175,7 +175,7 @@ export async function middleware(request: NextRequest) {
             return supabaseResponse;
         } catch (err) {
             console.error('Middleware merchant check error:', err);
-            return supabaseResponse;
+            return NextResponse.redirect(new URL('/login?error=service_unavailable', request.url));
         }
     }
 
@@ -236,7 +236,7 @@ export async function middleware(request: NextRequest) {
                 return supabaseResponse;
             } catch (err) {
                 console.error('Middleware admin check error:', err);
-                return supabaseResponse;
+                return NextResponse.redirect(new URL('/admin/login?error=service_unavailable', request.url));
             }
         }
 

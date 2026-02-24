@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/admin-api-auth';
+import { validateBody, inventoryPatchSchema } from '@/lib/api-schemas';
+import { logNonCritical } from '@/lib/logger';
+import { escapeLikePattern } from '@/lib/sql-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +40,8 @@ export async function GET(request: NextRequest) {
             .range(offset, offset + limit - 1);
 
         if (search) {
-            query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%`);
+            const escaped = escapeLikePattern(search);
+            query = query.or(`name.ilike.%${escaped}%,sku.ilike.%${escaped}%`);
         }
         if (category) {
             query = query.eq('category', category);
@@ -77,10 +81,13 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        return NextResponse.json({
-            data: products,
-            pagination: { page, limit, total: count || 0, has_more: (count || 0) > offset + limit },
-        });
+        return NextResponse.json(
+            {
+                data: products,
+                pagination: { page, limit, total: count || 0, has_more: (count || 0) > offset + limit },
+            },
+            { headers: { 'Cache-Control': 'private, max-age=60' } }
+        );
     } catch (error) {
         console.error('Inventory API error:', error);
         return NextResponse.json({ error: 'Inventory operation failed unexpectedly. Please try again.' }, { status: 500 });
@@ -139,12 +146,12 @@ export async function POST(request: NextRequest) {
             reorder_point: reorder_point || 10,
         });
 
-        await supabase.from('audit_events').insert({
+        logNonCritical(supabase.from('audit_events').insert({
             action: 'inventory.product_created',
             entity_type: 'product',
             entity_id: product.id,
             metadata: { sku, name, cost_cents: wholesale_price_cents },
-        }).then(() => {}, () => {});
+        }), 'audit:inventory.product_created');
 
         return NextResponse.json({ data: { id: product.id, sku } }, { status: 201 });
     } catch (error) {
@@ -160,11 +167,12 @@ export async function PATCH(request: NextRequest) {
 
         const supabase = getServiceClient();
         const body = await request.json();
-        const { product_id, name, category, cost_cents, on_hand, reorder_point, active, reason } = body;
-
-        if (!product_id) {
-            return NextResponse.json({ error: 'product_id required' }, { status: 400 });
+        const validation = validateBody(inventoryPatchSchema, body);
+        if ('error' in validation) {
+            return NextResponse.json(validation, { status: 400 });
         }
+        const { data } = validation;
+        const { product_id, name, category, cost_cents, on_hand, reorder_point, active, reason } = data;
 
         // Update product fields (name, category, price, active)
         const productUpdates: Record<string, unknown> = {};
@@ -204,12 +212,12 @@ export async function PATCH(request: NextRequest) {
             }
         }
 
-        await supabase.from('audit_events').insert({
+        logNonCritical(supabase.from('audit_events').insert({
             action: 'inventory.adjusted',
             entity_type: 'product',
             entity_id: product_id,
             metadata: { ...productUpdates, on_hand, reorder_point, reason: reason || 'Admin adjustment' },
-        }).then(() => {}, () => {});
+        }), 'audit:inventory.adjusted');
 
         return NextResponse.json({ success: true });
     } catch (error) {

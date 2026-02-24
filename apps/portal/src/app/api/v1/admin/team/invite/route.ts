@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/admin-api-auth';
 import { sendInvitationEmail } from '@/lib/email-templates';
+import { logNonCritical } from '@/lib/logger';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Only super admins can invite new admins.' }, { status: 403 });
         }
 
-        const rateCheck = checkRateLimit(`invite:admin:${admin.email}`, 10, 60 * 60 * 1000);
+        const rateCheck = await checkRateLimit(`invite:admin:${admin.email}`, 10, 60 * 60 * 1000);
         if (!rateCheck.allowed) {
             return NextResponse.json(
                 { error: 'Too many invitations. Please try again later.' },
@@ -116,13 +117,13 @@ export async function POST(request: NextRequest) {
             acceptUrl,
         }).catch(err => console.error('Failed to send admin invitation email:', err));
 
-        await serviceClient.from('audit_events').insert({
+        logNonCritical(serviceClient.from('audit_events').insert({
             actor_user_id: invitedByUserId || undefined,
             action: 'admin_team.invite_sent',
             entity_type: 'invitation',
             entity_id: invitation.id,
             new_values: { email, role: inviteRole, inviter: admin.email },
-        }).then(() => {}, () => {});
+        }), 'audit:admin_team.invite_sent');
 
         return NextResponse.json(invitation, { status: 201 });
     } catch (err) {

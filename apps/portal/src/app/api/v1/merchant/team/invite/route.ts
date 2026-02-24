@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireMerchantRole, getServiceClient } from '@/lib/merchant-api-auth';
 import { sendInvitationEmail } from '@/lib/email-templates';
+import { logNonCritical } from '@/lib/logger';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
         if (authResult instanceof NextResponse) return authResult;
         const { merchant, role: callerRole, userId } = authResult.data;
 
-        const rateCheck = checkRateLimit(`invite:merchant:${userId}`, 10, 60 * 60 * 1000);
+        const rateCheck = await checkRateLimit(`invite:merchant:${userId}`, 10, 60 * 60 * 1000);
         if (!rateCheck.allowed) {
             return NextResponse.json(
                 { error: 'Too many invitations. Please try again later.' },
@@ -102,14 +103,14 @@ export async function POST(request: NextRequest) {
         }).catch(err => console.error('Failed to send invitation email:', err));
 
         // Audit log
-        await serviceClient.from('audit_events').insert({
+        logNonCritical(serviceClient.from('audit_events').insert({
             actor_user_id: userId,
             merchant_id: merchant.id,
             action: 'team.invite_sent',
             entity_type: 'invitation',
             entity_id: invitation.id,
             new_values: { email, role: inviteRole },
-        }).then(() => {}, () => {});
+        }), 'audit:team.invite_sent');
 
         return NextResponse.json(invitation, { status: 201 });
     } catch (err) {

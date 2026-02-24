@@ -1,13 +1,22 @@
 import { NextResponse } from 'next/server';
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
-import { join } from 'path';
+import path from 'path';
 import JSZip from 'jszip';
+import { createRouteHandlerClient } from '@/lib/supabase-server';
 
 // This endpoint serves the WooCommerce plugin as a ZIP download
 export async function GET() {
+    // Require authenticated session (merchant or admin)
+    const supabase = createRouteHandlerClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+        return NextResponse.json({ error: 'Authentication required to download the plugin.' }, { status: 401 });
+    }
+
     try {
         const zip = new JSZip();
-        const pluginDir = join(process.cwd(), '..', '..', 'woocommerce-plugin', 'wlp-fulfillment');
+        const pluginDir = path.resolve(process.cwd(), '..', '..', 'woocommerce-plugin', 'wlp-fulfillment');
+        const pluginDirBoundary = pluginDir.endsWith(path.sep) ? pluginDir : pluginDir + path.sep;
 
         // Function to recursively add files to zip
         function addFilesToZip(dir: string, zipFolder: typeof zip) {
@@ -18,7 +27,12 @@ export async function GET() {
             const files = readdirSync(dir);
 
             for (const file of files) {
-                const filePath = join(dir, file);
+                const filePath = path.join(dir, file);
+                const resolvedPath = path.resolve(filePath);
+                if (resolvedPath !== pluginDir && !resolvedPath.startsWith(pluginDirBoundary)) {
+                    throw new Error('INVALID_PATH');
+                }
+
                 const stat = statSync(filePath);
 
                 if (stat.isDirectory()) {
@@ -52,6 +66,9 @@ export async function GET() {
             },
         });
     } catch (error) {
+        if (error instanceof Error && error.message === 'INVALID_PATH') {
+            return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
+        }
         console.error('Plugin download error:', error);
         return NextResponse.json(
             { error: 'Failed to generate plugin ZIP file. Ensure the plugin has been built first (npm run build:plugin).' },

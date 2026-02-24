@@ -74,11 +74,11 @@ export async function getAuthenticatedAdmin(request?: NextRequest): Promise<Admi
 
                 const { data: admin } = await serviceClient
                     .from('admin_users')
-                    .select('id, email, role')
+                    .select('id, email, role, is_active')
                     .eq('email', email)
                     .single();
 
-                if (admin) {
+                if (admin && admin.is_active !== false) {
                     return { id: admin.id, email: admin.email, role: admin.role };
                 }
 

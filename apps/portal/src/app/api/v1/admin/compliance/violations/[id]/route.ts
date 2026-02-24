@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/admin-api-auth';
+import { logNonCritical } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -162,12 +163,12 @@ export async function PATCH(
         }
 
         // Audit log
-        await supabase.from('audit_events').insert({
+        logNonCritical(supabase.from('audit_events').insert({
             action: `compliance.violation.${action}`,
             entity_type: 'compliance_violation',
             entity_id: params.id,
             new_values: { admin_action: action, ignore_reason },
-        }).then(() => {}, () => {});
+        }), `audit:compliance.violation.${action}`);
 
         return NextResponse.json({ data: updated });
     } catch (error) {

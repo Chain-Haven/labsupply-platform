@@ -108,36 +108,25 @@ export async function verifyStoreRequest(
         ? decryptSecret(secretRecord.secret_plaintext)
         : null;
 
-    if (secret) {
-        // Full cryptographic HMAC verification
-        const result = verifySignature({
-            storeId,
-            timestamp,
-            nonce,
-            body,
-            signature,
-            secret,
-        });
+    if (!secret) {
+        throw new ApiError(
+            'SECRET_MISSING',
+            'Store credentials are incomplete. The store must be reconnected to generate a valid secret.',
+            401
+        );
+    }
 
-        if (!result.valid) {
-            throw new ApiError('SIGNATURE_INVALID', result.error || 'Invalid signature', 401);
-        }
-    } else {
-        // Fallback: secret is hashed (can't compute HMAC). Verify format + timestamp only.
-        // This is a degraded mode for stores created before secret_plaintext was added.
-        const timestampMs = parseInt(timestamp, 10);
-        const now = Date.now();
-        const fiveMinutes = 5 * 60 * 1000;
+    const result = verifySignature({
+        storeId,
+        timestamp,
+        nonce,
+        body,
+        signature,
+        secret,
+    });
 
-        if (isNaN(timestampMs) || Math.abs(now - timestampMs) > fiveMinutes) {
-            throw Errors.SIGNATURE_EXPIRED;
-        }
-
-        if (signature.length !== 64 || !/^[a-f0-9]+$/i.test(signature)) {
-            throw Errors.SIGNATURE_INVALID;
-        }
-
-        console.warn(`Store ${storeId}: using degraded auth (no secret_plaintext). Migrate to encrypted secrets.`);
+    if (!result.valid) {
+        throw new ApiError('SIGNATURE_INVALID', result.error || 'Invalid signature', 401);
     }
 
     return {

@@ -48,10 +48,13 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ data: [], pagination: { page, limit, total: 0, has_more: false } });
         }
 
-        return NextResponse.json({
-            data: data || [],
-            pagination: { page, limit, total: count || 0, has_more: (count || 0) > offset + limit },
-        });
+        return NextResponse.json(
+            {
+                data: data || [],
+                pagination: { page, limit, total: count || 0, has_more: (count || 0) > offset + limit },
+            },
+            { headers: { 'Cache-Control': 'private, max-age=60' } }
+        );
     } catch (error) {
         console.error('Merchant orders API error:', error);
         return NextResponse.json({ error: 'Failed to load orders due to an unexpected error. Please refresh and try again.' }, { status: 500 });

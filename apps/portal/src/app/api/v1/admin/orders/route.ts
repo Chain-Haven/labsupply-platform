@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/admin-api-auth';
+import { validateBody, orderUpdateSchema } from '@/lib/api-schemas';
+import { logNonCritical } from '@/lib/logger';
+import { escapeLikePattern } from '@/lib/sql-utils';
 
 const ORDER_STATUS_TRANSITIONS: Record<string, string[]> = {
     RECEIVED: ['AWAITING_FUNDS', 'FUNDED', 'ON_HOLD_COMPLIANCE', 'CANCELLED'],
@@ -62,7 +65,8 @@ export async function GET(request: NextRequest) {
             query = query.eq('status', status);
         }
         if (search) {
-            query = query.or(`woo_order_id.ilike.%${search}%,woo_order_number.ilike.%${search}%,customer_email.ilike.%${search}%`);
+            const escaped = escapeLikePattern(search);
+            query = query.or(`woo_order_id.ilike.%${escaped}%,woo_order_number.ilike.%${escaped}%,customer_email.ilike.%${escaped}%`);
         }
 
         const { data, count, error } = await query;
@@ -99,11 +103,11 @@ export async function PATCH(request: NextRequest) {
 
         const supabase = getServiceClient();
         const body = await request.json();
-        const { id, status, supplier_notes } = body;
-
-        if (!id) {
-            return NextResponse.json({ error: 'Order ID required' }, { status: 400 });
+        const validation = validateBody(orderUpdateSchema, body);
+        if ('error' in validation) {
+            return NextResponse.json(validation, { status: 400 });
         }
+        const { id, status, supplier_notes } = validation.data;
 
         // Fetch current order for status transition validation
         const { data: currentOrder, error: fetchErr } = await supabase
@@ -138,7 +142,7 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
         }
 
-        const { data, error } = await supabase
+        const { data: updatedOrder, error } = await supabase
             .from('orders')
             .update(updates)
             .eq('id', id)
@@ -151,22 +155,22 @@ export async function PATCH(request: NextRequest) {
         }
 
         if (status) {
-            await supabase.from('order_status_history').insert({
+            logNonCritical(supabase.from('order_status_history').insert({
                 order_id: id,
                 from_status: currentOrder.status,
                 to_status: status,
                 notes: supplier_notes || null,
-            }).then(() => {}, () => {});
+            }), 'status_history:order_update');
         }
 
-        await supabase.from('audit_events').insert({
+        logNonCritical(supabase.from('audit_events').insert({
             action: 'order.updated',
             entity_type: 'order',
             entity_id: id,
             new_values: updates,
-        }).then(() => {}, () => {});
+        }), 'audit:order.updated');
 
-        return NextResponse.json({ data });
+        return NextResponse.json({ data: updatedOrder });
     } catch (error) {
         console.error('Orders PATCH error:', error);
         return NextResponse.json({ error: 'Failed to update order due to an unexpected error. Please try again or contact support.' }, { status: 500 });

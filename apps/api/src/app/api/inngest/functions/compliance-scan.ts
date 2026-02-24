@@ -36,7 +36,7 @@ export const complianceScanFunction = inngest.createFunction(
                         status
                     )
                 `)
-                .in('status', ['approved', 'ACTIVE']);
+                .in('status', ['approved']);
 
             if (error) {
                 console.error('Error fetching merchants for compliance scan:', error);

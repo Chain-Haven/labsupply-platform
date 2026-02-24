@@ -9,6 +9,7 @@ import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/admin-api-auth';
 import { encryptValue, decryptValue } from '@/lib/crypto-encrypt';
 import { validateXpub } from '@/lib/btc-hd';
+import { logNonCritical } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -137,12 +138,12 @@ export async function PATCH(request: NextRequest) {
         }
 
         if (updates.length > 0) {
-            await sc.from('audit_events').insert({
+            logNonCritical(sc.from('audit_events').insert({
                 action: 'admin.crypto_settings_updated',
                 entity_type: 'admin_crypto_settings',
                 entity_id: 'crypto-settings',
                 metadata: { fields_updated: updates, admin_email: authResult.admin.email },
-            }).then(() => {}, () => {});
+            }), 'audit:admin.crypto_settings_updated');
         }
 
         return NextResponse.json({ data: { updated: updates } });

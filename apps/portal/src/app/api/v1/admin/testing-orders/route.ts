@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/admin-api-auth';
 import { createRouteHandlerClient } from '@/lib/supabase-server';
+import { adjustWalletBalance } from '@/lib/wallet-ops';
 import { z } from 'zod';
 
 // Addon constants
@@ -400,27 +401,16 @@ export async function POST(request: NextRequest) {
 
         if (paymentMethod === 'wallet') {
             // Deduct from merchant wallet
-            const newBalance = wallet.balance_cents - grandTotalCents;
-            await supabase
-                .from('wallet_accounts')
-                .update({ balance_cents: newBalance })
-                .eq('id', wallet.id)
-                .eq('balance_cents', wallet.balance_cents);
-
-            await supabase.from('wallet_transactions').insert({
-                merchant_id,
-                wallet_id: wallet.id,
+            await adjustWalletBalance(supabase, {
+                walletId: wallet.id,
+                merchantId: merchant_id,
+                amountCents: -grandTotalCents,
                 type: 'SETTLEMENT',
-                amount_cents: -grandTotalCents,
-                balance_after_cents: newBalance,
-                reference_type: 'testing_order',
-                reference_id: testingOrder.id,
+                referenceType: 'testing_order',
+                referenceId: testingOrder.id,
                 description: `Testing order - Products: $${(totalProductCostCents / 100).toFixed(2)}, Testing fees: $${(totalTestingFeeCents / 100).toFixed(2)}, Shipping: $${(shippingFeeCents / 100).toFixed(2)}`,
-                metadata: {
-                    testing_order_id: testingOrder.id,
-                    lab_name: lab.name,
-                    item_count: processedItems.length,
-                },
+                metadata: { testing_order_id: testingOrder.id, lab_name: lab.name, item_count: processedItems.length },
+                idempotencyKey: `testing-order-${testingOrder.id}`,
             });
         } else {
             // Create a Mercury invoice for the testing order

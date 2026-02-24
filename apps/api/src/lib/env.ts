@@ -1,26 +1,12 @@
 /**
- * Environment variable validation for the portal app.
+ * Environment variable validation for the API app.
  * Import this at the top of any server-side code to fail fast on missing vars.
  */
 
 const required = [
     'NEXT_PUBLIC_SUPABASE_URL',
-    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
     'SUPABASE_SERVICE_ROLE_KEY',
-    'MERCURY_API_TOKEN',
-    'CRON_SECRET',
-] as const;
-
-const optional = [
-    'MERCURY_ACCOUNT_ID',
-    'MERCURY_WEBHOOK_SECRET',
-    'SUPER_ADMIN_EMAIL',
-    'SMTP_HOST',
-    'SMTP_PORT',
-    'SMTP_USER',
-    'SMTP_PASS',
-    'SMTP_FROM',
-    'ALLOWED_ORIGINS',
+    'STORE_SECRET_ENCRYPTION_KEY',
 ] as const;
 
 function validateEnv() {
@@ -45,8 +31,6 @@ if (typeof window === 'undefined') {
 
 export const env = {
     SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    MERCURY_API_TOKEN: process.env.MERCURY_API_TOKEN || '',
-    SUPER_ADMIN_EMAIL: process.env.SUPER_ADMIN_EMAIL || 'info@chainhaven.co',
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    STORE_SECRET_ENCRYPTION_KEY: process.env.STORE_SECRET_ENCRYPTION_KEY!,
 };

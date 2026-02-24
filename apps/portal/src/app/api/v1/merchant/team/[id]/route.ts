@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireMerchantRole, getServiceClient } from '@/lib/merchant-api-auth';
+import { logNonCritical } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -80,7 +81,7 @@ export async function PATCH(
             return NextResponse.json({ error: 'Failed to update team member.' }, { status: 500 });
         }
 
-        await serviceClient.from('audit_events').insert({
+        logNonCritical(serviceClient.from('audit_events').insert({
             actor_user_id: userId,
             merchant_id: merchant.id,
             action: 'team.member_updated',
@@ -88,7 +89,7 @@ export async function PATCH(
             entity_id: params.id,
             old_values: { role: member.role, is_active: member.is_active },
             new_values: updates,
-        }).then(() => {}, () => {});
+        }), 'audit:team.member_updated');
 
         return NextResponse.json(updated);
     } catch (err) {
@@ -145,14 +146,14 @@ export async function DELETE(
             return NextResponse.json({ error: 'Failed to remove team member.' }, { status: 500 });
         }
 
-        await serviceClient.from('audit_events').insert({
+        logNonCritical(serviceClient.from('audit_events').insert({
             actor_user_id: userId,
             merchant_id: merchant.id,
             action: 'team.member_removed',
             entity_type: 'merchant_user',
             entity_id: params.id,
             old_values: { email: member.email, role: member.role },
-        }).then(() => {}, () => {});
+        }), 'audit:team.member_removed');
 
         return NextResponse.json({ success: true });
     } catch (err) {

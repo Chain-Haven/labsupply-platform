@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/admin-api-auth';
 import { sendKybApprovedEmail, sendKybRejectedEmail, sendKybRequestInfoEmail } from '@/lib/email-templates';
+import { logNonCritical } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -172,12 +173,12 @@ export async function POST(request: NextRequest) {
             }
 
             // Audit log -- ignore if table doesn't exist
-            await supabase.from('audit_events').insert({
+            logNonCritical(supabase.from('audit_events').insert({
                 action: 'kyb.approved',
                 entity_type: 'merchant',
                 entity_id: merchantId,
                 metadata: { mercury_customer_created: !!updates.mercury_customer_id },
-            }).then(() => {}, () => {});
+            }), 'audit:kyb.approved');
 
             // Auto-invoice for paid package if merchant selected one
             let packageInvoiceCreated = false;
@@ -224,15 +225,15 @@ export async function POST(request: NextRequest) {
 
                         if (invoiceRes.ok) {
                             const invoice = await invoiceRes.json();
-                            await supabase.from('merchant_packages').upsert({
+                            logNonCritical(supabase.from('merchant_packages').upsert({
                                 merchant_id: merchantId,
                                 package_id: pkg.id,
                                 status: 'invoiced',
                                 mercury_invoice_id: invoice.id,
                                 amount_cents: pkg.price_cents,
-                            }, { onConflict: 'merchant_id,package_id' }).then(() => {}, () => {});
+                            }, { onConflict: 'merchant_id,package_id' }), 'audit:merchant_packages.invoiced');
 
-                            await supabase.from('mercury_invoices').insert({
+                            logNonCritical(supabase.from('mercury_invoices').insert({
                                 merchant_id: merchantId,
                                 mercury_invoice_id: invoice.id,
                                 mercury_invoice_number: invoice.invoiceNumber,
@@ -240,7 +241,7 @@ export async function POST(request: NextRequest) {
                                 amount_cents: pkg.price_cents,
                                 status: 'Unpaid',
                                 due_date: dueDateStr,
-                            }).then(() => {}, () => {});
+                            }), 'audit:mercury_invoices.created');
 
                             packageInvoiceCreated = true;
                         } else {
@@ -281,12 +282,12 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Failed to reject merchant. The database update was rejected — please try again or check the merchant status.' }, { status: 500 });
             }
 
-            await supabase.from('audit_events').insert({
+            logNonCritical(supabase.from('audit_events').insert({
                 action: 'kyb.rejected',
                 entity_type: 'merchant',
                 entity_id: merchantId,
                 metadata: { reason: reason || 'Not specified' },
-            }).then(() => {}, () => {});
+            }), 'audit:kyb.rejected');
 
             try {
                 if (merchant.email) {

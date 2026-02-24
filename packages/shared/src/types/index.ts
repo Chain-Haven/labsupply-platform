@@ -24,6 +24,7 @@ export const OrderStatus = {
 
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
+/** Reference-only; production Supabase DB uses lowercase values (see MerchantStatusDB) */
 export const MerchantStatus = {
     PENDING: 'PENDING',
     ACTIVE: 'ACTIVE',
@@ -33,6 +34,14 @@ export const MerchantStatus = {
 } as const;
 
 export type MerchantStatus = (typeof MerchantStatus)[keyof typeof MerchantStatus];
+
+/** Actual values used in the production Supabase DB */
+export const MerchantStatusDB = {
+    PENDING: 'pending',
+    APPROVED: 'approved',
+    SUSPENDED: 'suspended',
+} as const;
+export type MerchantStatusDB = (typeof MerchantStatusDB)[keyof typeof MerchantStatusDB];
 
 export const StoreStatus = {
     PENDING: 'PENDING',

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import { requireAdmin } from '@/lib/admin-api-auth';
+import { logNonCritical } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,12 +80,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to create API key. A key with this name may already exist.' }, { status: 500 });
         }
 
-        await supabase.from('audit_events').insert({
+        logNonCritical(supabase.from('audit_events').insert({
             action: 'api_key.created',
             entity_type: 'api_key',
             entity_id: data.id,
             metadata: { name },
-        }).then(() => {}, () => {});
+        }), 'audit:api_key.created');
 
         // Return the raw key ONCE (it can never be retrieved again)
         return NextResponse.json({
@@ -122,11 +123,11 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to revoke API key. It may have already been revoked.' }, { status: 500 });
         }
 
-        await supabase.from('audit_events').insert({
+        logNonCritical(supabase.from('audit_events').insert({
             action: 'api_key.revoked',
             entity_type: 'api_key',
             entity_id: id,
-        }).then(() => {}, () => {});
+        }), 'audit:api_key.revoked');
 
         return NextResponse.json({ success: true });
     } catch (error) {

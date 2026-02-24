@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/admin-api-auth';
+import { logNonCritical } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,12 +108,12 @@ export async function PATCH(request: NextRequest) {
         }
 
         // Audit log -- ignore errors if table doesn't exist
-        await supabase.from('audit_events').insert({
+        logNonCritical(supabase.from('audit_events').insert({
             action: 'merchant.updated',
             entity_type: 'merchant',
             entity_id: id,
             new_values: safeUpdates,
-        }).then(() => {}, () => {});
+        }), 'audit:merchant.updated');
 
         return NextResponse.json({ data });
     } catch (error) {

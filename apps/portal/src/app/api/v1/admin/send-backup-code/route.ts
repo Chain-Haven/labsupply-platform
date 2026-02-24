@@ -16,8 +16,8 @@ const SMTP_USER = process.env.SMTP_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || '';
 const SMTP_FROM = process.env.SMTP_FROM || 'cs@peptidetech.co';
 
-// Super admin email (hardcoded as primary fallback)
-const SUPER_ADMIN_EMAIL = 'info@chainhaven.co';
+// Super admin email (configurable via env, fallback for backwards compatibility)
+const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || 'info@chainhaven.co';
 
 /**
  * POST /api/v1/admin/send-backup-code

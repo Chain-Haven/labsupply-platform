@@ -14,6 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { adjustWalletBalance, WalletOperationError } from '@/lib/wallet-ops';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -58,6 +59,7 @@ async function creditWallet(
     invoiceId: string,
     mercuryInvoiceId: string
 ): Promise<{ success: boolean; transactionId?: string }> {
+    // Idempotency guard: atomically claim this invoice for crediting
     const { data: claimed, error: claimError } = await supabase
         .from('mercury_invoices')
         .update({ wallet_credited: true })
@@ -70,75 +72,57 @@ async function creditWallet(
         return { success: false };
     }
 
-    const { data: wallet, error: walletError } = await supabase
+    // Get wallet ID
+    const { data: wallet } = await supabase
         .from('wallet_accounts')
-        .select('id, balance_cents')
+        .select('id')
         .eq('merchant_id', merchantId)
         .eq('currency', 'USD')
         .single();
 
-    if (walletError || !wallet) {
+    if (!wallet) {
         console.error(`CRITICAL: Wallet not found for merchant ${merchantId}`);
         await supabase.from('mercury_invoices').update({ wallet_credited: false }).eq('id', invoiceId);
         return { success: false };
     }
 
-    const newBalance = wallet.balance_cents + amountCents;
+    try {
+        const result = await adjustWalletBalance(supabase, {
+            walletId: wallet.id,
+            merchantId,
+            amountCents,
+            type: 'TOPUP',
+            referenceType: 'mercury_invoice',
+            referenceId: invoiceId,
+            description: `Mercury invoice payment (${mercuryInvoiceId})`,
+            metadata: { mercury_invoice_id: mercuryInvoiceId, source: 'mercury_invoicing' },
+            idempotencyKey: `invoice-credit-${invoiceId}`,
+        });
 
-    const { error: updateError } = await supabase
-        .from('wallet_accounts')
-        .update({ balance_cents: newBalance })
-        .eq('id', wallet.id)
-        .eq('balance_cents', wallet.balance_cents);
+        await supabase.from('mercury_invoices').update({ wallet_transaction_id: result.transactionId }).eq('id', invoiceId);
 
-    if (updateError) {
-        console.error(`CRITICAL: Failed to credit wallet for merchant ${merchantId}:`, updateError);
+        await supabase.from('notifications').insert({
+            merchant_id: merchantId,
+            type: 'INVOICE_PAID',
+            title: 'Payment Received',
+            message: `$${(amountCents / 100).toFixed(2)} has been credited to your wallet from invoice payment.`,
+            data: { mercury_invoice_id: mercuryInvoiceId, amount_cents: amountCents, transaction_id: result.transactionId },
+        });
+
+        return { success: true, transactionId: result.transactionId };
+    } catch (err) {
+        console.error(`Failed to credit wallet for merchant ${merchantId}:`, err);
         await supabase.from('mercury_invoices').update({ wallet_credited: false }).eq('id', invoiceId);
         return { success: false };
     }
-
-    const { data: txn } = await supabase
-        .from('wallet_transactions')
-        .insert({
-            merchant_id: merchantId,
-            wallet_id: wallet.id,
-            type: 'TOPUP',
-            amount_cents: amountCents,
-            balance_after_cents: newBalance,
-            reference_type: 'mercury_invoice',
-            reference_id: invoiceId,
-            description: `Mercury invoice payment (${mercuryInvoiceId})`,
-            metadata: { mercury_invoice_id: mercuryInvoiceId, source: 'mercury_invoicing' },
-        })
-        .select('id')
-        .single();
-
-    if (txn?.id) {
-        await supabase.from('mercury_invoices').update({ wallet_transaction_id: txn.id }).eq('id', invoiceId);
-    }
-
-    await supabase.from('notifications').insert({
-        merchant_id: merchantId,
-        type: 'INVOICE_PAID',
-        title: 'Payment Received',
-        message: `$${(amountCents / 100).toFixed(2)} has been credited to your wallet from invoice payment.`,
-        data: { mercury_invoice_id: mercuryInvoiceId, amount_cents: amountCents, transaction_id: txn?.id },
-    });
-
-    return { success: true, transactionId: txn?.id };
 }
 
 export async function GET(request: NextRequest) {
-    // Verify authorization: either Vercel Cron secret or admin session
+    // Verify authorization via Bearer token only (no query params for security)
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
 
-    // Allow Vercel Cron (sends Bearer <CRON_SECRET>)
-    const isCron = cronSecret && authHeader === `Bearer ${cronSecret}`;
-    // Allow internal calls with a simple shared key
-    const isInternal = request.nextUrl.searchParams.get('key') === cronSecret;
-
-    if (!isCron && !isInternal && cronSecret) {
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

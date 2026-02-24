@@ -27,15 +27,18 @@ function verifySignature(payload: string, signature: string | null, secret: stri
 export async function POST(request: NextRequest) {
     try {
         const webhookSecret = process.env.MERCURY_WEBHOOK_SECRET;
-        const rawBody = await request.text();
+        if (!webhookSecret) {
+            console.error('MERCURY_WEBHOOK_SECRET not configured — rejecting webhook');
+            return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 });
+        }
 
-        if (webhookSecret) {
-            const signature = request.headers.get('x-mercury-signature')
-                || request.headers.get('x-signature');
-            if (!verifySignature(rawBody, signature, webhookSecret)) {
-                console.warn('Mercury webhook signature verification failed');
-                return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-            }
+        const rawBody = await request.text();
+        const signature = request.headers.get('x-mercury-signature')
+            || request.headers.get('x-signature');
+
+        if (!verifySignature(rawBody, signature, webhookSecret)) {
+            console.warn('Mercury webhook signature verification failed');
+            return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
         }
 
         const event = JSON.parse(rawBody);
@@ -65,8 +68,9 @@ export async function POST(request: NextRequest) {
             // Trigger invoice sync directly via internal fetch
             const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://whitelabel.peptidetech.co';
             const cronSecret = process.env.CRON_SECRET || '';
-            fetch(`${baseUrl}/api/cron/sync-invoices?key=${cronSecret}`, {
+            fetch(`${baseUrl}/api/cron/sync-invoices`, {
                 method: 'GET',
+                headers: cronSecret ? { 'Authorization': `Bearer ${cronSecret}` } : {},
                 signal: AbortSignal.timeout(55000),
             }).catch(err => console.error('Background sync trigger failed:', err));
         }

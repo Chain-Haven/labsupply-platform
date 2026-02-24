@@ -14,6 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireMerchant, getServiceClient } from '@/lib/merchant-api-auth';
+import { validateBody, merchantWithdrawSchema } from '@/lib/api-schemas';
 import { validateBech32Address } from '@/lib/btc-hd';
 import nodemailer from 'nodemailer';
 
@@ -78,12 +79,12 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { currency, payout_email, payout_btc_address } = body;
-
-        // Validate currency
-        if (currency !== 'USD' && currency !== 'BTC') {
-            return NextResponse.json({ error: 'Invalid currency' }, { status: 400 });
+        const validation = validateBody(merchantWithdrawSchema, body);
+        if ('error' in validation) {
+            return NextResponse.json(validation, { status: 400 });
         }
+        const { data } = validation;
+        const { currency, payout_email, payout_btc_address } = data;
 
         // Validate destination
         if (currency === 'USD') {
@@ -171,7 +172,7 @@ export async function POST(request: NextRequest) {
             merchantEmail: ((merchant as Record<string, unknown>).contact_email || merchant.email) as string,
             currency,
             amount: withdrawAmount,
-            destination: currency === 'USD' ? payout_email : payout_btc_address,
+            destination: (currency === 'USD' ? payout_email : payout_btc_address) || '',
             destinationType: currency === 'USD' ? 'Payout Email' : 'BTC Address',
         });
 

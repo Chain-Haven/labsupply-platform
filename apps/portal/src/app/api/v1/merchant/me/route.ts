@@ -164,6 +164,13 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: 'Merchant profile not found or insufficient permissions' }, { status: 403 });
         }
 
+        // Whitelist allowed fields to prevent privilege escalation
+        const ALLOWED_FIELDS = new Set([
+            'company_name', 'website_url', 'phone', 'billing_email',
+            'low_balance_threshold_cents', 'target_balance_cents',
+            'selected_package_id', 'name', 'contact_phone',
+        ]);
+
         // Resolve package slug to UUID if provided
         if (body.selected_package_slug) {
             const { data: pkg } = await serviceClient
@@ -174,12 +181,20 @@ export async function PATCH(request: NextRequest) {
             if (pkg) {
                 body.selected_package_id = pkg.id;
             }
-            delete body.selected_package_slug;
+        }
+
+        const sanitized: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(body)) {
+            if (ALLOWED_FIELDS.has(k)) sanitized[k] = v;
+        }
+
+        if (Object.keys(sanitized).length === 0) {
+            return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
         }
 
         const { error: updateError } = await serviceClient
             .from('merchants')
-            .update(body)
+            .update(sanitized)
             .eq('id', merchantId);
 
         if (updateError) {

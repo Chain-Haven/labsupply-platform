@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireMerchant, getServiceClient } from '@/lib/merchant-api-auth';
+import { adjustWalletBalance } from '@/lib/wallet-ops';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,46 +50,33 @@ async function quickSyncMerchantInvoices(supabase: ReturnType<typeof getServiceC
                 if (claimed) {
                     const { data: wallet } = await supabase
                         .from('wallet_accounts')
-                        .select('id, balance_cents')
+                        .select('id')
                         .eq('merchant_id', merchantId)
                         .eq('currency', 'USD')
                         .single();
 
                     if (wallet) {
-                        const newBalance = wallet.balance_cents + inv.amount_cents;
-                        const { error: upErr } = await supabase
-                            .from('wallet_accounts')
-                            .update({ balance_cents: newBalance })
-                            .eq('id', wallet.id)
-                            .eq('balance_cents', wallet.balance_cents);
+                        try {
+                            const result = await adjustWalletBalance(supabase, {
+                                walletId: wallet.id,
+                                merchantId,
+                                amountCents: inv.amount_cents,
+                                type: 'TOPUP',
+                                referenceType: 'mercury_invoice',
+                                referenceId: inv.id,
+                                description: `Mercury invoice payment (${inv.mercury_invoice_id})`,
+                                metadata: { mercury_invoice_id: inv.mercury_invoice_id, source: 'mercury_invoicing' },
+                                idempotencyKey: `invoice-credit-${inv.id}`,
+                            });
 
-                        if (!upErr) {
-                            const { data: txn } = await supabase
-                                .from('wallet_transactions')
-                                .insert({
-                                    merchant_id: merchantId,
-                                    wallet_id: wallet.id,
-                                    type: 'TOPUP',
-                                    amount_cents: inv.amount_cents,
-                                    balance_after_cents: newBalance,
-                                    reference_type: 'mercury_invoice',
-                                    reference_id: inv.id,
-                                    description: `Mercury invoice payment (${inv.mercury_invoice_id})`,
-                                    metadata: { mercury_invoice_id: inv.mercury_invoice_id, source: 'mercury_invoicing' },
-                                })
-                                .select('id')
-                                .single();
-
-                            if (txn?.id) {
-                                await supabase.from('mercury_invoices').update({ wallet_transaction_id: txn.id }).eq('id', inv.id);
-                            }
+                            await supabase.from('mercury_invoices').update({ wallet_transaction_id: result.transactionId }).eq('id', inv.id);
 
                             await supabase.from('notifications').insert({
                                 merchant_id: merchantId,
                                 type: 'INVOICE_PAID',
                                 title: 'Payment Received',
                                 message: `$${(inv.amount_cents / 100).toFixed(2)} has been credited to your wallet.`,
-                                data: { mercury_invoice_id: inv.mercury_invoice_id, amount_cents: inv.amount_cents },
+                                data: { mercury_invoice_id: inv.mercury_invoice_id, amount_cents: inv.amount_cents, transaction_id: result.transactionId },
                             });
 
                             // Auto-advance testing orders linked to this invoice
@@ -105,8 +93,8 @@ async function quickSyncMerchantInvoices(supabase: ReturnType<typeof getServiceC
                                     })
                                     .eq('id', to.id);
                             }
-                        } else {
-                            await supabase.from('mercury_invoices').update({ wallet_credited: false }).eq('id', inv.id);
+                        } catch {
+                            await supabase.from('mercury_invoices').update({ wallet_credited: false, status: 'Paid' }).eq('id', inv.id);
                         }
                     } else {
                         await supabase.from('mercury_invoices').update({ wallet_credited: false }).eq('id', inv.id);
