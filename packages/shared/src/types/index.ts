@@ -210,17 +210,6 @@ export interface Merchant {
     updated_at: string;
 }
 
-export interface MerchantUser {
-    id: string;
-    merchant_id: string;
-    user_id: string;
-    role: UserRole;
-    email: string;
-    first_name?: string;
-    last_name?: string;
-    created_at: string;
-}
-
 export interface Store {
     id: string;
     merchant_id: string;
